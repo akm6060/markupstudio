@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.markupstudio.reader'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.markupstudio.reader"
+        minSdk 21            // Android 5.0
+        targetSdk 34         // runs on Android 5 … 16
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // signed with the debug key so the APK installs directly (no Play Store upload)
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    // pdf.js, pdf-lib… are already minified; do not compress them so WebView can stream them
+    androidResources {
+        noCompress += ['js', 'html']
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.10.0'
+}
+
+// fail early with a clear message when the offline libraries were not fetched
+tasks.register('checkLibs') {
+    doFirst {
+        def f = file('src/main/assets/libs/pdf.min.js')
+        if (!f.exists()) throw new GradleException("Offline libraries are missing. Run:  bash scripts/fetch-libs.sh  (needs Node.js)")
+    }
+}
+tasks.matching { it.name == 'preBuild' }.configureEach { dependsOn 'checkLibs' }
