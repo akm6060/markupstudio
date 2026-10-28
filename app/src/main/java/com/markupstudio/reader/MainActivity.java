@@ -103,11 +103,111 @@ public class MainActivity extends Activity {
 
     /* ------------------------------------------------------------------ lifecycle */
 
+    /* ---- crash reporter: a failure is shown on screen next time instead of the app just closing ---- */
+
+    private static void installCrashCatcher(final Context ctx) {
+        final Thread.UncaughtExceptionHandler prev = Thread.getDefaultUncaughtExceptionHandler();
+        if (prev instanceof CrashCatcher) return;
+        Thread.setDefaultUncaughtExceptionHandler(new CrashCatcher(ctx.getApplicationContext(), prev));
+    }
+
+    private static class CrashCatcher implements Thread.UncaughtExceptionHandler {
+        final Context ctx;
+        final Thread.UncaughtExceptionHandler prev;
+
+        CrashCatcher(Context c, Thread.UncaughtExceptionHandler p) {
+            ctx = c;
+            prev = p;
+        }
+
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
+            saveCrash(ctx, e);
+            if (prev != null) prev.uncaughtException(t, e);
+        }
+    }
+
+    static void saveCrash(Context ctx, Throwable e) {
+        try {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            String info = "Markup Studio crash\nAndroid " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")\n"
+                    + Build.MANUFACTURER + " " + Build.MODEL + "\n\n" + sw;
+            ctx.getSharedPreferences("ms_crash", MODE_PRIVATE).edit().putString("trace", info).commit();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void showError(final String text, final boolean canContinue) {
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setBackgroundColor(Color.WHITE);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad * 2, pad, pad);
+
+        android.widget.TextView head = new android.widget.TextView(this);
+        head.setText("Markup Studio hit a problem. Tap COPY and paste it to Claude.");
+        head.setTextColor(Color.BLACK);
+        head.setTextSize(18);
+        box.addView(head);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        android.widget.Button copy = new android.widget.Button(this);
+        copy.setText("COPY");
+        copy.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("crash", text));
+                Toast.makeText(MainActivity.this, "Copied", Toast.LENGTH_SHORT).show();
+            }
+        });
+        row.addView(copy);
+        if (canContinue) {
+            android.widget.Button go = new android.widget.Button(this);
+            go.setText("OPEN APP");
+            go.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    getSharedPreferences("ms_crash", MODE_PRIVATE).edit().remove("trace").commit();
+                    recreate();
+                }
+            });
+            row.addView(go);
+        }
+        box.addView(row);
+
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        android.widget.TextView tv = new android.widget.TextView(this);
+        tv.setText(text);
+        tv.setTextColor(Color.DKGRAY);
+        tv.setTextSize(12);
+        tv.setTextIsSelectable(true);
+        sv.addView(tv);
+        box.addView(sv);
+        setContentView(box);
+    }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        installCrashCatcher(this);
+        String last = getSharedPreferences("ms_crash", MODE_PRIVATE).getString("trace", null);
+        if (last != null) {
+            showError(last, true);
+            return;
+        }
+        try {
+            setup();
+        } catch (Throwable e) {
+            saveCrash(this, e);
+            web = null;
+            showError(getSharedPreferences("ms_crash", MODE_PRIVATE).getString("trace", String.valueOf(e)), true);
+        }
+    }
+
+    private void setup() {
         prefs = getSharedPreferences("ms", MODE_PRIVATE);
-        applyFullscreen(prefs.getBoolean("fullscreen", true));
 
         loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
@@ -119,6 +219,10 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.BLACK);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         setContentView(web);
+        try {
+            applyFullscreen(prefs.getBoolean("fullscreen", true));
+        } catch (Throwable ignored) {
+        }
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -161,6 +265,7 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        if (web == null) return;
         List<Entry> added = handleIntent(intent);
         if (!added.isEmpty() && jsReady) deliver(added, "replace");
     }
@@ -168,17 +273,21 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (web != null) web.evaluateJavascript("window.__paused&&window.__paused()", null);
+        if (web != null && jsReady) web.evaluateJavascript("window.__paused&&window.__paused()", null);
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && prefs.getBoolean("fullscreen", true)) applyFullscreen(true);
+        try {
+            if (hasFocus && web != null && prefs != null && prefs.getBoolean("fullscreen", true)) applyFullscreen(true);
+        } catch (Throwable ignored) {
+        }
     }
 
     @Override
     public void onBackPressed() {
+        if (web == null) { finish(); return; }
         web.evaluateJavascript("window.__back?window.__back():false", new android.webkit.ValueCallback<String>() {
             @Override
             public void onReceiveValue(String v) {
@@ -468,7 +577,7 @@ public class MainActivity extends Activity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                web.evaluateJavascript("window.__nativeEvent&&window.__nativeEvent(" + JSONObject.quote(ev) + ")", null);
+                if (web != null) web.evaluateJavascript("window.__nativeEvent&&window.__nativeEvent(" + JSONObject.quote(ev) + ")", null);
             }
         });
     }
