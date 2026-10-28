@@ -255,7 +255,22 @@ public class MainActivity extends Activity {
             web.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    if (!hasStorage()) requestStorage();
+                    if (hasStorage() || isFinishing()) return;
+                    try {
+                        new android.app.AlertDialog.Builder(MainActivity.this)
+                                .setTitle("Allow file access?")
+                                .setMessage("Markup Studio needs file access to save your markings back into the original file. "
+                                        + "Tap ALLOW, then switch on the setting and press Back to return here.")
+                                .setPositiveButton("ALLOW", new android.content.DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(android.content.DialogInterface d, int w) {
+                                        requestStorage();
+                                    }
+                                })
+                                .setNegativeButton("LATER", null)
+                                .show();
+                    } catch (Throwable ignored) {
+                    }
                 }
             }, 1500);
         }

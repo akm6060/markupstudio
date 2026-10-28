@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api: [30, 34]
+        api: [24, 28, 30, 34]
     steps:
       - name: Get APK
         run: |
@@ -40,7 +40,9 @@ jobs:
             adb install -r MarkupStudio.apk
             adb logcat -c
             adb shell am start -W -n com.markupstudio.reader/.MainActivity || true
-            sleep 25
+            sleep 8
+            adb exec-out screencap -p > screen1.png || true
+            sleep 17
             adb shell dumpsys activity activities | grep -i -E "mResumedActivity|topResumedActivity" > resumed.txt || true
             adb shell pidof com.markupstudio.reader > pid.txt || echo none > pid.txt
             adb logcat -d -b crash > crash.txt || true
@@ -51,7 +53,7 @@ jobs:
         if: always()
         run: |
           mkdir out && cd out
-          for f in crash.txt full.txt resumed.txt pid.txt screen.png; do [ -f ../$f ] && cp ../$f ./api${{ matrix.api }}-$f; done
+          for f in screen1.png crash.txt full.txt resumed.txt pid.txt screen.png; do [ -f ../$f ] && cp ../$f ./api${{ matrix.api }}-$f; done
           grep -E "AndroidRuntime|chromium|MarkupStudio|markupstudio|FATAL|Console" ../full.txt > api${{ matrix.api }}-filtered.txt || true
           git init -q -b testlog-${{ matrix.api }}
           git config user.name github-actions
