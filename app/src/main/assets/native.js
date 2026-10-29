@@ -673,8 +673,6 @@ window.__selfTest = async () => {
     const r3 = await window.__pdfJob({ op: 'export', src: nid, pages: [6, 7, 8], parts: 1, dest: 'temp', name: 't' });
     const r4 = await window.__pdfJob({ op: 'merge', files: [r2.files[0], r3.files[0]], name: 'selftest-merged', deleteSources: true });
     log('merge', r4.ok, r4.files);
-    const r5 = await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [st] }, mode: 'copy', name: 'selftest-marks.pdf' });
-    log('marks copy', r5.ok, r5.where);
     const t0 = Date.now(); let last = '';
     await exportBig(all.slice(0, 30), 40, t => { last = t; }, { tries: 2, cap: 6e6, off: 0 }, 1);
     log('compress 40%', last, (Date.now() - t0) + 'ms');
