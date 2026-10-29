@@ -31,6 +31,12 @@ jobs:
       - name: Fetch offline JavaScript libraries
         run: bash scripts/fetch-libs.sh
 
+      - name: Make JavaScript work on old Android WebViews
+        run: |
+          npm install --no-save --no-audit --no-fund typescript@5.4.5
+          A=app/src/main/assets
+          node scripts/downlevel.js $A/libs/pdf.min.js $A/libs/pdf.worker.min.js $A/app.js $A/native.js $A/reader-core.js $A/saver.js $A/native-pre.js
+
       - name: Build release APK
         run: |
           chmod +x gradlew

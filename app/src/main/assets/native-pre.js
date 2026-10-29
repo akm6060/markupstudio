@@ -1,4 +1,9 @@
 /* native-pre.js — runs before the viewer script. Bridges "Save/Export" to the Android layer. */
+/* small polyfills for phones whose WebView was never updated */
+if (!Array.prototype.flatMap) Object.defineProperty(Array.prototype, 'flatMap', { configurable: true, writable: true, value: function (f, t) { return [].concat.apply([], this.map(f, t)); } });
+if (window.Blob && !Blob.prototype.arrayBuffer) Blob.prototype.arrayBuffer = function () { const b = this; return new Promise(function (ok, no) { const r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { no(r.error); }; r.readAsArrayBuffer(b); }); };
+if (window.Blob && !Blob.prototype.text) Blob.prototype.text = function () { const b = this; return new Promise(function (ok, no) { const r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { no(r.error); }; r.readAsText(b); }); };
+if (!Array.prototype.flat) Object.defineProperty(Array.prototype, 'flat', { configurable: true, writable: true, value: function () { return [].concat.apply([], this); } });
 (function () {
   if (!window.Android) return;
   window.NATIVE = true;

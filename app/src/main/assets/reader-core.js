@@ -336,7 +336,7 @@ function findTables(paths, segs, G, W, H) {
     rows.forEach(r => { r.t = r.items.length >= 3; });
     rows.forEach((r, i) => { if (!r.t && r.items.length >= 2 && [rows[i - 1], rows[i + 1]].some(q => q && q.items.length >= 3 && Math.abs(q.base - r.base) <= 2.6 * r.size)) r.t2 = true; });
     let run = [];
-    const flush = () => { if (run.length >= 2 && run.some(r => r.t)) { const b = bbox(run.flatMap(r => r.items)); if (ok(b)) { b.why = 'cells'; T.push(b); } } run = []; };
+    const flush = () => { if (run.length >= 2 && run.some(r => r.t)) { const b = bbox([].concat(...run.map(r => r.items))); if (ok(b)) { b.why = 'cells'; T.push(b); } } run = []; };
     rows.forEach(r => { if (r.t || r.t2) { if (run.length && r.base - run[run.length - 1].base > 2.6 * r.size) flush(); run.push(r); } else flush(); });
     flush();
   }
