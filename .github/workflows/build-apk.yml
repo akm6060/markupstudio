@@ -35,7 +35,7 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund typescript@5.4.5
           A=app/src/main/assets
-          node scripts/downlevel.js $A/libs/pdf.min.js $A/libs/pdf.worker.min.js $A/app.js $A/native.js $A/reader-core.js $A/saver.js $A/native-pre.js
+          node scripts/downlevel.js $A/libs/pdf.min.js $A/libs/pdf.worker.min.js $A/app.js $A/native.js $A/reader-core.js $A/saver.js $A/native-pre.js $A/search.js
 
       - name: Build release APK
         run: |

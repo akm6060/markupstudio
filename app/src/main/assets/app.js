@@ -23,7 +23,13 @@ selSlot();
 
 /* ---------- file ingestion ---------- */
 const libs={};const lib=u=>libs[u]||(libs[u]=new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=no;document.head.appendChild(s)}));
-const A4=[595,842];
+const A4=[595,842],BIGPDF=12e6;
+/* fetch the original file bytes just for saving / exporting, then let them go */
+async function withBytes(list,fn){const srcs=new Set();for(const p of list)if(p.src&&!p.bytes)srcs.add(p.src);
+ for(const s of srcs)if(!s.bytes){const r=await fetch(s.url,{cache:'no-store'});if(!r.ok)throw new Error('cannot read the file again');s.bytes=new Uint8Array(await r.arrayBuffer())}
+ for(const p of list)if(p.src&&!p.bytes)p.bytes=p.src.bytes;
+ try{return await fn()}finally{for(const p of pages)if(p.src)p.bytes=null;for(const s of srcs)s.bytes=null}}
+window.__withBytes=withBytes;
 function textPages(txt,title){const cols=95,per=63,L=[];if(title)L.push('▸ '+title,'');
  for(const raw of txt.replace(/\t/g,'    ').split(/\r?\n/).slice(0,60000)){let l=raw;if(!l.length){L.push('');continue}while(l.length>cols){L.push(l.slice(0,cols));l=l.slice(cols)}L.push(l)}
  const out=[];for(let i=0;i<L.length;i+=per)out.push({kind:'txt',w:A4[0],h:A4[1],lines:L.slice(i,i+per)});
@@ -31,8 +37,12 @@ function textPages(txt,title){const cols=95,per=63,L=[];if(title)L.push('▸ '+t
 async function ingest(f){
  const n=f.name.toLowerCase(),t=f.type||'';
  if(t==='application/pdf'||n.endsWith('.pdf')){
-  const ab=new Uint8Array(await f.arrayBuffer()),doc=await pdfjsLib.getDocument({data:ab.slice()}).promise,p1=await doc.getPage(1),v=p1.getViewport({scale:1});
-  return Array.from({length:doc.numPages},(_,i)=>({kind:'pdf',doc,bytes:ab,pn:i+1,page:i?null:p1,w:v.width,h:v.height,osize:ab.length/doc.numPages}))}
+  /* files from the phone: the PDF engine reads big books piece by piece; the whole file is fetched again only to save or export */
+  let doc=null,ab=null,src=f._url?{url:f._url,size:f.size||0,bytes:null}:null;
+  if(src&&f.size>BIGPDF){try{doc=await pdfjsLib.getDocument({url:f._url,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise}catch(e){doc=null}}
+  if(!doc){ab=new Uint8Array(await f.arrayBuffer());if(src)src.size=ab.length;doc=await pdfjsLib.getDocument({data:src?ab:ab.slice()}).promise;if(src)ab=null}
+  const p1=await doc.getPage(1),v=p1.getViewport({scale:1}),sz=ab?ab.length:src.size;
+  return Array.from({length:doc.numPages},(_,i)=>({kind:'pdf',doc,bytes:ab,src,pn:i+1,page:i?null:p1,w:v.width,h:v.height,osize:sz/doc.numPages}))}
  if(t.startsWith('image/'))return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,2400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok([{kind:'cv',cv:c,w:612,h:Math.round(612*c.height/c.width)}])};im.onerror=no;im.src=r.result};r.onerror=no;r.readAsDataURL(f)});
  if(n.endsWith('.docx')){await lib('libs/mammoth.browser.min.js');const r=await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()});return textPages(r.value,f.name)}
  if(/\.(xlsx|xls|xlsm|ods)$/.test(n)){await lib('libs/xlsx.full.min.js');const wb=XLSX.read(new Uint8Array(await f.arrayBuffer()),{type:'array'});return wb.SheetNames.flatMap(s=>textPages(XLSX.utils.sheet_to_csv(wb.Sheets[s]),f.name+' · '+s))}
@@ -199,7 +209,7 @@ $('#gup').onclick=()=>move(-1);$('#gdn').onclick=()=>move(1);
 $('#gdel').onclick=()=>{const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;
  del.forEach(rm);pages=pages.filter(p=>!p.sel);undo=undo.filter(a=>pages.includes(a.p));setDirty();syncEmpty();upd();if(!pages.length){closeGrid();return}buildGrid()};
 $('#gadd').onclick=()=>{const ref=pages.find(p=>p.sel)||pages[pages.length-1]||{w:A4[0],h:A4[1]};addPages([{kind:'blank',w:ref.w,h:ref.h}],insIdx());setDirty();buildGrid()};
-$('#gdup').onclick=()=>{for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(!p.sel)continue;const c=addPages([{kind:p.kind,doc:p.doc,bytes:p.bytes,pn:p.pn,page:p.page,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname}],i+1)[0];c.strokes=JSON.parse(JSON.stringify(p.strokes))}setDirty();buildGrid()};
+$('#gdup').onclick=()=>{for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(!p.sel)continue;const c=addPages([{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,page:p.page,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname}],i+1)[0];c.strokes=JSON.parse(JSON.stringify(p.strokes))}setDirty();buildGrid()};
 
 /* ---------- export ---------- */
 let docName='document',dls=null,docPrimary=0;
@@ -308,13 +318,13 @@ async function rasterPdf(list,target,st,E){
 async function exportPdf(list,pct,st,E){
  await lib(PDFLIB);st('Building PDF…');
  const raster=async p=>img2u8(await blobOf(await pageCanvas(p,2),'image/jpeg',.9));
- const orig=origOf(list),doc=await MarkupSaver.buildDoc(PDFLib,list,raster,refOf);let bad=doc.__bad||0;
+ const orig=origOf(list);st('Reading the document…');return withBytes(list,async()=>{st('Building PDF…');const doc=await MarkupSaver.buildDoc(PDFLib,list,raster,refOf);let bad=doc.__bad||0;
  if(pct>=100||!orig)return{data:await doc.save({useObjectStreams:true}),how:'',bad};
  const target=orig*pct/100;let how='';
  if(await shrinkImages(doc,orig,target,st,E))how='pictures compressed, text kept';
  st('Saving…');let best=await doc.save({useObjectStreams:true});
  if(best.length>target*1.1){try{const r=await rasterPdf(list,target,st,E);if(r.length<best.length){best=r;bad=r.__bad||0;how='pages turned into pictures to reach this size'}}catch(e){}}
- return{data:best,how,bad}}
+ return{data:best,how,bad}})}
 $('#ego').onclick=async()=>{
  const st=$('#est'),fmt=$('#efmt').value,pct=epct,say=t=>{st.textContent=t};
  if(!dls){say('Saving is not available in this view.');return}

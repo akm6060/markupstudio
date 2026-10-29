@@ -37,6 +37,11 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
+import android.webkit.RenderProcessGoneDetail;
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
+import android.view.ViewGroup;
+import java.io.FilterInputStream;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -244,7 +249,19 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
-                return loader.shouldInterceptRequest(r.getUrl());
+                Uri u = r.getUrl();
+                String path = u.getPath();
+                if (HOST.equals(u.getHost()) && path != null && path.startsWith("/__file/"))
+                    return serveFile(path.substring(8), r.getRequestHeaders());
+                return loader.shouldInterceptRequest(u);
+            }
+
+            /* the page viewer process was killed (usually: out of memory with a very big file).
+               Without this the whole app closes; with it the viewer restarts and reopens the book. */
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                recoverViewer();
+                return true;
             }
 
             @Override
@@ -256,6 +273,7 @@ public class MainActivity extends Activity {
 
         handleIntent(getIntent());
         web.loadUrl("https://" + HOST + "/assets/index.html");
+        startedAt = System.currentTimeMillis();
 
         if (!prefs.getBoolean("askedStorage", false)) {
             prefs.edit().putBoolean("askedStorage", true).apply();
@@ -280,6 +298,130 @@ public class MainActivity extends Activity {
                     }
                 }
             }, 1500);
+        }
+    }
+
+    private long startedAt = 0;
+    private boolean safeStart = false;
+
+    private void recoverViewer() {
+        long now = System.currentTimeMillis();
+        safeStart = now - startedAt < 60000;          // died again within a minute: do not reopen the same book automatically
+        try {
+            if (web != null) {
+                ViewGroup parent = (ViewGroup) web.getParent();
+                if (parent != null) parent.removeView(web);
+                web.destroy();
+            }
+        } catch (Throwable ignored) {
+        }
+        web = null;
+        jsReady = false;
+        synchronized (pending) {
+            pending.clear();
+        }
+        setIntent(new Intent());
+        try {
+            setup();
+            toastUi(safeStart ? "The viewer ran out of memory again. Open a smaller part of the book, or close other apps."
+                    : "The viewer ran out of memory and was restarted.");
+        } catch (Throwable e) {
+            saveCrash(this, e);
+            showError(getSharedPreferences("ms_crash", MODE_PRIVATE).getString("trace", String.valueOf(e)), true);
+        }
+    }
+
+    /* ---- serves opened files to the page; supports byte ranges so big PDFs are read piece by piece ---- */
+
+    private static class LimitedStream extends FilterInputStream {
+        private long left;
+
+        LimitedStream(InputStream in, long n) {
+            super(in);
+            left = n;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (left <= 0) return -1;
+            int c = super.read();
+            if (c >= 0) left--;
+            return c;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (left <= 0) return -1;
+            int n = super.read(b, off, (int) Math.min(len, left));
+            if (n > 0) left -= n;
+            return n;
+        }
+    }
+
+    private InputStream openAt(Entry e, long pos) throws IOException {
+        FileInputStream fis = null;
+        if (e.file != null && e.file.canRead()) fis = new FileInputStream(e.file);
+        else if (e.uri != null) {
+            ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(e.uri, "r");
+            if (pfd != null) fis = new ParcelFileDescriptor.AutoCloseInputStream(pfd);
+        }
+        if (fis != null) {
+            try {
+                fis.getChannel().position(pos);
+                return fis;
+            } catch (Exception ex) {
+                try {
+                    fis.close();
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        InputStream in = openStream(e);                 // not seekable: read up to the position
+        long skip = pos;
+        while (skip > 0) {
+            long k = in.skip(skip);
+            if (k <= 0) {
+                if (in.read() < 0) break;
+                k = 1;
+            }
+            skip -= k;
+        }
+        return in;
+    }
+
+    private WebResourceResponse serveFile(String id, Map<String, String> reqHeaders) {
+        try {
+            Entry e = entries.get(Integer.parseInt(id));
+            if (e == null) throw new FileNotFoundException(id);
+            long total = e.size > 0 ? e.size : (e.file != null ? e.file.length() : -1);
+            String range = null;
+            if (reqHeaders != null) for (Map.Entry<String, String> h : reqHeaders.entrySet())
+                if ("range".equalsIgnoreCase(h.getKey())) range = h.getValue();
+            Map<String, String> h = new HashMap<>();
+            h.put("Cache-Control", "no-store");
+            h.put("Accept-Ranges", "bytes");
+            if (range != null && total > 0 && range.startsWith("bytes=") && range.indexOf(',') < 0) {
+                String[] ab = range.substring(6).trim().split("-", -1);
+                long a, b;
+                if (ab[0].isEmpty()) {
+                    a = Math.max(0, total - Long.parseLong(ab[1]));
+                    b = total - 1;
+                } else {
+                    a = Long.parseLong(ab[0]);
+                    b = ab.length > 1 && !ab[1].isEmpty() ? Math.min(Long.parseLong(ab[1]), total - 1) : total - 1;
+                }
+                if (a <= b && a < total) {
+                    h.put("Content-Range", "bytes " + a + "-" + b + "/" + total);
+                    h.put("Content-Length", String.valueOf(b - a + 1));
+                    Log.i("MarkupStudio", "MSRange " + a + "-" + b + "/" + total);
+                    return new WebResourceResponse(e.mime, null, 206, "Partial Content", h, new LimitedStream(openAt(e, a), b - a + 1));
+                }
+            }
+            if (total > 0) h.put("Content-Length", String.valueOf(total));
+            return new WebResourceResponse(e.mime, null, 200, "OK", h, openStream(e));
+        } catch (Exception ex) {
+            return new WebResourceResponse("text/plain", "utf-8", 404, "Not found", new HashMap<String, String>(),
+                    new ByteArrayInputStream(new byte[0]));
         }
     }
 
@@ -974,6 +1116,14 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void jsReady() {
             jsReady = true;
+        }
+
+        /** true right after the viewer died twice in a row: the page should not reopen the last book by itself */
+        @JavascriptInterface
+        public boolean safeStart() {
+            boolean s = safeStart;
+            safeStart = false;
+            return s;
         }
 
         @JavascriptInterface

@@ -45,10 +45,15 @@ $('#exbtn').after(sv, rd); $('#info').before(mn); $('#pgs').before(ob);
 
 /* ---------- opening files from Android (open with / share / picker / resume) ---------- */
 async function fetchEntry(e) {
-  const r = await fetch('/__file/' + e.id, { cache: 'no-store' });
+  const url = '/__file/' + e.id; meta[e.id] = { name: e.name, mime: e.mime };
+  if ((/pdf/i.test(e.mime || '') || /\.pdf$/i.test(e.name || '')) && e.size > BIGPDF) {   // big book: do not load it all into memory
+    const get = () => fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
+    return { name: e.name || 'document.pdf', type: 'application/pdf', size: e.size, _nid: e.id, _url: url, arrayBuffer: () => get().then(r => r.arrayBuffer()), text: () => get().then(r => r.text()) };
+  }
+  const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const b = await r.blob(), f = new File([b], e.name || 'document', { type: e.mime || b.type || '' });
-  f._nid = e.id; meta[e.id] = { name: e.name, mime: e.mime }; return f;
+  f._nid = e.id; f._url = url; return f;
 }
 window.__nativeOpen = async function (list, mode, pos) {
   const files = [], bad = [];
@@ -117,7 +122,7 @@ async function doSave() {
     let mode = saveMode(); const primary = docPrimary || 0;
     for (const p of pages) { try { await ensure(p); } catch (e) {} }   // a damaged page must not stop the save
     await lib(PDFLIB);
-    const bytes = await SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf);
+    const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
     const bad = bytes.__bad || 0;
     if (bad && mode === 'original') mode = 'copy';                   // never overwrite the original with blank pages
     const r = await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), mode, docName + '-edited.pdf', primary);
@@ -530,6 +535,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) windo
   const pend = JP(A.takePending(), []);
   if (pend.length) { await window.__nativeOpen(pend, 'replace'); return; }
   if (pref('resume', '1') === '0') return;
+  if (A.safeStart && A.safeStart()) { toast('The last book was not reopened because the viewer ran out of memory. Open it again from 📂.', 7000); return; }
   const last = JP(A.reopenLast(), null);
   if (last && last.entries && last.entries.length) await window.__nativeOpen(last.entries, 'replace', { page: last.page, frac: last.frac });
 })();
