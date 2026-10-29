@@ -61,8 +61,9 @@ window.__nativeOpen = async function (list, mode, pos) {
   if (bad.length) toast('Could not read: ' + bad.join(', '), 4200);
   if (!files.length) return;
   stopAll();
+  window.__wantPage = pos && mode !== 'add' ? pos.page : 0;
   await openFiles(files, mode !== 'add');
-  if (pos) restorePos(pos.page, pos.frac);
+  if (pos) { if (window.__book()) window.__gotoGlobal(pos.page, pos.frac); else restorePos(pos.page, pos.frac); }
 };
 $('#open2').onclick = () => fbOpen('open');
 $('#gfile').onclick = () => fbOpen('add');
@@ -79,7 +80,7 @@ function restorePos(idx, frac) {
 function saveStateNow() {
   if (!pages.length) return; const t = topPage(); if (!t) return;
   const ids = [...new Set(pages.map(q => q.nid).filter(Boolean))];
-  if (ids.length) A.saveState(ids.join(','), pages.indexOf(t.p), t.frac);
+  if (ids.length) A.saveState(ids.join(','), window.__pageNo(t.p) - 1, t.frac);
 }
 let sst; const saveStateSoon = () => { clearTimeout(sst); sst = setTimeout(saveStateNow, 700); };
 view.addEventListener('scroll', saveStateSoon, { passive: true });
@@ -107,7 +108,7 @@ let skipMarks = false;
 window.__beforeReplace = () => { if (skipMarks) { skipMarks = false; } else saveMarks(); saveStateNow(); };
 window.__docChanged = (fresh, added) => {
   const all = loadMarks(); let n = 0;
-  for (const p of added) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes = all[k]; n++; redraw(p); } }
+  for (const p of added) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes.push(...all[k]); n++; redraw(p); } }
   if (n && fresh) { setDirty(); toast('Restored your unsaved marks on ' + n + ' page' + (n > 1 ? 's' : '')); }
   saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
@@ -383,7 +384,13 @@ async function readFrom(p, wi) {
     if (RS.show && !page.wrap.querySelector('.lay')) drawLayout(page);
     if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start, 0, RS.lang === 'auto' ? 'mix' : 'single'); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
     first = false; start = 0;
-    const i = pages.indexOf(page); if (i < 0 || i + 1 >= pages.length) { R.on = false; R.resumeAt = null; hlClear(); awake(AS.on); updUI(); toast(spoke ? 'Finished reading' : 'No readable text here — the pages are pictures or scans', spoke ? 2600 : 4200); return; }
+    let i = pages.indexOf(page);
+    if (i >= 0 && i + 1 >= pages.length && window.__book() && gen === R.gen) {          // big book: carry on into the next part
+      R.switching = true; let ok = false; try { ok = await window.__nextPart(); } finally { R.switching = false; }
+      if (gen !== R.gen) return;
+      if (ok && pages.length) { page = pages[0]; first = false; start = 0; continue; }
+    }
+    if (i < 0 || i + 1 >= pages.length) { R.on = false; R.resumeAt = null; hlClear(); awake(AS.on); updUI(); toast(spoke ? 'Finished reading' : 'No readable text here — the pages are pictures or scans', spoke ? 2600 : 4200); return; }
     page = pages[i + 1]; saveStateSoon();
   }
 }
@@ -403,7 +410,11 @@ async function toggleRead() {
   if (at) readFrom(at.p, at.wi);
 }
 async function skipPage(d) {
-  if (!pages.length) return; const cur = R.page && pages.includes(R.page) ? R.page : (topPage() || {}).p, i = pages.indexOf(cur) + d;
+  if (!pages.length) return; const cur = R.page && pages.includes(R.page) ? R.page : (topPage() || {}).p; let i = pages.indexOf(cur) + d;
+  if ((i < 0 || i >= pages.length) && window.__book()) {                            // previous / next part
+    const B = window.__book(); if (i < 0 && B.part > 0) { await window.__showPart(B.part - 1, B.size - 1, 0); i = pages.length - 1; } else if (i >= pages.length && B.part < B.parts - 1) { await window.__showPart(B.part + 1, 0, 0); i = 0; } else return;
+    if (R.on) readFrom(pages[i], 0); else R.resumeAt = { p: pages[i], wi: 0 }; return;
+  }
   if (i < 0 || i >= pages.length) return; scrollToPage(pages[i]);
   if (R.on) readFrom(pages[i], 0); else R.resumeAt = { p: pages[i], wi: 0 };
 }
@@ -526,6 +537,7 @@ $('#fbuse').onclick = () => {
 
 /* ---------- lifecycle ---------- */
 window.__saveNow = () => { saveStateNow(); saveMarks(); };
+window.__partLeaving = () => { if (R.on && !R.switching) { R.resumeAt = null; stopAll(); } hlClear(); };
 window.__paused = () => { if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); else if (window.__setTool) window.__setTool('scroll'); });
 

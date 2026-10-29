@@ -1,6 +1,9 @@
 /* app.js — the viewer: pages, pen / underline / highlighter, zoom, page manager, export */
 pdfjsLib.GlobalWorkerOptions.workerSrc='libs/pdf.worker.min.js';
 const $=s=>document.querySelector(s);let dpr=Math.min(window.devicePixelRatio||1,2);
+/* memory budget: phones with 4 GB or less keep fewer, smaller page pictures */
+const MEM=(()=>{let tot=0;try{if(window.Android&&Android.memInfo)tot=JSON.parse(Android.memInfo()).total||0}catch(e){}if(!tot&&navigator.deviceMemory)tot=navigator.deviceMemory*1073741824;const low=!tot||tot<4.6e9;return{low,px:low?3.2e6:5.5e6,keep:low?4:7}})();
+window.__MEM=MEM;
 let dirty=false;function setDirty(v){dirty=v!==false;window.__dirtyChanged&&window.__dirtyChanged(dirty)}
 let pages=[],scale=1.3,base=1.3,zoomed=false,tool='scroll',color='#e11d48',undo=[],lastSel=-1;
 const host=$('#pages'),inGrid=()=>document.body.classList.contains('grid');
@@ -52,8 +55,11 @@ async function openFiles(files,replace){
  let all=[],bad=[];for(const f of files){try{const ps=await ingest(f);ps.forEach((p,i)=>{p.nid=f._nid;p.sidx=i+1;p.fname=f.name;if(!p.osize)p.osize=(f.size||0)/ps.length});all.push(...ps)}catch(e){bad.push(f.name)}}
  if(bad.length)alert('Unsupported or unreadable: '+bad.join(', '));
  if(!all.length)return;
- if(replace){window.__beforeReplace&&window.__beforeReplace();pages.forEach(rm);pages=[];undo=[];setDirty(false)}
+ if(replace||BOOK){window.__beforeReplace&&window.__beforeReplace();pages.forEach(rm);pages=[];undo=[];setDirty(false);closeBook()}
  const fresh=!pages.length;if(fresh){docPrimary=all[0].nid||0;docName=(files[0].name||'document').replace(/\.[^.]+$/,'');base=scale=fitW(all[0].w);const zr=savedZoom();zoomed=zr!==1;scale=base*zr;$('#view').scrollTop=0;$('#view').scrollLeft=0;setTool('scroll')}
+ const ps=partSize();
+ if(fresh&&files.length===1&&all[0].kind==='pdf'&&ps>0&&all.length>ps*1.25){       // big book: show it part by part
+  openBook(all,ps,window.__wantPage||0);window.__wantPage=0;window.__docChanged&&window.__docChanged(true,pages);return}
  const added=addPages(all,inGrid()?insIdx():pages.length);
  if(!fresh)setDirty();
  if(inGrid())buildGrid();
@@ -66,14 +72,27 @@ $('#file2').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(fs.le
 ['dragover','drop'].forEach(n=>document.addEventListener(n,e=>{e.preventDefault();if(n==='drop'&&e.dataTransfer.files.length)openFiles([...e.dataTransfer.files],false)}));
 
 /* ---------- pages ---------- */
-const io=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(!p)return;if(en.isIntersecting){if(!p.done)render(p)}else if(p.done&&Math.abs(en.boundingClientRect.top)>4000){p.done=false;p.pc.width=p.pc.height=1}}),{root:$('#view'),rootMargin:'500px 0px'});
-function mkPage(d){const wrap=document.createElement('div');wrap.className='pg';const pc=document.createElement('canvas'),oc=document.createElement('canvas');oc.className='oc';wrap.append(pc,oc);
- const p={...d,wrap,pc,oc,strokes:[],done:false,task:null,sel:false,words:null,thumb:null};wrap._p=p;bind(p);size(p);return p}
+const io=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(!p)return;p.vis=en.isIntersecting;if(en.isIntersecting){if(!p.done)render(p)}else if(p.pc&&Math.abs(en.boundingClientRect.top)>1500)unrender(p)}),{root:$('#view'),rootMargin:'400px 0px'});
+const drawn=new Set();
+/* free a page's pictures and the PDF engine's cached data for it */
+function unrender(p){if(p.task)try{p.task.cancel()}catch(e){}p.task=null;p.done=false;drawn.delete(p);
+ if(p.pc){p.pc.width=p.pc.height=0;p.pc.remove();p.pc=null}
+ if(p.oc&&!p.strokes.length){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}else if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}
+ p.words=null;if(p.page)try{p.page.cleanup()}catch(e){}}
+/* keep only a few pages drawn: drop the ones furthest from the screen */
+function trimDrawn(){if(drawn.size<=MEM.keep)return;const vr=$('#view').getBoundingClientRect(),mid=(vr.top+vr.bottom)/2;
+ const list=[...drawn].map(p=>{const r=p.wrap.getBoundingClientRect();return{p,d:Math.abs((r.top+r.bottom)/2-mid)}}).sort((a,b)=>b.d-a.d);
+ while(list.length>MEM.keep){const x=list.shift();unrender(x.p)}}
+window.__lowMemory=()=>{const vr=$('#view').getBoundingClientRect();pages.forEach(p=>{const r=p.wrap.getBoundingClientRect();if(r.bottom<vr.top-50||r.top>vr.bottom+50)unrender(p);p.thumb=null;if(!r||r.bottom<vr.top-50||r.top>vr.bottom+50){p.read=null}})};
+function mkPage(d){const wrap=document.createElement('div');wrap.className='pg';
+ const p={...d,rec:d.rec||d,wrap,pc:null,oc:null,strokes:d.strokes||(d.strokes=[]),done:false,task:null,sel:false,words:null,thumb:null};wrap._p=p;bind(p);size(p);return p}
 function addPages(ds,idx){const ps=ds.map(mkPage);pages.splice(idx,0,...ps);reorderDOM();ps.forEach(p=>io.observe(p.wrap));syncEmpty();upd();return ps}
 const reorderDOM=()=>pages.forEach(p=>host.appendChild(p.wrap));
-function rm(p){try{p.task&&p.task.cancel()}catch(e){}io.unobserve(p.wrap);p.wrap.remove()}
+function rm(p){unrender(p);io.unobserve(p.wrap);p.wrap.remove()}
 const syncEmpty=()=>{$('#empty').style.display=pages.length?'none':''};
-function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(8e6/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc]){c.style.width=W+'px';c.style.height=H+'px'}p.oc.width=p.pc.width=Math.max(1,Math.round(W*p.pr));p.oc.height=p.pc.height=Math.max(1,Math.round(H*p.pr))}
+/* frame size only; the pictures keep their pixels (stretched) until the page is drawn again */
+function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(MEM.px/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc])if(c){c.style.width=W+'px';c.style.height=H+'px'}}
+function canvasFor(p,cls){const c=document.createElement('canvas');if(cls)c.className=cls;c.style.position='absolute';c.style.left=c.style.top='0';c.style.width=p.w*scale+'px';c.style.height=p.h*scale+'px';c.width=Math.max(1,Math.round(p.w*scale*p.pr));c.height=Math.max(1,Math.round(p.h*scale*p.pr));return c}
 async function ensure(p){if(p.kind==='pdf'&&!p.page){p.page=await p.doc.getPage(p.pn);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
 /* pdf.js object number of a page, so the saver can find it even in a damaged page tree */
 const refOf=async p=>{try{await ensure(p);return p.page&&p.page.ref||null}catch(e){return null}};
@@ -86,8 +105,13 @@ async function paint(p,ctx,k,reg){
 async function render(p){
  p.done=true;if(p.task)try{p.task.cancel()}catch(e){}
  try{await ensure(p)}catch(e){p.done=false;return}
- size(p);try{await paint(p,p.pc.getContext('2d'),scale*p.pr,p)}catch(e){return}
- redraw(p);getWords(p)}
+ if(!pages.includes(p))return;
+ size(p);const c=canvasFor(p);drawn.add(p);
+ try{await paint(p,c.getContext('2d'),scale*p.pr,p)}catch(e){c.width=c.height=0;return}
+ if(!p.done||!pages.includes(p)){c.width=c.height=0;return}
+ if(p.pc){p.pc.width=p.pc.height=0;p.pc.remove()}p.pc=c;p.wrap.prepend(c);
+ if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}
+ redraw(p);trimDrawn()}
 function drawS(ctx,s){
  const k=scale*dpr;
  if(s.t==='hl'){ctx.fillStyle=s.c;ctx.globalAlpha=s.a||.4;s.segs.forEach(g=>ctx.fillRect(g[0]*k,g[1]*k,(g[2]-g[0])*k,(g[3]-g[1])*k));ctx.globalAlpha=1;return}
@@ -100,7 +124,11 @@ function drawP(ctx,s){
  if(s.t==='line'||q.length<3)ctx.lineTo(q[q.length-1][0]*k,q[q.length-1][1]*k);
  else{for(let i=1;i<q.length-1;i++){ctx.quadraticCurveTo(q[i][0]*k,q[i][1]*k,(q[i][0]+q[i+1][0])/2*k,(q[i][1]+q[i+1][1])/2*k)}ctx.lineTo(q[q.length-1][0]*k,q[q.length-1][1]*k)}
  ctx.stroke()}
-function redraw(p,extra){if(!extra)p.thumb=null;const c=p.oc.getContext('2d'),od=dpr;dpr=p.pr||dpr;try{c.clearRect(0,0,p.oc.width,p.oc.height);p.strokes.forEach(s=>drawS(c,s));if(extra)drawS(c,extra)}finally{dpr=od}}
+/* marks layer: only exists while the page has marks or is being drawn on */
+function redraw(p,extra){if(!extra)p.thumb=null;
+ if(!p.strokes.length&&!extra){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}return}
+ if(!p.oc||p.oc.width!==Math.max(1,Math.round(p.w*scale*p.pr))){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove()}p.oc=canvasFor(p,'oc');p.wrap.appendChild(p.oc)}
+ const c=p.oc.getContext('2d'),od=dpr;dpr=p.pr||dpr;try{c.clearRect(0,0,p.oc.width,p.oc.height);p.strokes.forEach(s=>drawS(c,s));if(extra)drawS(c,extra)}finally{dpr=od}}
 function dist(pt,s){
  let m=1e9;
  if(s.t==='hl'){for(const g of s.segs){m=Math.min(m,Math.hypot(Math.max(g[0]-pt[0],0,pt[0]-g[2]),Math.max(g[1]-pt[1],0,pt[1]-g[3])))}return m}
@@ -134,7 +162,7 @@ function build(c,p){
   return{t:'line',sq:1,c:c.c,w:c.w,a:c.a,p:[pts[0],[pts[pts.length-1][0],pts[0][1]]]}}
  return c}
 function bind(p){
- const oc=p.oc;let cur=null;p.cancel=()=>{if(cur&&cur!=='erase'){cur=null;redraw(p)}else cur=null};
+ const oc=p.wrap;let cur=null;p.cancel=()=>{if(cur&&cur!=='erase'){cur=null;redraw(p)}else cur=null};
  const pt=e=>{const r=oc.getBoundingClientRect();return[(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]};
  const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(dist(x,s)<=s.w/2+6/scale){p.strokes.splice(i,1);undo.push({k:'del',p,s,i});setDirty();redraw(p);break}}};
  oc.onpointerdown=e=>{
@@ -154,12 +182,12 @@ function bind(p){
 $('#undo').onclick=doUndo;
 function doUndo(){const a=undo.pop();if(!a)return;if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else a.p.strokes.splice(a.i,0,a.s);setDirty();redraw(a.p)}
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo()}});
-$('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+(pages.indexOf(p)+1)+'?')){p.strokes.forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes=[];setDirty();redraw(p)}};
+$('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+pageNo(p)+'?')){p.strokes.forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes.splice(0);setDirty();redraw(p)}};
 function cur_page(){const v=$('#view').getBoundingClientRect();let best=null,bd=1e9;for(const p of pages){const r=p.wrap.getBoundingClientRect(),d=Math.abs(r.top+r.height/2-(v.top+v.height/2));if(d<bd){bd=d;best=p}}return best}
 function zoom(f){const r=$('#view').getBoundingClientRect();zoomAt(scale*f,r.left+r.width/2,r.top+r.height/2)}
 window.addEventListener('resize',()=>{if(pages.length&&!inGrid()){const z=scale/base;base=fitW(pages[0].w);setScale(base*z)}});
-function renderNear(){const vr=$('#view').getBoundingClientRect();pages.forEach(p=>{const r=p.wrap.getBoundingClientRect();if(r.bottom>vr.top-800&&r.top<vr.bottom+800)render(p)})}
-function setScale(ns){if(!pages.length)return;const v=$('#view'),ratio=v.scrollTop/(v.scrollHeight||1);scale=ns;pages.forEach(p=>{p.done=false;size(p);redraw(p)});v.scrollTop=ratio*v.scrollHeight;renderNear();upd()}
+function renderNear(){const vr=$('#view').getBoundingClientRect();pages.forEach(p=>{const r=p.wrap.getBoundingClientRect();if(r.bottom>vr.top-300&&r.top<vr.bottom+300)render(p);else if(p.pc)unrender(p)})}
+function setScale(ns){if(!pages.length)return;const v=$('#view'),ratio=v.scrollTop/(v.scrollHeight||1);scale=ns;pages.forEach(p=>{p.done=false;size(p)});v.scrollTop=ratio*v.scrollHeight;renderNear();upd()}
 const ZK='ms.zoom';function savedZoom(){try{const z=+localStorage.getItem(ZK);return z>0.2&&z<20?z:1}catch(e){return 1}}
 function saveZoom(){try{localStorage.setItem(ZK,String(scale/base))}catch(e){}}
 /* zoom about a screen point; the same zoom applies to every page */
@@ -167,7 +195,7 @@ function zoomAt(ns,cx,cy){
  if(!pages.length)return;ns=Math.max(.25,Math.min(6,ns));if(Math.abs(ns-scale)<1e-4)return;const v=$('#view');
  let tp=null,fx=0,fy=0;for(const p of pages){const r=p.wrap.getBoundingClientRect();if(cy>=r.top-7&&cy<=r.bottom+7){tp=p;fx=(cx-r.left)/r.width;fy=Math.max(0,Math.min(1,(cy-r.top)/r.height));break}}
  if(!tp){setScale(ns);zoomed=true;saveZoom();return}
- scale=ns;zoomed=true;pages.forEach(p=>{p.done=false;size(p);redraw(p)});
+ scale=ns;zoomed=true;pages.forEach(p=>{p.done=false;size(p)});
  const r=tp.wrap.getBoundingClientRect();v.scrollLeft+=r.left+fx*r.width-cx;v.scrollTop+=r.top+fy*r.height-cy;
  renderNear();saveZoom();upd()}
 const PZ={on:false,f:1};
@@ -177,7 +205,53 @@ const pinchEnd=e=>{if(!PZ.on||e.touches.length>=2)return;PZ.on=false;host.style.
 $('#view').addEventListener('touchend',pinchEnd);$('#view').addEventListener('touchcancel',pinchEnd);
 $('#view').addEventListener('dblclick',e=>{if(tool!=='scroll'||!pages.length)return;const z=scale/base;zoomAt(z>1.05?base:base*2,e.clientX,e.clientY)});
 $('#zi').onclick=()=>zoom(1.2);$('#zo').onclick=()=>zoom(1/1.2);
-function upd(){const p=inGrid()?null:cur_page();$('#info').textContent=pages.length?`Page ${p?pages.indexOf(p)+1:1} / ${pages.length} · ${Math.round(scale/base*100)}%`:''}
+function upd(){const p=inGrid()?null:cur_page();$('#info').textContent=pages.length?`Page ${p?pageNo(p):1} / ${BOOK?BOOK.recs.length:pages.length} · ${Math.round(scale/base*100)}%`:''}
+/* page number as printed in the list: in a big book, the page number in the whole book */
+function pageNo(p){return BOOK?p.pn:pages.indexOf(p)+1}
+window.__pageNo=pageNo;
+
+/* ---------- big books: shown in parts of a few hundred pages ---------- */
+let BOOK=null;
+const partSize=()=>{let v='';try{v=window.Android?Android.getPref('partSize',''):localStorage.getItem('ms.partSize')||''}catch(e){}if(v==='')return MEM.low?200:300;return +v||0};
+const pb=document.createElement('div');pb.id='pbar';pb.hidden=true;
+pb.innerHTML='<button id="pbp" title="Previous part">◀</button><span id="pbt"></span><input id="pbg" type="number" min="1" placeholder="Go to page" aria-label="Go to page"><button id="pbn" title="Next part">▶</button>';
+$('#view').prepend(pb);
+const pnav=(cls)=>{const b=document.createElement('button');b.className='pnav '+cls;return b};
+const pTop=pnav('top'),pEnd=pnav('end');
+function partRange(k){const n=BOOK.recs.length,a=k*BOOK.size;return[a,Math.min(n,a+BOOK.size)]}
+function syncBack(){for(const p of pages)if(p.rec&&p.rec!==p)p.rec.strokes=p.strokes}
+async function reloadEngine(){                       // a fresh PDF engine for every part: memory from earlier parts is given back
+ const src=BOOK.src;if(!src||!src.url||src.size<=BIGPDF)return;
+ const old=BOOK.doc;try{BOOK.doc=await pdfjsLib.getDocument({url:src.url,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise}catch(e){return}
+ for(const r of BOOK.recs){r.doc=BOOK.doc;r.page=null;r.read=null;r.bands=null}
+ try{await old.destroy()}catch(e){}}
+async function showPart(k,at,frac){
+ if(!BOOK)return;k=Math.max(0,Math.min(BOOK.parts-1,k));
+ const same=k===BOOK.part&&pages.length;
+ if(!same){syncBack();window.__partLeaving&&window.__partLeaving();pages.forEach(rm);pages=[];undo=[];pTop.remove();pEnd.remove();
+  if(BOOK.part>=0)await reloadEngine();BOOK.part=k;const[a,b]=partRange(k);
+  addPages(BOOK.recs.slice(a,b),0);
+  if(k>0){const[x,y]=partRange(k-1);pTop.textContent=`◀ Part ${k} · pages ${x+1}–${y}`;pTop.onclick=()=>showPart(k-1,BOOK.size-1,1);host.prepend(pTop)}
+  if(k<BOOK.parts-1){const[x,y]=partRange(k+1);pEnd.textContent=`Continue: part ${k+2} · pages ${x+1}–${y} ▶`;pEnd.onclick=()=>showPart(k+1,0,0);host.appendChild(pEnd)}}
+ const[a,b]=partRange(k);$('#pbt').textContent=`Part ${k+1}/${BOOK.parts} · p. ${a+1}–${b} of ${BOOK.recs.length}`;
+ $('#pbp').disabled=k===0;$('#pbn').disabled=k===BOOK.parts-1;
+ const v=$('#view'),t=pages[Math.max(0,Math.min(pages.length-1,at||0))];
+ requestAnimationFrame(()=>{if(t){const vr=v.getBoundingClientRect(),r=t.wrap.getBoundingClientRect();v.scrollTop+=r.top-vr.top-(pb.offsetHeight||0)+(frac||0)*r.height}upd();renderNear()});
+ if(!same)window.__partChanged&&window.__partChanged();return true}
+function openBook(recs,size,want){
+ BOOK={recs,size,parts:Math.ceil(recs.length/size),part:-1,doc:recs[0].doc,src:recs[0].src};
+ pb.hidden=false;document.body.classList.add('book');
+ const k=Math.floor(Math.max(0,Math.min(recs.length-1,want))/size);showPart(k,want-k*size,0)}
+function closeBook(){if(!BOOK)return;BOOK=null;pb.hidden=true;document.body.classList.remove('book');pTop.remove();pEnd.remove()}
+/* go to a page of the whole book (0-based), switching part when needed */
+async function gotoGlobal(i,frac){if(!BOOK){const t=pages[i];if(t){const v=$('#view'),vr=v.getBoundingClientRect(),r=t.wrap.getBoundingClientRect();v.scrollTop+=r.top-vr.top+(frac||0)*r.height}return}
+ i=Math.max(0,Math.min(BOOK.recs.length-1,i));const k=Math.floor(i/BOOK.size);await showPart(k,i-k*BOOK.size,frac||0)}
+window.__book=()=>BOOK;window.__gotoGlobal=gotoGlobal;window.__showPart=showPart;
+window.__nextPart=async()=>{if(!BOOK||BOOK.part>=BOOK.parts-1)return false;await showPart(BOOK.part+1,0,0);return true};
+window.__allPages=()=>{if(!BOOK)return pages;syncBack();return BOOK.recs};
+$('#pbp').onclick=()=>BOOK&&showPart(BOOK.part-1,BOOK.size-1,0);$('#pbn').onclick=()=>BOOK&&showPart(BOOK.part+1,0,0);
+$('#pbg').addEventListener('keydown',e=>{if(e.key==='Enter'){const n=+e.target.value;e.target.value='';e.target.blur();if(n>0)gotoGlobal(n-1,0)}});
+$('#pbg').addEventListener('change',e=>{const n=+e.target.value;if(n>0){e.target.value='';gotoGlobal(n-1,0)}});
 $('#view').addEventListener('scroll',upd,{passive:true});
 
 /* ---------- page manager (thumbnails) ---------- */
@@ -189,7 +263,7 @@ function buildGrid(){
  const g=$('#tgrid'),st=g.scrollTop;g.innerHTML='';
  pages.forEach((p,i)=>{const d=document.createElement('div');d.className='th'+(p.sel?' sel':'');p.thEl=d;
   if(p.thumb)d.appendChild(p.thumb);else{const h=document.createElement('div');h.className='ph';h.style.aspectRatio=p.w+'/'+p.h;d.appendChild(h)}
-  const n=document.createElement('span');n.textContent=i+1;d.appendChild(n);
+  const n=document.createElement('span');n.textContent=pageNo(p);d.appendChild(n);
   d.onclick=e=>{if(e.shiftKey&&lastSel>=0){const[a,b]=[Math.min(lastSel,i),Math.max(lastSel,i)];for(let k=a;k<=b;k++){pages[k].sel=true;pages[k].thEl.classList.add('sel')}}else{p.sel=!p.sel;d.classList.toggle('sel',p.sel)}lastSel=i;cnt()};
   d.ondblclick=()=>closeGrid(p);g.appendChild(d)});
  g.scrollTop=st;cnt();fillThumbs()}
@@ -201,15 +275,16 @@ async function fillThumbs(){const id=++gq;
    if(p.thEl&&p.thEl.isConnected){const h=p.thEl.querySelector('.ph');if(h)h.remove();p.thEl.prepend(c)}}catch(e){}}}
 $('#gall').onclick=()=>{pages.forEach(p=>{p.sel=true;p.thEl&&p.thEl.classList.add('sel')});cnt()};
 $('#gnone').onclick=()=>{pages.forEach(p=>{p.sel=false;p.thEl&&p.thEl.classList.remove('sel')});cnt()};
-function move(dir){const n=pages.length;
+const bookLock=()=>{if(!BOOK)return false;alert('This big book is shown in parts, so pages cannot be moved, added or deleted here.\nUse Export → parts / page range to make a smaller copy.');return true};
+function move(dir){if(bookLock())return;const n=pages.length;
  if(dir<0){for(let i=1;i<n;i++)if(pages[i].sel&&!pages[i-1].sel)[pages[i-1],pages[i]]=[pages[i],pages[i-1]]}
  else{for(let i=n-2;i>=0;i--)if(pages[i].sel&&!pages[i+1].sel)[pages[i+1],pages[i]]=[pages[i],pages[i+1]]}
  reorderDOM();setDirty();buildGrid()}
 $('#gup').onclick=()=>move(-1);$('#gdn').onclick=()=>move(1);
-$('#gdel').onclick=()=>{const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;
+$('#gdel').onclick=()=>{if(bookLock())return;const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;
  del.forEach(rm);pages=pages.filter(p=>!p.sel);undo=undo.filter(a=>pages.includes(a.p));setDirty();syncEmpty();upd();if(!pages.length){closeGrid();return}buildGrid()};
-$('#gadd').onclick=()=>{const ref=pages.find(p=>p.sel)||pages[pages.length-1]||{w:A4[0],h:A4[1]};addPages([{kind:'blank',w:ref.w,h:ref.h}],insIdx());setDirty();buildGrid()};
-$('#gdup').onclick=()=>{for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(!p.sel)continue;const c=addPages([{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,page:p.page,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname}],i+1)[0];c.strokes=JSON.parse(JSON.stringify(p.strokes))}setDirty();buildGrid()};
+$('#gadd').onclick=()=>{if(bookLock())return;const ref=pages.find(p=>p.sel)||pages[pages.length-1]||{w:A4[0],h:A4[1]};addPages([{kind:'blank',w:ref.w,h:ref.h}],insIdx());setDirty();buildGrid()};
+$('#gdup').onclick=()=>{if(bookLock())return;for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(!p.sel)continue;const c=addPages([{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,page:p.page,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname}],i+1)[0];c.strokes=JSON.parse(JSON.stringify(p.strokes))}setDirty();buildGrid()};
 
 /* ---------- export ---------- */
 let docName='document',dls=null,docPrimary=0;

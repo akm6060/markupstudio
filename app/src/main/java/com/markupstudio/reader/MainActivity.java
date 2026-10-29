@@ -38,6 +38,19 @@ import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.MimeTypeMap;
 import android.webkit.RenderProcessGoneDetail;
+import android.app.ActivityManager;
+import android.content.ComponentCallbacks2;
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.io.MemoryUsageSetting;
+import com.tom_roush.pdfbox.multipdf.PDFMergerUtility;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.pdmodel.PDPage;
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream;
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle;
+import com.tom_roush.pdfbox.pdmodel.graphics.blend.BlendMode;
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor;
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -220,6 +233,11 @@ public class MainActivity extends Activity {
 
     private void setup() {
         prefs = getSharedPreferences("ms", MODE_PRIVATE);
+        try {
+            File[] old = workDir().listFiles();
+            if (old != null) for (File f : old) if (System.currentTimeMillis() - f.lastModified() > 6 * 3600 * 1000L) f.delete();
+        } catch (Exception ignored) {
+        }
 
         loader = new WebViewAssetLoader.Builder()
                 .setDomain(HOST)
@@ -1022,6 +1040,297 @@ public class MainActivity extends Activity {
         return writePublic("MarkupStudio", nm, "application/pdf");
     }
 
+    /* ------------------------------------------------------------------ PDF tools for big books (PDFBox, uses disk instead of memory) */
+
+    private final Object saveLock = new Object();
+    private int jobSeq = 0;
+    private boolean pdfboxReady = false;
+
+    private File workDir() {
+        File best = getCacheDir();
+        try {
+            File ext = getExternalCacheDir();
+            if (ext != null && ext.getUsableSpace() > best.getUsableSpace()) best = ext;
+        } catch (Exception ignored) {
+        }
+        File d = new File(best, "work");
+        if (!d.exists()) d.mkdirs();
+        return d;
+    }
+
+    private MemoryUsageSetting diskMemory() {
+        return MemoryUsageSetting.setupTempFileOnly().setTempDir(workDir());
+    }
+
+    private static void copyFile(File a, File b) throws IOException {
+        InputStream in = new FileInputStream(a);
+        OutputStream os = new FileOutputStream(b);
+        try {
+            byte[] buf = new byte[1 << 16];
+            int n;
+            while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+        } finally {
+            in.close();
+            os.close();
+        }
+    }
+
+    /** put a finished file in the export folder (or Download/MarkupStudio) */
+    private String deliverFile(File tmp, String name) throws Exception {
+        synchronized (saveLock) {
+            File old = saveTmp;
+            saveTmp = tmp;
+            try {
+                String w = writeToDir(prefs.getString("p_exportDir", ""), name, "application/pdf");
+                return w != null ? w : writePublic("MarkupStudio", name, "application/pdf");
+            } finally {
+                saveTmp = old;
+            }
+        }
+    }
+
+    private PDDocument openPdf(Entry e) throws Exception {
+        if (!pdfboxReady) {
+            PDFBoxResourceLoader.init(getApplicationContext());
+            pdfboxReady = true;
+        }
+        if (e.file != null && e.file.canRead()) return PDDocument.load(e.file, diskMemory());
+        InputStream in = openStream(e);
+        try {
+            return PDDocument.load(in, diskMemory());
+        } finally {
+            in.close();
+        }
+    }
+
+    private void jobMsg(String id, String type, JSONObject data) {
+        js("window.__job&&window.__job(" + JSONObject.quote(id) + "," + JSONObject.quote(type) + "," + data + ")");
+    }
+
+    private void jobProgress(String id, int done, int total, String msg) {
+        try {
+            jobMsg(id, "progress", new JSONObject().put("done", done).put("total", total).put("msg", msg));
+        } catch (Exception ignored) {
+        }
+    }
+
+    /* the same drawing the page does for pen / underline / highlighter, written into the PDF page */
+    private static void drawMarks(PDDocument doc, PDPage page, JSONArray strokes) throws Exception {
+        if (strokes == null || strokes.length() == 0) return;
+        PDRectangle cb = page.getCropBox();
+        final int rot = ((page.getRotation() % 360) + 360) % 360;
+        final float ox = cb.getLowerLeftX(), oy = cb.getLowerLeftY(), W0 = cb.getWidth(), H0 = cb.getHeight();
+        PDPageContentStream cs = new PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true);
+        try {
+            for (int i = 0; i < strokes.length(); i++) {
+                JSONObject s = strokes.getJSONObject(i);
+                String t = s.optString("t");
+                float a = (float) s.optDouble("a", 1);
+                String hex = s.optString("c", "#000000").replace("#", "");
+                if (hex.length() == 3) hex = "" + hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+                float r = Integer.parseInt(hex.substring(0, 2), 16) / 255f, g = Integer.parseInt(hex.substring(2, 4), 16) / 255f, b = Integer.parseInt(hex.substring(4, 6), 16) / 255f;
+                PDColor col = new PDColor(new float[]{r, g, b}, PDDeviceRGB.INSTANCE);
+                PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
+                gs.setStrokingAlphaConstant(a);
+                gs.setNonStrokingAlphaConstant(a);
+                gs.setBlendMode(BlendMode.MULTIPLY);
+                cs.saveGraphicsState();
+                cs.setGraphicsStateParameters(gs);
+                if ("hl".equals(t)) {
+                    cs.setNonStrokingColor(col);
+                    JSONArray segs = s.getJSONArray("segs");
+                    for (int k = 0; k < segs.length(); k++) {
+                        JSONArray q = segs.getJSONArray(k);
+                        float[] A = map(rot, ox, oy, W0, H0, q.getDouble(0), q.getDouble(1)), B = map(rot, ox, oy, W0, H0, q.getDouble(2), q.getDouble(3));
+                        cs.addRect(Math.min(A[0], B[0]), Math.min(A[1], B[1]), Math.abs(B[0] - A[0]), Math.abs(B[1] - A[1]));
+                        cs.fill();
+                    }
+                } else {
+                    cs.setStrokingColor(col);
+                    cs.setLineWidth((float) s.optDouble("w", 2));
+                    cs.setLineJoinStyle(1);
+                    if ("wu".equals(t)) {
+                        cs.setLineCapStyle(1);
+                        JSONArray segs = s.getJSONArray("segs");
+                        for (int k = 0; k < segs.length(); k++) {
+                            JSONArray q = segs.getJSONArray(k);
+                            float[] A = map(rot, ox, oy, W0, H0, q.getDouble(0), q.getDouble(2)), B = map(rot, ox, oy, W0, H0, q.getDouble(1), q.getDouble(2));
+                            cs.moveTo(A[0], A[1]);
+                            cs.lineTo(B[0], B[1]);
+                            cs.stroke();
+                        }
+                    } else {
+                        cs.setLineCapStyle(s.optInt("sq", 0) == 1 ? 0 : 1);
+                        JSONArray q = s.getJSONArray("p");
+                        int n = q.length();
+                        float[][] P = new float[n][];
+                        for (int k = 0; k < n; k++) P[k] = new float[]{(float) q.getJSONArray(k).getDouble(0), (float) q.getJSONArray(k).getDouble(1)};
+                        if (n == 1) {
+                            float[] A = map(rot, ox, oy, W0, H0, P[0][0], P[0][1]);
+                            cs.moveTo(A[0], A[1]);
+                            cs.lineTo(A[0] + 0.01f, A[1]);
+                        } else if ("line".equals(t) || n < 3) {
+                            float[] A = map(rot, ox, oy, W0, H0, P[0][0], P[0][1]), B = map(rot, ox, oy, W0, H0, P[n - 1][0], P[n - 1][1]);
+                            cs.moveTo(A[0], A[1]);
+                            cs.lineTo(B[0], B[1]);
+                        } else {
+                            float[] cur = map(rot, ox, oy, W0, H0, P[0][0], P[0][1]);
+                            cs.moveTo(cur[0], cur[1]);
+                            for (int k = 1; k < n - 1; k++) {
+                                float[] C = map(rot, ox, oy, W0, H0, P[k][0], P[k][1]);
+                                float[] E = map(rot, ox, oy, W0, H0, (P[k][0] + P[k + 1][0]) / 2, (P[k][1] + P[k + 1][1]) / 2);
+                                cs.curveTo(cur[0] + 2f / 3 * (C[0] - cur[0]), cur[1] + 2f / 3 * (C[1] - cur[1]), E[0] + 2f / 3 * (C[0] - E[0]), E[1] + 2f / 3 * (C[1] - E[1]), E[0], E[1]);
+                                cur = E;
+                            }
+                            float[] Z = map(rot, ox, oy, W0, H0, P[n - 1][0], P[n - 1][1]);
+                            cs.lineTo(Z[0], Z[1]);
+                        }
+                        cs.stroke();
+                    }
+                }
+                cs.restoreGraphicsState();
+            }
+        } finally {
+            cs.close();
+        }
+    }
+
+    private static float[] map(int rot, float ox, float oy, float W0, float H0, double xd, double yd) {
+        float x = (float) xd, y = (float) yd, u, v;
+        if (rot == 0) { u = x; v = H0 - y; }
+        else if (rot == 90) { u = y; v = x; }
+        else if (rot == 180) { u = W0 - x; v = y; }
+        else { u = W0 - y; v = H0 - x; }
+        return new float[]{ox + u, oy + v};
+    }
+
+    /** a copy of one page that keeps everything it inherits from the book (size, resources, rotation) */
+    private static PDPage importPage(PDDocument out, PDPage src) throws IOException {
+        PDPage p = out.importPage(src);
+        p.setResources(src.getResources());
+        p.setMediaBox(src.getMediaBox());
+        p.setCropBox(src.getCropBox());
+        p.setRotation(src.getRotation());
+        return p;
+    }
+
+    private void runJob(String id, String json) {
+        PDDocument src = null;
+        try {
+            JSONObject o = new JSONObject(json);
+            String op = o.getString("op");
+            JSONObject marks = o.optJSONObject("marks");
+            if ("export".equals(op)) {
+                /* pages (book page numbers) -> one file or several parts; marks drawn in; dest "export" or "temp" */
+                Entry e = entries.get(o.getInt("src"));
+                if (e == null) throw new FileNotFoundException("The book is no longer open");
+                JSONArray pg = o.getJSONArray("pages");
+                int parts = Math.max(1, o.optInt("parts", 1)), total = pg.length(), done = 0, bad = 0;
+                String base = o.optString("name", "pages");
+                boolean temp = "temp".equals(o.optString("dest"));
+                jobProgress(id, 0, total, "Opening the book…");
+                src = openPdf(e);
+                int nSrc = src.getNumberOfPages();
+                JSONArray outs = new JSONArray();
+                for (int part = 0; part < parts; part++) {
+                    int a = (int) ((long) total * part / parts), b = (int) ((long) total * (part + 1) / parts);
+                    if (b <= a) continue;
+                    PDDocument out = new PDDocument(diskMemory());
+                    try {
+                        for (int i = a; i < b; i++) {
+                            int pn = pg.getInt(i);
+                            PDPage np;
+                            try {
+                                if (pn < 1 || pn > nSrc) throw new IOException("no page " + pn);
+                                np = importPage(out, src.getPage(pn - 1));
+                            } catch (Exception ex) {
+                                np = new PDPage(PDRectangle.A4);
+                                out.addPage(np);
+                                bad++;
+                            }
+                            if (marks != null && marks.has(String.valueOf(pn))) drawMarks(out, np, marks.getJSONArray(String.valueOf(pn)));
+                            done++;
+                            if (done % 10 == 0) jobProgress(id, done, total, (parts > 1 ? "Part " + (part + 1) + " of " + parts + " · " : "") + "page " + done + " of " + total);
+                        }
+                        if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
+                        File t = new File(workDir(), "out-" + System.nanoTime() + ".pdf");
+                        jobProgress(id, done, total, "Writing " + (parts > 1 ? "part " + (part + 1) : "the file") + "…");
+                        out.save(t);
+                        String name = parts > 1 ? String.format(Locale.ROOT, "%s-part%02d-of-%02d.pdf", base, part + 1, parts) : base + ".pdf";
+                        if (temp) outs.put(t.getPath());
+                        else { outs.put(deliverFile(t, name)); t.delete(); }
+                    } finally {
+                        out.close();
+                    }
+                }
+                jobMsg(id, "done", new JSONObject().put("ok", true).put("files", outs).put("bad", bad));
+            } else if ("merge".equals(op)) {
+                JSONArray files = o.getJSONArray("files");
+                PDFMergerUtility m = new PDFMergerUtility();
+                for (int i = 0; i < files.length(); i++) m.addSource(new File(files.getString(i)));
+                File t = new File(workDir(), "merge-" + System.nanoTime() + ".pdf");
+                m.setDestinationFileName(t.getPath());
+                jobProgress(id, 0, files.length(), "Joining " + files.length() + " files…");
+                if (!pdfboxReady) { PDFBoxResourceLoader.init(getApplicationContext()); pdfboxReady = true; }
+                m.mergeDocuments(diskMemory());
+                String where = deliverFile(t, o.optString("name", "merged") + ".pdf");
+                t.delete();
+                if (o.optBoolean("deleteSources")) for (int i = 0; i < files.length(); i++) {
+                    File f = new File(files.getString(i));
+                    if (f.getPath().startsWith(workDir().getPath())) f.delete();
+                }
+                jobMsg(id, "done", new JSONObject().put("ok", true).put("files", new JSONArray().put(where)));
+            } else if ("marks".equals(op)) {
+                /* save marks into a big book without loading it into memory */
+                Entry e = entries.get(o.getInt("src"));
+                if (e == null) throw new FileNotFoundException("The book is no longer open");
+                jobProgress(id, 0, 1, "Opening the book…");
+                src = openPdf(e);
+                int n = 0, total = marks == null ? 0 : marks.length();
+                if (marks != null) for (java.util.Iterator<String> it = marks.keys(); it.hasNext(); ) {
+                    String k = it.next(); int pn = Integer.parseInt(k);
+                    if (pn >= 1 && pn <= src.getNumberOfPages()) drawMarks(src, src.getPage(pn - 1), marks.getJSONArray(k));
+                    jobProgress(id, ++n, total, "Adding marks to page " + pn);
+                }
+                if (src.isEncrypted()) src.setAllSecurityToBeRemoved(true);
+                File t = new File(workDir(), "save-" + System.nanoTime() + ".pdf");
+                jobProgress(id, total, total, "Writing the book (this can take a minute)…");
+                src.save(t);
+                src.close();
+                src = null;
+                JSONObject r;
+                synchronized (saveLock) {
+                    File old = saveTmp;
+                    saveTmp = t;
+                    try {
+                        r = doSave(o.optString("mode", "copy"), o.optString("name", "book-edited.pdf"), o.getInt("src"));
+                    } finally {
+                        saveTmp = old;
+                    }
+                }
+                if ("original".equals(r.optString("mode"))) e.size = e.file != null ? e.file.length() : t.length();
+                t.delete();
+                jobMsg(id, "done", r);
+            } else throw new IllegalArgumentException("unknown job " + op);
+        } catch (Throwable ex) {
+            try {
+                String msg = ex instanceof OutOfMemoryError ? "Not enough memory" : String.valueOf(ex.getMessage() != null ? ex.getMessage() : ex);
+                if (ex instanceof IOException && msg.toLowerCase(Locale.ROOT).contains("space")) msg = "Not enough free storage space";
+                jobMsg(id, "done", new JSONObject().put("ok", false).put("err", msg));
+            } catch (Exception ignored) {
+            }
+        } finally {
+            if (src != null) try { src.close(); } catch (Exception ignored) { }
+        }
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW || level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL || level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE)
+            js("window.__lowMemory&&window.__lowMemory(" + level + ")");
+    }
+
     private JSONObject doSave(String mode, String name, int primary) throws Exception {
         Entry e = entries.get(primary);
         String note = "";
@@ -1116,6 +1425,60 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void jsReady() {
             jsReady = true;
+        }
+
+        @JavascriptInterface
+        public String memInfo() {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                return new JSONObject().put("total", mi.totalMem).put("avail", mi.availMem).put("low", mi.lowMemory)
+                        .put("cls", am.getMemoryClass()).put("large", am.getLargeMemoryClass()).toString();
+            } catch (Exception e) {
+                return "{}";
+            }
+        }
+
+        /** start a PDF tool job in the background; progress and result arrive through window.__job */
+        @JavascriptInterface
+        public String job(final String json) {
+            final String id = "j" + (++jobSeq);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    runJob(id, json);
+                }
+            }, "pdf-job").start();
+            return id;
+        }
+
+        /** make a file in the work folder readable by the page at /__file/<id> */
+        @JavascriptInterface
+        public int registerFile(String path) {
+            File f = new File(path);
+            if (!f.isFile()) return 0;
+            Entry e = new Entry();
+            e.id = newId();
+            e.file = f;
+            e.name = f.getName();
+            e.size = f.length();
+            e.mime = "application/pdf";
+            entries.put(e.id, e);
+            return e.id;
+        }
+
+        @JavascriptInterface
+        public void deleteTemp(String path) {
+            File f = new File(path);
+            if (f.getPath().startsWith(workDir().getPath())) f.delete();
+        }
+
+        /** a picked file's real path (for merging); "" when it has none */
+        @JavascriptInterface
+        public String pathOf(int id) {
+            Entry e = entries.get(id);
+            return e != null && e.file != null ? e.file.getPath() : "";
         }
 
         /** true right after the viewer died twice in a row: the page should not reopen the last book by itself */
@@ -1253,7 +1616,14 @@ public class MainActivity extends Activity {
             JSONObject r;
             try {
                 saveOs.close();
-                r = doSave(mode, name, primary);
+                if ("temp".equals(mode)) {                    // kept for a later merge; the page deletes it
+                    File t = new File(workDir(), "part-" + System.nanoTime() + ".pdf");
+                    if (!saveTmp.renameTo(t)) { copyFile(saveTmp, t); }
+                    return new JSONObject().put("ok", true).put("where", t.getPath()).put("mode", "temp").toString();
+                }
+                synchronized (saveLock) {
+                    r = doSave(mode, name, primary);
+                }
             } catch (Exception e) {
                 r = new JSONObject();
                 try {

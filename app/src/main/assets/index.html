@@ -29,6 +29,8 @@ label{white-space:nowrap;font-size:12px;display:flex;gap:5px;align-items:center;
 #pages{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:min-content}
 .pg{position:relative;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.28);outline:1px solid rgba(0,0,0,.08);flex:none}
 #pages{transform-origin:0 0;will-change:auto}
+#pbar{position:sticky;top:0;left:0;z-index:4;display:flex;gap:6px;align-items:center;margin:-14px 0 10px;padding:5px 8px;background:var(--bar);border-bottom:1px solid var(--bd);font-size:12px;color:var(--mut)}#pbar[hidden]{display:none}#pbar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#pbar input{width:92px;font:inherit;padding:4px 6px;border:1px solid var(--bd);border-radius:7px;background:var(--bar);color:var(--fg)}
+.pnav{display:block;margin:6px auto;padding:12px 18px;font-size:14px;background:var(--ac2);border:1px solid var(--ac);color:var(--ac);border-radius:12px}
 #view{touch-action:pan-x pan-y}
 .szr{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--mut)}.szr .grp b{min-width:52px;text-align:center;color:var(--fg);font-size:15px}.szr button{min-width:40px;font-size:18px;padding:2px 10px}#eszi{font-size:12px;color:var(--mut);min-height:16px}
 .pg canvas{position:absolute;left:0;top:0}
@@ -49,7 +51,7 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
 #exp{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,92vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:10px;z-index:9}#exp[hidden]{display:none}#exp label{font-size:13px;justify-content:space-between}#exp select{background:var(--bar);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:inherit;min-width:55%}#est{font-size:12px;color:var(--mut);min-height:16px}
 #cm{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;display:flex;gap:10px;padding:10px 12px;background:var(--bar);border:1px solid var(--bd);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);z-index:6}#cm[hidden]{display:none}#cm .sw{width:28px;height:28px}body.grid #cm{display:none!important}
 .pt{display:flex;justify-content:space-between;align-items:center}
-.oc{mix-blend-mode:multiply}.t-hl .oc{cursor:text;touch-action:none}.t-scroll .oc{cursor:grab}.t-pen .oc{cursor:crosshair;touch-action:none}.t-line .oc{cursor:crosshair;touch-action:none}.t-erase .oc{cursor:cell;touch-action:none}
+.oc{mix-blend-mode:multiply;pointer-events:none}.t-hl .pg{cursor:text;touch-action:none}.t-scroll .pg{cursor:grab}.t-pen .pg{cursor:crosshair;touch-action:none}.t-line .pg{cursor:crosshair;touch-action:none}.t-erase .pg{cursor:cell;touch-action:none}
 </style></head>
 <body class="t-scroll">
 <div id="bar">
