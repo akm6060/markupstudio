@@ -18,7 +18,20 @@ st.textContent = `#toast{position:fixed;left:50%;bottom:78px;transform:translate
 .panel .big{flex:1;padding:8px 6px}
 .rh{position:absolute;pointer-events:none;background:rgba(255,196,0,.5);border-radius:3px;z-index:3}.rl{position:absolute;pointer-events:none;background:rgba(37,99,235,.13);z-index:2}
 #sv.dirty::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#e11d48;margin-left:4px;vertical-align:middle}
-body.grid .panel{display:none!important}`;
+body.grid .panel{display:none!important}
+.lay{position:absolute;pointer-events:none;z-index:2;border-radius:3px}
+.lr{border:2px solid rgba(22,163,74,.8);background:rgba(22,163,74,.05)}
+.lr::before{content:attr(data-n);position:absolute;left:0;top:0;transform:translate(-45%,-45%);background:#16a34a;color:#fff;font:700 11px system-ui,sans-serif;border-radius:9px;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px}
+.ls{background:rgba(220,38,38,.2);outline:1px dashed rgba(220,38,38,.75)}
+#fb{position:fixed;left:0;top:0;right:0;bottom:0;background:var(--bg);z-index:20;display:flex;flex-direction:column}#fb[hidden]{display:none}
+#fbh,#fbf{display:flex;gap:6px;align-items:center;padding:8px;background:var(--bar);border-bottom:1px solid var(--bd)}#fbf{border-top:1px solid var(--bd);border-bottom:0;flex-wrap:wrap}
+#fbt{flex:1;font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fbr{display:flex;gap:6px;overflow-x:auto;padding:6px 8px;border-bottom:1px solid var(--bd);scrollbar-width:none}#fbr button{flex:none}
+#fbp{font-size:12px;color:var(--mut);padding:5px 10px;white-space:nowrap;overflow-x:auto;direction:rtl;text-align:left}
+#fbl{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.fi{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--bd);cursor:pointer;user-select:none}.fi:active{background:var(--ac2)}
+.fi .ic{font-size:22px;width:28px;text-align:center;flex:none}.fi .nm{flex:1;min-width:0}.fi .nm div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fi .mt{font-size:11px;color:var(--mut)}
+#fbm{padding:22px 16px;color:var(--mut);text-align:center;line-height:1.5}#fbm button{margin-top:10px;background:var(--ac);color:#fff;border:none;padding:9px 16px}`;
 document.head.appendChild(st);
 let tt;
 function toast(m, ms) { let el = $('#toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); } el.textContent = m; el.style.opacity = 1; clearTimeout(tt); tt = setTimeout(() => el.style.opacity = 0, ms || 2600); }
@@ -27,8 +40,8 @@ const mk = (tag, props, html) => { const e = document.createElement(tag); Object
 const btn = (id, txt, title) => mk('button', { id, title }, txt);
 
 /* ---------- bar buttons ---------- */
-const sv = btn('sv', '💾', 'Save edits'), rd = btn('rd', '🔊', 'Read aloud / auto-scroll'), mn = btn('mn', '⋮', 'Settings');
-$('#exbtn').after(sv, rd); $('#info').before(mn);
+const sv = btn('sv', '💾', 'Save edits'), rd = btn('rd', '🔊', 'Read aloud / auto-scroll'), mn = btn('mn', '⋮', 'Settings'), ob = btn('ob', '📂', 'Open a file');
+$('#exbtn').after(sv, rd); $('#info').before(mn); $('#pgs').before(ob);
 
 /* ---------- opening files from Android (open with / share / picker / resume) ---------- */
 async function fetchEntry(e) {
@@ -46,8 +59,9 @@ window.__nativeOpen = async function (list, mode, pos) {
   await openFiles(files, mode !== 'add');
   if (pos) restorePos(pos.page, pos.frac);
 };
-$('#open2').onclick = () => A.pickFiles('replace');
-$('#gfile').onclick = () => A.pickFiles('add');
+$('#open2').onclick = () => fbOpen('open');
+$('#gfile').onclick = () => fbOpen('add');
+ob.onclick = () => fbOpen('open');
 
 /* ---------- remembering the last document / position ---------- */
 let userTouched = false;
@@ -90,7 +104,7 @@ window.__docChanged = (fresh, added) => {
   const all = loadMarks(); let n = 0;
   for (const p of added) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes = all[k]; n++; redraw(p); } }
   if (n && fresh) { setDirty(); toast('Restored your unsaved marks on ' + n + ' page' + (n > 1 ? 's' : '')); }
-  saveStateSoon();
+  saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
 
 /* ---------- saving ---------- */
@@ -122,22 +136,30 @@ const mp = mk('div', { id: 'mp', className: 'panel', hidden: true }, `
  <div class="row"><b>Settings</b><button id="mpx">✕</button></div>
  <div><b style="font-size:13px">When I tap Save 💾</b></div>
  <label><input type="radio" name="sm" value="original"> Save into the original file (replaces it)</label>
- <label><input type="radio" name="sm" value="copy"> Save a new copy next to it (“-edited”)</label>
+ <label><input type="radio" name="sm" value="copy"> Save a new copy (“-edited”)</label>
  <small>Chosen once here — Save never asks. Replacing the original works for PDF files; other file types always get a PDF copy.</small>
+ <hr>
+ <div><b style="font-size:13px">Folders</b></div>
+ <div class="row"><span>Edited copies go to</span><button id="mcd">Change</button></div><small id="mcdv"></small>
+ <div class="row"><span>Exports go to</span><button id="med">Change</button></div><small id="medv"></small>
+ <hr>
+ <div class="row"><span>Theme</span><select id="mth"><option value="light">White</option><option value="dark">Dark</option><option value="auto">Same as phone</option></select></div>
  <hr>
  <label><input type="checkbox" id="mfs"> Full screen (hide status and navigation bars)</label>
  <label><input type="checkbox" id="mres"> Reopen the last document on start</label>
  <hr>
  <div><b style="font-size:13px">Storage access</b></div>
  <small id="mstore"></small>
- <div class="row"><button class="big" id="mperm">Allow storage access</button></div>
- <div class="row"><button class="big" id="mtree">Grant SD card / USB folder</button></div>
+ <div class="row"><button class="big" id="mperm">Allow access to all files</button></div>
+ <div class="row"><button class="big" id="mbrowse">Browse all files</button></div>
+ <div class="row"><button class="big" id="mtree">Allow writing to SD card / USB</button></div>
+ <small>Android 11 and newer block the Android/data and Android/obb system folders for every app.</small>
  <small>Markup Studio appears in “Open with” and “Share” menus of file managers.</small>`);
 const rp = mk('div', { id: 'rp', className: 'panel', hidden: true }, `
  <div class="row"><b>Read aloud</b><button id="rpx">✕</button></div>
  <div class="row"><button class="big" id="rprev" title="Previous page">⏮</button><button class="big on" id="rplay">▶ Read</button><button class="big" id="rnext" title="Next page">⏭</button><button class="big" id="rstop" title="Stop">⏹</button></div>
  <div class="row"><span>Speed <b id="rrv">1.0×</b></span><input type="range" id="rrate" min="50" max="300" step="5"></div>
- <div class="row"><span>Language</span><select id="rlang"><option value="auto">Auto (Hindi + English)</option><option value="en">English only</option><option value="hi">Hindi only</option></select></div>
+ <div class="row"><span>Language</span><select id="rlang"><option value="auto">Hindi + English mixed (both voices)</option><option value="en">English only</option><option value="hi">Hindi only</option></select></div>
  <div class="row"><span>English voice</span><select id="rven"></select></div>
  <div class="row"><span>Hindi voice</span><select id="rvhi"></select></div>
  <div class="row"><span>Voices shown</span><select id="rvf"><option value="all">Online + offline</option><option value="off">Offline only</option><option value="on">Online only</option></select></div>
@@ -145,6 +167,15 @@ const rp = mk('div', { id: 'rp', className: 'panel', hidden: true }, `
  <label><input type="checkbox" id="rfollow"> Scroll along while reading</label>
  <label><input type="checkbox" id="rtap"> Tap a word or line to read from there</label>
  <label><input type="checkbox" id="rawake"> Keep screen on</label>
+ <hr>
+ <div><b style="font-size:13px">Page layout</b></div>
+ <div class="row"><span>Columns</span><select id="rcols"><option value="auto">Find automatically</option><option value="1">1 column</option><option value="2">2 columns</option><option value="3">3 columns</option></select></div>
+ <label><input type="checkbox" id="rhead"> Skip book name, headers and page numbers</label>
+ <label><input type="checkbox" id="rtab"> Skip tables</label>
+ <label><input type="checkbox" id="rpic"> Skip pictures' labels and captions</label>
+ <label><input type="checkbox" id="rside"> Skip side notes in the margins</label>
+ <label><input type="checkbox" id="rshow"> Show reading order on the page</label>
+ <small>Column 1 is read to its end, then column 2. With “Show reading order”: green boxes are read in the numbered order, red is skipped.</small>
  <hr>
  <div class="row"><b style="font-size:13px">Auto-scroll</b><button id="asbtn">▶ Start</button></div>
  <div class="row"><span>Speed <b id="asv">40</b> px/s</span><input type="range" id="asr" min="5" max="300" step="5"></div>
@@ -155,7 +186,7 @@ function showPanel(p) { const open = p.hidden; mp.hidden = rp.hidden = true; $('
 mn.onclick = () => showPanel(mp); rd.onclick = () => showPanel(rp);
 $('#mpx').onclick = () => mp.hidden = true; $('#rpx').onclick = () => rp.hidden = true;
 document.addEventListener('pointerdown', e => { if (!mp.hidden && !mp.contains(e.target) && e.target !== mn) mp.hidden = true; if (!rp.hidden && !rp.contains(e.target) && e.target !== rd) rp.hidden = true; }, true);
-window.__back = () => { if (!mp.hidden || !rp.hidden) { mp.hidden = rp.hidden = true; return true; } if (!$('#pop').hidden) { $('#pop').hidden = true; return true; } if (!$('#exp').hidden) { $('#exp').hidden = true; return true; } if (inGrid()) { closeGrid(); return true; } return false; };
+window.__back = () => { if (!fb.hidden) { fbUp(true); return true; } if (!mp.hidden || !rp.hidden) { mp.hidden = rp.hidden = true; return true; } if (!$('#pop').hidden) { $('#pop').hidden = true; return true; } if (!$('#exp').hidden) { $('#exp').hidden = true; return true; } if (inGrid()) { closeGrid(); return true; } return false; };
 
 function refreshMenu() {
   mp.querySelectorAll('input[name=sm]').forEach(r => r.checked = r.value === saveMode());
@@ -163,17 +194,25 @@ function refreshMenu() {
   const s = JP(A.storageInfo(), {}), vol = (s.volumes || []).filter(v => !/emulated/.test(v));
   $('#mstore').textContent = (s.allFiles ? 'All-files access: allowed. ' : 'All-files access: not allowed yet. ') + (vol.length ? 'Removable storage found: ' + vol.join(', ') + '. ' : 'No SD card / USB drive detected. ') + ((s.trees || []).length ? 'Folder access granted for ' + s.trees.length + ' location(s).' : '');
   $('#mperm').style.display = s.allFiles ? 'none' : '';
+  $('#mth').value = pref('theme', 'light');
+  const cd = pref('copyDir', ''), ed = pref('exportDir', '');
+  $('#mcdv').textContent = cd || 'Same folder as the original file';
+  $('#medv').textContent = ed || 'Download/MarkupStudio';
 }
 mp.addEventListener('change', e => {
   if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); toast(e.target.value === 'original' ? 'Save will replace the original file' : 'Save will create a new copy'); }
   if (e.target.id === 'mfs') A.setFullscreen(e.target.checked);
   if (e.target.id === 'mres') A.setPref('resume', e.target.checked ? '1' : '0');
+  if (e.target.id === 'mth') { const t = e.target.value; A.setTheme(t); if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 });
+$('#mcd').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('copyDir', p); toast(p ? 'Edited copies will be saved in ' + p : 'Edited copies will be saved next to the original'); }, pref('copyDir', '')); };
+$('#med').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('exportDir', p); toast(p ? 'Exports will be saved in ' + p : 'Exports will be saved in Download/MarkupStudio'); }, pref('exportDir', '')); };
+$('#mbrowse').onclick = () => { mp.hidden = true; fbOpen('open'); };
 $('#mperm').onclick = () => A.requestStorage(); $('#mtree').onclick = () => A.grantTree();
-window.__nativeEvent = ev => { if (ev === 'storage' && !mp.hidden) refreshMenu(); };
+window.__nativeEvent = ev => { if (ev === 'storage') { if (!mp.hidden) refreshMenu(); if (!fb.hidden) fbGo(FB.path); } };
 
 /* ---------- reader state ---------- */
-const RS = Object.assign({ rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40 }, JP(pref('reader', '{}'), {}));
+const RS = Object.assign({ rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40, cols: 'auto', head: true, tab: true, pic: true, side: true, show: false }, JP(pref('reader', '{}'), {}));
 const saveRS = () => A.setPref('reader', JSON.stringify(RS));
 const R = { on: false, gen: 0, page: null, rd: null, chunks: [], sent: 0, fin: 0, cur: -1, wi: 0, resolve: null, errs: 0, userUntil: 0, resumeAt: null, est: 0, sawRange: false };
 const AS = { on: false, last: 0, acc: 0, raf: 0, touching: false, resumeAt: 0 };
@@ -198,7 +237,8 @@ function refreshReader() {
   pq(rp, '#rrate').value = Math.round(RS.rate * 100); pq(rp, '#rrv').textContent = RS.rate.toFixed(2).replace(/0$/, '') + '×';
   pq(rp, '#rlang').value = RS.lang; pq(rp, '#rvf').value = RS.filter; pq(rp, '#rfollow').checked = RS.follow; pq(rp, '#rtap').checked = RS.tap; pq(rp, '#rawake').checked = RS.awake;
   pq(rp, '#asr').value = RS.speed; pq(rp, '#asv').textContent = RS.speed; if (ttsReady) fillVoices(); updUI();
-  pq(rp, '#rnote').textContent = 'Reads columns in order, skips pictures and their text. Scanned pages (pictures of text) cannot be read.';
+  pq(rp, '#rcols').value = RS.cols; pq(rp, '#rhead').checked = RS.head; pq(rp, '#rtab').checked = RS.tab; pq(rp, '#rpic').checked = RS.pic; pq(rp, '#rside').checked = RS.side; pq(rp, '#rshow').checked = RS.show;
+  pq(rp, '#rnote').textContent = 'Scanned pages (photos of text) have no text inside and cannot be read aloud.';
 }
 function updUI() { pq(rp, '#rplay').textContent = R.on ? '⏸ Pause' : '▶ Read'; pq(rp, '#asbtn').textContent = AS.on ? '⏸ Stop' : '▶ Start'; rd.classList.toggle('on', R.on || AS.on); }
 let rst; const restartSoon = () => { clearTimeout(rst); if (R.on) rst = setTimeout(() => readFrom(R.page, R.wi), 450); };
@@ -211,7 +251,10 @@ rp.addEventListener('change', e => {
   const id = e.target.id, v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
   if (id === 'rlang') RS.lang = v; else if (id === 'rven') RS.voiceEn = v; else if (id === 'rvhi') RS.voiceHi = v;
   else if (id === 'rvf') { RS.filter = v; fillVoices(); } else if (id === 'rfollow') RS.follow = v; else if (id === 'rtap') RS.tap = v;
-  else if (id === 'rawake') { RS.awake = v; awake(R.on || AS.on); } else return;
+  else if (id === 'rawake') { RS.awake = v; awake(R.on || AS.on); }
+  else if (/^(rcols|rhead|rtab|rpic|rside)$/.test(id)) { RS[{ rcols: 'cols', rhead: 'head', rtab: 'tab', rpic: 'pic', rside: 'side' }[id]] = v; pages.forEach(q => { q.read = null; }); layoutAll(); restartSoon(); }
+  else if (id === 'rshow') { RS.show = v; layoutAll(); }
+  else return;
   saveRS(); if (/^(rlang|rven|rvhi)$/.test(id)) restartSoon();
 });
 pq(rp, '#rinst').onclick = () => A.ttsInstallData(); pq(rp, '#rtts').onclick = () => A.ttsSettings();
@@ -225,18 +268,40 @@ const awake = on => A.keepAwake(!!on && RS.awake);
 /* ---------- text of a page in reading order ---------- */
 async function pageReadable(p) {
   if (p.read) return p.read;
-  let words = [], scanned = false;
+  let words = [], scanned = false, extra = {};
   if (p.kind === 'pdf') {
     await ensure(p);
     const vp = p.page.getViewport({ scale: 1 }), tc = await p.page.getTextContent();
     let ol = null; try { ol = await p.page.getOperatorList(); } catch (e) {}
-    const r = RC.analyze({ items: tc.items, fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjsLib.OPS, vpT: vp.transform, W: vp.width, H: vp.height });
-    words = r.words; scanned = r.scanned;
+    const r = RC.analyze({ items: tc.items, fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjsLib.OPS, vpT: vp.transform, W: vp.width, H: vp.height,
+      opt: { cols: RS.cols, head: RS.head, tables: RS.tab, pics: RS.pic, side: RS.side } });
+    words = r.words; scanned = r.scanned; extra = { blocks: r.blocks, skipped: r.skipped };
   } else if (p.kind === 'txt') words = RC.textWords(p.lines);
   const lines = {};
   for (const w of words) { const L = lines[w.si]; if (!L) lines[w.si] = { x0: w.x0, x1: w.x1, top: w.top, bottom: w.bottom }; else { L.x0 = Math.min(L.x0, w.x0); L.x1 = Math.max(L.x1, w.x1); L.top = Math.min(L.top, w.top); L.bottom = Math.max(L.bottom, w.bottom); } }
-  return (p.read = { words, scanned, lines });
+  return (p.read = Object.assign({ words, scanned, lines }, extra));
 }
+/* "show reading order": numbered green boxes = read in this order, red = skipped */
+function drawLayout(p) {
+  p.wrap.querySelectorAll('.lay').forEach(e => e.remove());
+  if (!RS.show || !p.read || !p.w) return;
+  const box = (cls, b, n) => { const d = mk('div', { className: 'lay ' + cls }); d.style.cssText = `left:${(b.x0 - 2) / p.w * 100}%;top:${(b.top - 2) / p.h * 100}%;width:${(b.x1 - b.x0 + 4) / p.w * 100}%;height:${(b.bottom - b.top + 4) / p.h * 100}%`; if (n) d.dataset.n = n; p.wrap.appendChild(d); };
+  (p.read.blocks || []).forEach((b, i) => box('lr', b, String(i + 1)));
+  (p.read.skipped || []).forEach(b => box('ls', b));
+}
+let layQ = 0;
+async function layoutAll() {
+  const id = ++layQ;
+  document.querySelectorAll('.lay').forEach(e => e.remove());
+  if (!RS.show || !pages.length) return;
+  const vr = view.getBoundingClientRect();
+  for (const p of pages) {
+    const r = p.wrap.getBoundingClientRect(); if (r.bottom < vr.top - 1500 || r.top > vr.bottom + 1500) continue;
+    try { await pageReadable(p); } catch (e) { continue; }
+    if (id !== layQ) return; drawLayout(p);
+  }
+}
+let lyt; view.addEventListener('scroll', () => { if (!RS.show) return; clearTimeout(lyt); lyt = setTimeout(() => { const vr = view.getBoundingClientRect(); for (const p of pages) { const r = p.wrap.getBoundingClientRect(); if (r.bottom > vr.top - 1500 && r.top < vr.bottom + 1500 && !p.wrap.querySelector('.lay')) { pageReadable(p).then(() => drawLayout(p)).catch(() => {}); } } }, 300); }, { passive: true });
 
 window.__readable = pageReadable; window.__topPage = topPage;
 
@@ -304,7 +369,8 @@ async function readFrom(p, wi) {
     R.page = page; let rdp; try { rdp = await pageReadable(page); } catch (e) { rdp = { words: [], lines: {}, scanned: false }; }
     if (gen !== R.gen) return;
     if (!first && RS.follow) scrollToPage(page);
-    if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
+    if (RS.show && !page.wrap.querySelector('.lay')) drawLayout(page);
+    if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start, 0, RS.lang === 'auto' ? 'mix' : 'single'); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
     first = false; start = 0;
     const i = pages.indexOf(page); if (i < 0 || i + 1 >= pages.length) { R.on = false; R.resumeAt = null; hlClear(); awake(AS.on); updUI(); toast(spoke ? 'Finished reading' : 'No readable text here — the pages are pictures or scans', spoke ? 2600 : 4200); return; }
     page = pages[i + 1]; saveStateSoon();
@@ -340,6 +406,7 @@ view.addEventListener('pointermove', e => { if (tap && Math.hypot(e.clientX - ta
 view.addEventListener('pointercancel', () => { tap = null; }, true);
 view.addEventListener('pointerup', async e => {
   const t = tap; tap = null; if (!t || !t.ok || performance.now() - t.t > 600) return;
+  if (window.__pinchAt && performance.now() - window.__pinchAt < 600) return;
   const wrap = e.target.closest && e.target.closest('.pg'); if (!wrap || !wrap._p) return;
   const p = wrap._p, r = p.oc.getBoundingClientRect(), x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   let rdp; try { rdp = await pageReadable(p); } catch (err) { return; }
@@ -362,10 +429,94 @@ function startAS() { if (!pages.length) { toast('Open a document first'); return
 function stopAS() { AS.on = false; cancelAnimationFrame(AS.raf); awake(R.on); updUI(); }
 pq(rp, '#asbtn').onclick = () => AS.on ? stopAS() : startAS();
 
+/* ---------- built-in file browser: all of internal storage, SD cards and USB drives ---------- */
+const fb = mk('div', { id: 'fb', hidden: true }, `
+ <div id="fbh"><button id="fbx" title="Close">✕</button><div id="fbt">Open a file</div><button id="fbu" title="Up one folder">⬆</button><button id="fbs" title="Sort">A–Z</button></div>
+ <div id="fbr"></div><div id="fbp"></div><div id="fbl"></div>
+ <div id="fbf"><button id="fball">Show all files</button><button id="fbsys">Other apps…</button><span style="flex:1"></span><button id="fbdef" hidden>Use default</button><button id="fbuse" class="on" hidden>✓ Use this folder</button></div>`);
+document.body.appendChild(fb);
+const FB = { mode: 'open', cb: null, path: '', all: false, sort: pref('fbSort', 'name'), roots: [] };
+const DOCS = /\.(pdf|png|jpe?g|webp|gif|bmp|txt|md|csv|json|xml|html?|docx|xlsx|xls|xlsm|ods|log|rtf)$/i;
+const ICON = n => /\.pdf$/i.test(n) ? '📕' : /\.(png|jpe?g|webp|gif|bmp)$/i.test(n) ? '🖼️' : /\.(docx?|rtf|odt)$/i.test(n) ? '📘' : /\.(xlsx?|xlsm|ods|csv)$/i.test(n) ? '📗' : '📄';
+const fsz = b => b >= 1073741824 ? (b / 1073741824).toFixed(1) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function fbRoots() {
+  FB.roots = JP(A.roots(), []);
+  const r = $('#fbr'); r.innerHTML = '';
+  const add = (label, path) => { const b = mk('button', {}, esc(label)); b.onclick = () => fbGo(path); r.appendChild(b); };
+  add('🏠 Storages', '');
+  FB.roots.forEach(x => add((x.kind === 'usb' ? '🔌 ' : x.kind === 'sd' ? '💾 ' : '📱 ') + x.label, x.path));
+  const int = FB.roots.find(x => x.kind === 'internal');
+  if (int) { add('⬇ Download', int.path + '/Download'); add('📁 Documents', int.path + '/Documents'); }
+}
+function fbOpen(mode, cb, start) {
+  FB.mode = mode; FB.cb = cb || null;
+  $('#fbt').textContent = mode === 'folder' ? 'Choose a folder' : mode === 'add' ? 'Add a file to this document' : 'Open a file';
+  $('#fbuse').hidden = $('#fbdef').hidden = mode !== 'folder'; $('#fball').hidden = $('#fbsys').hidden = mode === 'folder';
+  $('#fball').textContent = FB.all ? 'Documents only' : 'Show all files';
+  mp.hidden = rp.hidden = true; fb.hidden = false; fbRoots();
+  let p = start || (mode === 'folder' ? '' : pref('fbLast', ''));
+  if (!p) { const int = FB.roots.find(x => x.kind === 'internal'); p = int ? int.path : ''; }
+  fbGo(p);
+}
+function fbClose() { fb.hidden = true; }
+const isRoot = p => FB.roots.some(x => x.path === p);
+function fbUp(fromBack) {
+  if (!FB.path) { if (fromBack) fbClose(); return; }
+  if (isRoot(FB.path)) { fbGo(''); return; }
+  fbGo(FB.path.replace(/\/[^/]+\/?$/, '') || '/');
+}
+function fbItem(icon, name, meta, onTap) {
+  const d = mk('div', { className: 'fi' }, `<div class="ic">${icon}</div><div class="nm"><div>${esc(name)}</div>${meta ? `<div class="mt">${esc(meta)}</div>` : ''}</div>`);
+  d.onclick = onTap; return d;
+}
+function fbGo(path) {
+  const L = $('#fbl'); L.innerHTML = ''; FB.path = path; $('#fbu').disabled = !path;
+  $('#fbsys').hidden = FB.mode === 'folder';
+  if (!path) {                                   // list of storages
+    $('#fbp').textContent = 'All storages'; $('#fbuse').disabled = true;
+    FB.roots.forEach(x => L.appendChild(fbItem(x.kind === 'usb' ? '🔌' : x.kind === 'sd' ? '💾' : '📱', x.label, x.total ? fsz(x.free) + ' free of ' + fsz(x.total) : x.path, () => fbGo(x.path))));
+    if (!FB.roots.length) L.appendChild(mk('div', { id: 'fbm' }, 'No storage found.'));
+    return;
+  }
+  $('#fbp').textContent = '\u200e' + path; $('#fbuse').disabled = false;
+  const r = JP(A.listDir(path), { ok: false });
+  if (!r.ok) {
+    const m = mk('div', { id: 'fbm' });
+    if (r.blocked) m.textContent = 'Android does not let any app open this system folder.';
+    else if (r.perm) { m.innerHTML = 'Markup Studio needs permission to see all your files.<br><button>Allow access to all files</button>'; m.querySelector('button').onclick = () => A.requestStorage(); }
+    else m.textContent = 'This folder cannot be opened.';
+    L.appendChild(m); return;
+  }
+  let items = r.items.filter(x => !x.n.startsWith('.'));
+  const dirs = items.filter(x => x.d), files = items.filter(x => !x.d && (FB.all || DOCS.test(x.n)));
+  const cmp = FB.sort === 'date' ? (a, b) => b.m - a.m : (a, b) => a.n.localeCompare(b.n, undefined, { numeric: true, sensitivity: 'base' });
+  dirs.sort(cmp); files.sort(cmp);
+  const day = m => m ? new Date(m).toLocaleDateString() : '';
+  dirs.forEach(x => L.appendChild(fbItem('📁', x.n, day(x.m), () => fbGo(path.replace(/\/$/, '') + '/' + x.n))));
+  if (FB.mode !== 'folder') files.forEach(x => L.appendChild(fbItem(ICON(x.n), x.n, fsz(x.s) + ' · ' + day(x.m), () => {
+    A.setPref('fbLast', path); fbClose(); toast('Opening ' + x.n + '…');
+    A.openPaths(JSON.stringify([path.replace(/\/$/, '') + '/' + x.n]), FB.mode === 'add' ? 'add' : 'replace');
+  })));
+  if (!L.children.length) L.appendChild(mk('div', { id: 'fbm' }, FB.mode === 'folder' ? 'No sub-folders here. Tap “Use this folder” to pick this one.' : 'No documents in this folder.' + (FB.all ? '' : ' Tap “Show all files” to see everything.')));
+  L.scrollTop = 0;
+}
+$('#fbx').onclick = fbClose; $('#fbu').onclick = () => fbUp(false);
+$('#fbs').onclick = () => { FB.sort = FB.sort === 'name' ? 'date' : 'name'; A.setPref('fbSort', FB.sort); $('#fbs').textContent = FB.sort === 'name' ? 'A–Z' : 'Newest'; fbGo(FB.path); };
+$('#fbs').textContent = FB.sort === 'name' ? 'A–Z' : 'Newest';
+$('#fball').onclick = () => { FB.all = !FB.all; $('#fball').textContent = FB.all ? 'Documents only' : 'Show all files'; fbGo(FB.path); };
+$('#fbsys').onclick = () => { const m = FB.mode === 'add' ? 'add' : 'replace'; fbClose(); A.pickFiles(m); };
+$('#fbdef').onclick = () => { fbClose(); if (FB.cb) FB.cb(''); };
+$('#fbuse').onclick = () => {
+  const p = FB.path; if (!p) return; fbClose();
+  if (!A.canWriteDir(p)) toast('Android needs your OK to write there: Settings ⋮ → “Allow writing to SD card / USB”', 6000);
+  if (FB.cb) FB.cb(p);
+};
+
 /* ---------- lifecycle ---------- */
 window.__saveNow = () => { saveStateNow(); saveMarks(); };
 window.__paused = () => { if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
-document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); else if (window.__setTool) window.__setTool('scroll'); });
 
 /* ---------- startup: files from the intent, else the last document ---------- */
 (async function () {

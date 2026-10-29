@@ -3,6 +3,10 @@
   if (!window.Android) return;
   window.NATIVE = true;
   const A = window.Android;
+  try {                                            // theme before first paint: white (default), dark, or same as phone
+    const t = A.getPref('theme', 'light');
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
   function b64(u8, s, e) {
     let bin = '';
     for (let i = s; i < e; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + 0x8000, e)));

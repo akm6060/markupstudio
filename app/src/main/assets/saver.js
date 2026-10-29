@@ -57,7 +57,7 @@ S.drawStrokes = function (L, doc, page, strokes) {
 };
 
 /* list: [{kind,bytes,pn,w,h,strokes}] ; raster(p) -> Promise<ArrayBuffer|Uint8Array> JPEG with the marks already baked in */
-S.build = async function (L, list, raster) {
+S.buildDoc = async function (L, list, raster) {
   const sources = new Map();
   const load = async b => { let d = sources.get(b); if (!d) { d = await L.PDFDocument.load(b, { ignoreEncryption: true, updateMetadata: false }); sources.set(b, d); } return d; };
   const first = list[0];
@@ -67,7 +67,7 @@ S.build = async function (L, list, raster) {
       const d = await load(first.bytes);
       if (d.getPageCount() === list.length) {
         list.forEach((p, i) => S.drawStrokes(L, d, d.getPage(i), p.strokes));
-        return d.save();
+        return d;
       }
     } catch (e) { sources.clear(); }
   }
@@ -83,7 +83,8 @@ S.build = async function (L, list, raster) {
     if (!done && p.kind === 'blank') { const pg = out.addPage([p.w, p.h]); S.drawStrokes(L, out, pg, p.strokes); done = true; }
     if (!done) { const im = await out.embedJpg(await raster(p)); out.addPage([p.w, p.h]).drawImage(im, { x: 0, y: 0, width: p.w, height: p.h }); }
   }
-  return out.save();
+  return out;
 };
+S.build = async function (L, list, raster) { return (await S.buildDoc(L, list, raster)).save(); };
 if (typeof module !== 'undefined' && module.exports) module.exports = S; else root.MarkupSaver = S;
 })(typeof self !== 'undefined' ? self : this);

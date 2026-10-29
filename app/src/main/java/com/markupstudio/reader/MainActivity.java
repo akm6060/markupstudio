@@ -19,6 +19,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageVolume;
+import android.content.res.Configuration;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
@@ -92,6 +95,10 @@ public class MainActivity extends Activity {
     private final Map<Integer, Entry> entries = new ConcurrentHashMap<>();
     private final List<Entry> pending = new ArrayList<>();
     private int nextId = 1;
+
+    private synchronized int newId() {
+        return nextId++;
+    }
     private boolean jsReady = false;
     private String pickMode = "replace";
 
@@ -216,7 +223,7 @@ public class MainActivity extends Activity {
                 .build();
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.BLACK);
+        applyTheme(prefs.getString("p_theme", "light"));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         setContentView(web);
         try {
@@ -257,7 +264,7 @@ public class MainActivity extends Activity {
                 public void run() {
                     if (hasStorage() || isFinishing()) return;
                     try {
-                        new android.app.AlertDialog.Builder(MainActivity.this)
+                        new android.app.AlertDialog.Builder(MainActivity.this, isDark(prefs.getString("p_theme", "light")) ? android.R.style.Theme_Material_Dialog_Alert : android.R.style.Theme_Material_Light_Dialog_Alert)
                                 .setTitle("Allow file access?")
                                 .setMessage("Markup Studio needs file access to save your markings back into the original file. "
                                         + "Tap ALLOW, then switch on the setting and press Back to return here.")
@@ -323,6 +330,23 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+    /* ------------------------------------------------------------------ theme */
+
+    private boolean isDark(String t) {
+        if ("dark".equals(t)) return true;
+        if (!"auto".equals(t)) return false;
+        return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private void applyTheme(String t) {
+        int bg = isDark(t) ? 0xFF15171A : Color.WHITE;
+        try {
+            if (web != null) web.setBackgroundColor(bg);
+            getWindow().getDecorView().setBackgroundColor(bg);
+        } catch (Throwable ignored) {
+        }
+    }
+
     /* ------------------------------------------------------------------ full screen */
 
     private void applyFullscreen(boolean on) {
@@ -380,6 +404,14 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
         super.onRequestPermissionsResult(code, perms, res);
+        if (code == REQ_PERM && !hasStorage() && Build.VERSION.SDK_INT >= 23
+                && !shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            toastUi("Turn on Storage in Permissions, then come back");
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+            } catch (Exception ignored) {
+            }
+        }
         jsEvent("storage");
     }
 
@@ -474,7 +506,7 @@ public class MainActivity extends Activity {
             os.write(text.getBytes("UTF-8"));
             os.close();
             Entry e = new Entry();
-            e.id = nextId++;
+            e.id = newId();
             e.file = f;
             e.name = f.getName();
             e.mime = "text/plain";
@@ -488,7 +520,7 @@ public class MainActivity extends Activity {
 
     private Entry register(Uri uri, String mime) {
         Entry e = new Entry();
-        e.id = nextId++;
+        e.id = newId();
         e.uri = uri;
         e.mime = mime;
         if ("file".equals(uri.getScheme())) {
@@ -740,14 +772,14 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String writeViaTreeNew(File dir, String name) {
+    private String writeViaTreeNew(File dir, String name, String mime) {
         String[] vr = volumeAndRel(dir);
         if (vr == null) return null;
         Uri tu = treeFor(vr[0], vr[1]);
         if (tu == null) return null;
         try {
             Uri parent = DocumentsContract.buildDocumentUriUsingTree(tu, vr[0] + ":" + vr[1]);
-            Uri doc = DocumentsContract.createDocument(getContentResolver(), parent, "application/pdf", name);
+            Uri doc = DocumentsContract.createDocument(getContentResolver(), parent, mime, name);
             if (doc == null) return null;
             OutputStream os = getContentResolver().openOutputStream(doc, "wt");
             if (os == null) return null;
@@ -813,8 +845,26 @@ public class MainActivity extends Activity {
         return null;
     }
 
+    /** writes the pending file into a folder the user picked; null if that is not possible */
+    private String writeToDir(String dirPath, String name, String mime) {
+        if (dirPath == null || dirPath.isEmpty()) return null;
+        File dir = new File(dirPath);
+        File f = unique(dir, name);
+        try {
+            if (!dir.exists()) dir.mkdirs();
+            copyTmpToFile(f);
+            scan(f);
+            return f.getPath();
+        } catch (Exception ignored) {
+            if (f.exists() && f.length() == 0) f.delete();
+        }
+        return writeViaTreeNew(dir, f.getName(), mime);
+    }
+
     private String writeCopy(Entry e, String suggested) throws Exception {
         String nm = (e != null && e.name != null ? stripExt(e.name) + "-edited.pdf" : suggested);
+        String chosen = writeToDir(prefs.getString("p_copyDir", ""), nm, "application/pdf");
+        if (chosen != null) return chosen;
         if (e != null && e.file != null && e.file.getParentFile() != null) {
             File dir = e.file.getParentFile();
             File f = unique(dir, nm);
@@ -824,7 +874,7 @@ public class MainActivity extends Activity {
                 return f.getPath();
             } catch (IOException | SecurityException ignored) {
             }
-            String w = writeViaTreeNew(dir, f.getName());
+            String w = writeViaTreeNew(dir, f.getName(), "application/pdf");
             if (w != null) return w;
         }
         return writePublic("MarkupStudio", nm, "application/pdf");
@@ -837,7 +887,9 @@ public class MainActivity extends Activity {
         if ("export".equals(mode)) {
             String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
             String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
-            where = writePublic("MarkupStudio", name, mime != null ? mime : "application/octet-stream");
+            String m = mime != null ? mime : "application/octet-stream";
+            where = writeToDir(prefs.getString("p_exportDir", ""), name, m);
+            if (where == null) where = writePublic("MarkupStudio", name, m);
         } else {
             if ("original".equals(mode)) {
                 if (e != null && e.name != null && e.name.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -996,7 +1048,7 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < in.length(); i++) {
                     JSONObject j = in.getJSONObject(i);
                     Entry e = new Entry();
-                    e.id = nextId++;
+                    e.id = newId();
                     e.name = j.optString("name", "document");
                     e.mime = j.optString("mime", "application/octet-stream");
                     String path = j.optString("path", "");
@@ -1165,6 +1217,156 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return "{}";
             }
+        }
+
+        /* ---- theme ---- */
+
+        @JavascriptInterface
+        public void setTheme(final String t) {
+            prefs.edit().putString("p_theme", t).apply();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    applyTheme(t);
+                }
+            });
+        }
+
+        /* ---- built-in file browser: internal storage, SD cards, USB drives ---- */
+
+        private void addRoot(JSONArray a, Set<String> seen, File d, String label, String kind) {
+            if (d == null) return;
+            try {
+                String p = d.getAbsolutePath();
+                try {
+                    p = d.getCanonicalPath();
+                } catch (IOException ignored) {
+                }
+                if ("/storage/self/primary".equals(p) || "/sdcard".equals(p)) p = Environment.getExternalStorageDirectory().getAbsolutePath();
+                if (seen.contains(p) || !new File(p).exists()) return;
+                seen.add(p);
+                File f = new File(p);
+                a.put(new JSONObject().put("path", p).put("label", label).put("kind", kind)
+                        .put("total", f.getTotalSpace()).put("free", f.getFreeSpace()));
+            } catch (Exception ignored) {
+            }
+        }
+
+        @JavascriptInterface
+        public String roots() {
+            JSONArray a = new JSONArray();
+            Set<String> seen = new HashSet<>();
+            addRoot(a, seen, Environment.getExternalStorageDirectory(), "Internal storage", "internal");
+            if (Build.VERSION.SDK_INT >= 24) {
+                try {
+                    StorageManager sm = (StorageManager) getSystemService(Context.STORAGE_SERVICE);
+                    for (StorageVolume v : sm.getStorageVolumes()) {
+                        String state = v.getState();
+                        if (state != null && !state.startsWith("mounted")) continue;
+                        File d = null;
+                        if (Build.VERSION.SDK_INT >= 30) d = v.getDirectory();
+                        else {
+                            try {
+                                d = new File((String) v.getClass().getMethod("getPath").invoke(v));
+                            } catch (Exception ignored) {
+                            }
+                        }
+                        String label = v.getDescription(MainActivity.this);
+                        String low = label == null ? "" : label.toLowerCase(Locale.ROOT);
+                        String kind = v.isPrimary() ? "internal" : low.contains("usb") || low.contains("otg") ? "usb" : "sd";
+                        addRoot(a, seen, d, label == null ? (kind.equals("usb") ? "USB drive" : "SD card") : label, kind);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+            try {
+                File[] ds = getExternalFilesDirs(null);
+                if (ds != null) for (File d : ds) {
+                    if (d == null) continue;
+                    String p = d.getAbsolutePath();
+                    int i = p.indexOf("/Android/data");
+                    if (i > 0) addRoot(a, seen, new File(p.substring(0, i)), "SD card / USB", "sd");
+                }
+            } catch (Throwable ignored) {
+            }
+            try {
+                File[] l = new File("/storage").listFiles();
+                if (l != null) for (File d : l) {
+                    String n = d.getName();
+                    if (n.equals("self") || n.equals("emulated") || !d.isDirectory() || !d.canRead()) continue;
+                    addRoot(a, seen, d, n.toLowerCase(Locale.ROOT).contains("usb") ? "USB drive" : "Storage " + n, n.toLowerCase(Locale.ROOT).contains("usb") ? "usb" : "sd");
+                }
+            } catch (Throwable ignored) {
+            }
+            return a.toString();
+        }
+
+        @JavascriptInterface
+        public String listDir(String path) {
+            JSONObject o = new JSONObject();
+            try {
+                File d = new File(path);
+                o.put("path", d.getAbsolutePath());
+                File[] fs = d.listFiles();
+                if (fs == null) {
+                    boolean sys = path.contains("/Android/data") || path.contains("/Android/obb");
+                    o.put("ok", false).put("perm", !hasStorage()).put("blocked", sys);
+                    return o.toString();
+                }
+                JSONArray a = new JSONArray();
+                for (File f : fs) {
+                    boolean dir = f.isDirectory();
+                    a.put(new JSONObject().put("n", f.getName()).put("d", dir).put("s", dir ? 0 : f.length()).put("m", f.lastModified()));
+                }
+                o.put("ok", true).put("items", a).put("w", d.canWrite());
+            } catch (Exception e) {
+                try {
+                    o.put("ok", false).put("err", String.valueOf(e.getMessage()));
+                } catch (Exception ignored) {
+                }
+            }
+            return o.toString();
+        }
+
+        /** can new files be written into this folder (directly, or through a granted SD/USB folder)? */
+        @JavascriptInterface
+        public boolean canWriteDir(String path) {
+            File d = new File(path);
+            File t = new File(d, ".ms-write-test-" + System.nanoTime());
+            try {
+                if (t.createNewFile()) {
+                    t.delete();
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+            String[] vr = volumeAndRel(d);
+            return vr != null && treeFor(vr[0], vr[1]) != null;
+        }
+
+        @JavascriptInterface
+        public void openPaths(String json, String mode) {
+            List<Entry> added = new ArrayList<>();
+            try {
+                JSONArray a = new JSONArray(json);
+                for (int i = 0; i < a.length(); i++) {
+                    File f = new File(a.getString(i));
+                    if (!f.isFile() || !f.canRead()) continue;
+                    Entry e = new Entry();
+                    e.id = newId();
+                    e.file = f;
+                    e.name = f.getName();
+                    e.size = f.length();
+                    int dot = e.name.lastIndexOf('.');
+                    String g = dot < 0 ? null : MimeTypeMap.getSingleton().getMimeTypeFromExtension(e.name.substring(dot + 1).toLowerCase(Locale.ROOT));
+                    e.mime = g != null ? g : "application/octet-stream";
+                    entries.put(e.id, e);
+                    added.add(e);
+                }
+            } catch (Exception ignored) {
+            }
+            if (added.isEmpty()) toastUi("Could not open that file");
+            else deliver(added, mode);
         }
 
         /* ---- speech ---- */
