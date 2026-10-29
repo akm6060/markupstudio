@@ -459,7 +459,7 @@ view.addEventListener('pointerup', async e => {
   const t = tap; tap = null; if (!t || !t.ok || performance.now() - t.t > 600) return;
   if (window.__pinchAt && performance.now() - window.__pinchAt < 600) return;
   const wrap = e.target.closest && e.target.closest('.pg'); if (!wrap || !wrap._p) return;
-  const p = wrap._p, r = p.oc.getBoundingClientRect(), x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
+  const p = wrap._p, r = p.wrap.getBoundingClientRect(), x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
   let rdp; try { rdp = await pageReadable(p); } catch (err) { return; }
   const wi = RC.nearestWord(rdp.words, x, y, 28); if (wi < 0) return;
   readFrom(p, wi);
