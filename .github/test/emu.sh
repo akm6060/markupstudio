@@ -18,7 +18,7 @@ adb exec-out screencap -p > s3-download.png
 python3 $T/tap.py "test2col.pdf"; sleep 10
 adb exec-out screencap -p > s4-doc.png
 python3 $T/tap.py "🔍" "Search"; sleep 2
-python3 $T/tap.py "Word or phrase (Hindi or English)" "Word or phrase"; sleep 1
+python3 $T/tap.py "Search words"; sleep 1
 adb shell input text ultrasound; sleep 1
 adb shell input keyevent 66; sleep 6
 adb exec-out screencap -p > s5-search.png

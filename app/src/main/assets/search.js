@@ -218,4 +218,7 @@ window.__back = () => { if (!sp.hidden) { if (sp.classList.contains('mini')) sp.
 /* a new document: old results no longer apply */
 const prevDoc = window.__docChanged;
 window.__docChanged = function (fresh, added) { if (fresh) { pages.forEach(p => { p.stx = null; }); clearAll(); outlineDoc = null; } if (prevDoc) prevDoc(fresh, added); };
+/* every icon button gets a spoken name (TalkBack, and the automatic tests) */
+setTimeout(() => document.querySelectorAll('button[title]').forEach(b => { if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title); }), 0);
+$('#sq').setAttribute('aria-label', 'Search words');
 })();
