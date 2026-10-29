@@ -300,7 +300,7 @@ async function pageCanvas(p,k){
  try{p.strokes.forEach(s=>drawS(ax,s))}finally{scale=os;dpr=od}
  x.globalCompositeOperation='multiply';x.drawImage(a,0,0);x.globalCompositeOperation='source-over';return c}
 async function textOf(p){if(p.kind==='txt')return p.lines.join('\n');if(p.kind==='pdf'){try{await ensure(p)}catch(e){return '(this page could not be read)'}const tc=await p.page.getTextContent();return tc.items.map(i=>i.str+(i.hasEOL?'\n':'')).join('')}return '(no text on this page)'}
-let openExp=function(){if(!pages.length)return;const sel=pages.some(p=>p.sel);$('#escope').querySelector('[value=sel]').disabled=!sel;$('#escope').value=inGrid()&&sel?'sel':'all';$('#est').textContent='';$('#ego').disabled=false;$('#exp').hidden=false}
+let openExp=function(){if(!pages.length)return;const tot=BOOK?BOOK.recs.length:pages.length;if(!$('#efrom').value)$('#efrom').value=1;if(!$('#eto').value)$('#eto').value=tot;$('#efrom').max=$('#eto').max=tot;$('#efrom').onchange=$('#eto').onchange=updSz;const sel=pages.some(p=>p.sel);$('#escope').querySelector('[value=sel]').disabled=!sel;$('#escope').value=inGrid()&&sel?'sel':'all';$('#est').textContent='';$('#ego').disabled=false;$('#exp').hidden=false}
 $('#exbtn').onclick=openExp;$('#gexp').onclick=openExp;$('#ex').onclick=()=>$('#exp').hidden=true;
 async function mkDocx(J){
  await lib(JSZIP);const z=new JSZip(),W=J[0].w,H=J[0].h,E=12700,R='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -326,16 +326,56 @@ const spd=()=>SPD[$('#espd').value]||SPD.quick;
 try{const v=localStorage.getItem('ms.espd');if(v&&SPD[v])$('#espd').value=v;else $('#espd').value='quick'}catch(e){$('#espd').value='quick'}
 $('#espd').onchange=()=>{try{localStorage.setItem('ms.espd',$('#espd').value)}catch(e){}};
 const fmtB=b=>b>=1048576?(b/1048576).toFixed(b>=104857600?0:1)+' MB':Math.max(1,Math.round(b/1024))+' KB';
-const expList=()=>{const sc=$('#escope').value;return sc==='all'?pages.slice():sc==='sel'?pages.filter(p=>p.sel):[inGrid()?(pages.find(p=>p.sel)||pages[0]):cur_page()].filter(Boolean)};
+const expList=()=>{const sc=$('#escope').value,all=BOOK?window.__allPages():pages;
+ if(sc==='range'){let a=(+$('#efrom').value||1)-1,b=(+$('#eto').value||all.length)-1;if(a>b)[a,b]=[b,a];return all.slice(Math.max(0,a),Math.min(all.length,b+1))}
+ return sc==='all'?all.slice():sc==='sel'?pages.filter(p=>p.sel):[inGrid()?(pages.find(p=>p.sel)||pages[0]):cur_page()].filter(Boolean)};
+let eparts=10;const partsOn=()=>$('#emode').value==='n'&&$('#efmt').value==='pdf';
+$('#emode').onchange=()=>updSz();$('#epm').onclick=()=>{eparts=Math.max(2,eparts-1);updSz()};$('#epp').onclick=()=>{eparts=Math.min(50,eparts+1);updSz()};
+/* big books go through the phone's own PDF tools (they use storage instead of memory) */
+const JSBIG=MEM.low?60e6:120e6;
+const nativeBig=l=>!!(window.__pdfJob&&l.length&&l.every(p=>p.kind==='pdf'&&p.nid&&p.nid===l[0].nid)&&(BOOK||origOf(l)>JSBIG||l.length>400));
+const marksOf=l=>{const m={};for(const p of l)if(p.strokes&&p.strokes.length)m[p.pn]=p.strokes;return m};
 const origOf=l=>l.reduce((a,p)=>a+(p.osize||0),0);
 function updSz(){const fmt=$('#efmt').value,row=$('#eszrow'),info=$('#eszi');$('#esz').textContent=epct+'%';
- $('#espr').style.display=fmt==='txt'||epct>=100?'none':'';
+ $('#espr').style.display=fmt==='txt'||epct>=100?'none':'';$('#erng').style.display=$('#escope').value==='range'?'':'none';
+ $('#eparts').style.display=fmt==='pdf'?'':'none';$('#epn').textContent=eparts;$('#epm').style.display=$('#epp').style.display=$('#epn').style.display=partsOn()?'':'none';
  if(fmt==='txt'){row.style.display='none';info.textContent='';return}row.style.display='';
  const o=origOf(expList());
  info.textContent=epct>=100?(fmt==='pdf'?'Original quality'+(o?' · about '+fmtB(o):'')+' · text stays selectable':'Full quality'):(o?'Original '+fmtB(o)+' → about '+fmtB(o*epct/100):'Smaller file, lower picture quality')}
 $('#esm').onclick=()=>{epct=Math.max(10,epct-10);updSz()};$('#esp').onclick=()=>{epct=Math.min(100,epct+10);updSz()};
 $('#efmt').onchange=updSz;$('#escope').onchange=updSz;
 const _openExp=openExp;openExp=function(){_openExp();updSz()};$('#exbtn').onclick=openExp;$('#gexp').onclick=openExp;
+/* several parts from a normal-size document (done here, in the page) */
+async function exportPartsJs(list,pct,say,E,n){
+ n=Math.min(n,list.length);const t0=performance.now(),out=[];let bad=0;
+ for(let k=0;k<n;k++){const a=Math.floor(list.length*k/n),b=Math.floor(list.length*(k+1)/n),ch=list.slice(a,b);
+  const r=await exportPdf(ch,pct,t=>say(`Part ${k+1} of ${n}: ${t}`),E);bad+=r.bad||0;
+  const name=`${docName}-part${String(k+1).padStart(2,'0')}-of-${String(n).padStart(2,'0')}.pdf`;await dls.save({filename:name,data:r.data});out.push(name)}
+ say(`Saved ✓ ${n} parts (${out[0]} …) · ${((performance.now()-t0)/1000).toFixed(0)} s`+(bad?` · ${bad} damaged page(s) left blank`:''))}
+/* a big book: the phone's PDF tools cut it into pieces; each piece is compressed here if asked; pieces are joined again when one file is wanted */
+async function exportBig(list,pct,say,E,n){
+ const t0=performance.now(),nid=list[0].nid,pn=list.map(p=>p.pn),marks=marksOf(list),base=docName+(pct<100?'-'+pct+'pc':'-marked');
+ const prog=pre=>(x=>say(pre+(x.msg||'')));
+ if(pct>=100){const r=await window.__pdfJob({op:'export',src:nid,pages:pn,marks,parts:n,name:base},prog(''));
+  say(`Saved ✓ ${r.files.length>1?r.files.length+' parts in '+r.files[0].replace(/[^/]*$/,''):r.files[0]} · ${((performance.now()-t0)/1000).toFixed(0)} s`+(r.bad?` · ${r.bad} damaged page(s) left blank`:''));return}
+ await lib(PDFLIB);
+ const avg=Math.max(1,origOf(list)/list.length),per=n>1?Math.ceil(list.length/n):Math.max(10,Math.floor((MEM.low?25e6:45e6)/avg));
+ const chunks=[];for(let a=0;a<list.length;a+=per)chunks.push(pn.slice(a,a+per));
+ const temps=[];let before=0,after=0;
+ try{
+  for(let k=0;k<chunks.length;k++){const tag=`Piece ${k+1} of ${chunks.length}: `,ch=chunks[k],mk={};for(const x of ch)if(marks[x])mk[x]=marks[x];
+   const r=await window.__pdfJob({op:'export',src:nid,pages:ch,marks:mk,parts:1,dest:'temp',name:'piece'},prog(tag));
+   const path=r.files[0],id=Android.registerFile(path);let bytes=new Uint8Array(await (await fetch('/__file/'+id,{cache:'no-store'})).arrayBuffer());Android.deleteTemp(path);
+   before+=bytes.length;say(tag+'compressing…');
+   const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true,updateMetadata:false});const size0=bytes.length;bytes=null;
+   await shrinkImages(doc,size0,size0*pct/100,t=>say(tag+t),E);
+   const outb=await doc.save({useObjectStreams:true});after+=outb.length;
+   if(n>1){const name=`${base}-part${String(k+1).padStart(2,'0')}-of-${String(chunks.length).padStart(2,'0')}.pdf`;await dls.save({filename:name,data:outb})}
+   else{const w=await window.__saveBlob(new Blob([outb],{type:'application/pdf'}),'temp','piece.pdf',0);temps.push(w.where)}
+   await new Promise(r=>setTimeout(r,30))}
+  if(n<=1){say('Joining the pieces into one file…');const r=await window.__pdfJob({op:'merge',files:temps,name:base,deleteSources:true},prog('Joining: '));temps.length=0;say(`Saved ✓ ${r.files[0]} · ${fmtB(after)} (from ${fmtB(before)}) · ${((performance.now()-t0)/1000).toFixed(0)} s`)}
+  else say(`Saved ✓ ${chunks.length} parts · ${fmtB(after)} (from ${fmtB(before)}) · ${((performance.now()-t0)/1000).toFixed(0)} s`)
+ }finally{for(const t of temps)try{Android.deleteTemp(t)}catch(e){}}}
 /* render a page and encode it at the best quality that fits the byte budget */
 async function encodeFit(p,budget,mime,S,E){
  E=E||SPD.normal;
@@ -405,7 +445,10 @@ $('#ego').onclick=async()=>{
  if(!dls){say('Saving is not available in this view.');return}
  const list=expList();
  if(!list.length||!list[0])return;$('#ego').disabled=true;
- const nm=i=>`${docName}-p${pages.indexOf(list[i])+1}`,prog=i=>say(`Preparing page ${i+1} of ${list.length}…`),orig=origOf(list),target=orig*pct/100,small=pct<100&&orig>0;
+ if(fmt==='pdf'&&nativeBig(list)){try{await exportBig(list,pct,say,spd(),partsOn()?eparts:1)}catch(e){say('Export failed: '+(e&&e.message||e))}$('#ego').disabled=false;return}
+ if(fmt!=='pdf'&&list.length>300){say('For more than 300 pages please choose PDF, or export a smaller page range.');$('#ego').disabled=false;return}
+ if(fmt==='pdf'&&partsOn()){try{await exportPartsJs(list,pct,say,spd(),eparts)}catch(e){say('Export failed: '+(e&&e.message||e))}$('#ego').disabled=false;return}
+ const nm=i=>`${docName}-p${pageNo(list[i])}`,prog=i=>say(`Preparing page ${i+1} of ${list.length}…`),orig=origOf(list),target=orig*pct/100,small=pct<100&&orig>0;
  const IM={png:['image/png','png'],jpg:['image/jpeg','jpg'],webp:['image/webp','webp']},S={},E=spd(),t0=performance.now();
  const pageBlob=async(i,mime,q)=>small?encodeFit(list[i],Math.max(4000,target/list.length),mime,S,E):blobOf(await pageCanvas(list[i],2),mime,q);
  try{

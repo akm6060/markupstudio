@@ -12,12 +12,12 @@ const css = el('style'); css.textContent = `
 .sh.cur{background:rgba(249,115,22,.55);outline:2px solid #ea580c}
 #sp .row input[type=search],#sp .row input[type=number]{flex:1;min-width:0;font:inherit;font-size:15px;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg)}
 #sp .row input[type=number]{max-width:84px;font-size:14px}
-#sres{display:flex;flex-direction:column;max-height:34vh;overflow:auto;border-top:1px solid var(--bd)}
+#sres{display:flex;flex-direction:column;max-height:38vh;overflow:auto;border-top:1px solid var(--bd)}
 .sr{display:flex;flex-direction:column;gap:2px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:pointer}.sr:active,.sr.on{background:var(--ac2)}
 .sr .h{display:flex;justify-content:space-between;font-size:14px}.sr .h b{color:var(--ac)}.sr small{color:var(--mut);font-size:12px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sr small mark{background:rgba(250,204,21,.6);color:inherit;border-radius:2px}
 #sst{font-size:12px;color:var(--mut);min-height:16px}
-#sp.mini>*:not(.nav){display:none!important}#sp.mini{padding:6px 10px}
+#sp{top:calc(6px + env(safe-area-inset-top,0px));bottom:auto!important;max-height:62vh}#sp.mini>*:not(.nav){display:none!important}#sp.mini{padding:6px 10px}
 #sp .nav{display:flex;gap:6px;align-items:center}#sp .nav span{flex:1;text-align:center;font-size:13px;color:var(--mut)}`;
 document.head.appendChild(css);
 
@@ -36,14 +36,24 @@ document.body.appendChild(sp);
 const S = { gen: 0, res: [], flat: [], cur: -1, re: null, running: false };
 
 /* ---------- text of a page with the position of every character ---------- */
+let sdoc = null, sdocUses = 0;
+async function pdfPageFor(rec) {
+  const B = window.__book && window.__book();
+  if (B && B.src && B.src.url && B.src.size > BIGPDF) {          // big book: a search engine of its own, renewed every 120 pages
+    if (!sdoc || sdocUses >= 120) { if (sdoc) try { await sdoc.destroy(); } catch (e) {} sdoc = await pdfjsLib.getDocument({ url: B.src.url, disableAutoFetch: true, disableStream: true, rangeChunkSize: 262144 }).promise; sdocUses = 0; }
+    sdocUses++; return { pg: await sdoc.getPage(rec.pn), own: true };
+  }
+  await ensure(rec); return { pg: rec.page, own: false };
+}
+async function endSearchDoc() { if (sdoc) { try { await sdoc.destroy(); } catch (e) {} sdoc = null; } }
 async function pageText(p) {
-  if (p.stx) return p.stx;
   let str = '';
   const G = [], ci = [], co = [];                          // item geometry; for each character: item index, offset in item
   const push = (s, gi) => { for (let k = 0; k < s.length; k++) { ci.push(gi); co.push(k); } str += s; };
   if (p.kind === 'pdf') {
-    await ensure(p);
-    const tc = await p.page.getTextContent(), vp = p.page.getViewport({ scale: 1 });
+    const { pg, own } = await pdfPageFor(p);
+    const tc = await pg.getTextContent(), vp = pg.getViewport({ scale: 1 });
+    if (own) try { pg.cleanup(); } catch (e) {}
     for (const it of tc.items) {
       if (typeof it.str !== 'string') continue;
       const t = pdfjsLib.Util.transform(vp.transform, it.transform), fs = Math.hypot(t[2], t[3]) || 10, s = (RC ? RC.fixDeva(it.str) : it.str).normalize('NFC');
@@ -54,7 +64,7 @@ async function pageText(p) {
   } else if (p.kind === 'txt') {
     p.lines.forEach((l, i) => { G.push({ x: 40, y: 40 + i * 12 + 8, fs: 9, cw: 5.4 }); push(l.normalize('NFC'), G.length - 1); push(' ', -1); });
   }
-  return (p.stx = { str, G, ci, co, low: str.toLowerCase() });
+  return { str, G, ci, co, low: str.toLowerCase() };
 }
 function boxesOf(tx, a, b) {
   const out = []; let cur = null;
@@ -77,6 +87,7 @@ function makeRe(q, whole) {
 let outline = null, outlineDoc = null;
 async function loadOutline() {
   const d = pages[0] && pages[0].doc; if (!d) return [];
+  if (outline && outlineDoc && window.__book && window.__book() && outlineDoc !== d && outline.length) { outlineDoc = d; return outline; }   // same book, engine renewed
   if (outlineDoc === d) return outline; outlineDoc = d; outline = [];
   try {
     const ol = await d.getOutline(); if (!ol) return outline;
@@ -97,16 +108,17 @@ async function loadOutline() {
   } catch (e) {}
   return outline;
 }
-const curIndex = () => { const t = window.__topPage && window.__topPage(); return t ? pages.indexOf(t.p) : 0; };
+const allP = () => (window.__allPages ? window.__allPages() : pages);
+const curIndex = () => { const t = window.__topPage && window.__topPage(); return t ? window.__pageNo(t.p) - 1 : 0; };
 async function section(kind) {
-  const ol = await loadOutline(), p = pages[curIndex()]; if (!ol.length || !p || p.doc !== outlineDoc) return null;
+  const ol = await loadOutline(), p = allP()[curIndex()]; if (!ol.length || !p) return null;
   const pn = p.pn, cand = ol.filter(e => e.pn <= pn && (kind === 'topic' || e.lv === 0));
   if (!cand.length) return null;
   const me = kind === 'topic' ? cand.reduce((a, e) => (e.pn > a.pn || (e.pn === a.pn && e.lv >= a.lv) ? e : a)) : cand[cand.length - 1];
   const nx = ol.find(e => e.pn > me.pn && e.lv <= me.lv);
-  const toPn = nx ? Math.max(me.pn, nx.pn - 1) : outlineDoc.numPages;
-  const idx = n => pages.findIndex(q => q.doc === outlineDoc && q.pn === n);
-  let a = idx(me.pn), b = idx(toPn); if (a < 0) a = 0; if (b < 0) b = pages.length - 1;
+  const toPn = nx ? Math.max(me.pn, nx.pn - 1) : outlineDoc.numPages, L = allP();
+  const idx = n => L.findIndex(q => q.kind === 'pdf' && q.pn === n);
+  let a = idx(me.pn), b = idx(toPn); if (a < 0) a = 0; if (b < 0) b = L.length - 1;
   return { title: me.title, a, b };
 }
 async function refreshScope() {
@@ -116,45 +128,50 @@ async function refreshScope() {
   sel.querySelector('[value=topic]').textContent = tp ? `This topic: ${tp.title.slice(0, 40)} (p. ${tp.a + 1}–${tp.b + 1})` : 'This topic (book has no bookmarks)';
   if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = 'all';
   if (!$('#sfrom').value) $('#sfrom').value = curIndex() + 1;
-  if (!$('#sto').value) $('#sto').value = Math.min(pages.length, curIndex() + 20);
-  $('#sfrom').max = $('#sto').max = pages.length;
+  if (!$('#sto').value) $('#sto').value = Math.min(allP().length, curIndex() + 20);
+  $('#sfrom').max = $('#sto').max = allP().length;
   $('#srng').style.display = sel.value === 'range' ? '' : 'none';
 }
 async function scopeRange() {
   const v = $('#ssc').value;
   if (v === 'chapter' || v === 'topic') { const s = await section(v); if (s) return [s.a, s.b]; }
-  if (v === 'range') { let a = (+$('#sfrom').value || 1) - 1, b = (+$('#sto').value || pages.length) - 1; if (a > b) [a, b] = [b, a]; return [Math.max(0, a), Math.min(pages.length - 1, b)]; }
-  return [0, pages.length - 1];
+  const n = allP().length;
+  if (v === 'range') { let a = (+$('#sfrom').value || 1) - 1, b = (+$('#sto').value || n) - 1; if (a > b) [a, b] = [b, a]; return [Math.max(0, a), Math.min(n - 1, b)]; }
+  return [0, n - 1];
 }
 
 /* ---------- highlights ---------- */
 function clearHits(p) { p.wrap.querySelectorAll('.sh').forEach(e => e.remove()); }
 function drawHits(p) {
-  clearHits(p); if (!p.smatch || !p.stx || !p.w) return;
+  clearHits(p); const r = p.rec || p; if (!r.smatch || !p.w) return;
   const cur = S.flat[S.cur];
-  p.smatch.forEach((m, k) => {
-    if (!m.boxes) m.boxes = boxesOf(p.stx, m.a, m.b);
+  r.smatch.forEach((m, k) => {
     for (const b of m.boxes) {
-      const d = el('div', { className: 'sh' + (cur && cur.p === p && cur.k === k ? ' cur' : '') });
+      const d = el('div', { className: 'sh' + (cur && cur.p === r && cur.k === k ? ' cur' : '') });
       d.style.cssText = `left:${(b.x0 - 1) / p.w * 100}%;top:${(b.top - 1) / p.h * 100}%;width:${(b.x1 - b.x0 + 2) / p.w * 100}%;height:${(b.bottom - b.top + 2) / p.h * 100}%`;
       p.wrap.appendChild(d);
     }
   });
 }
-function clearAll() { S.gen++; pages.forEach(p => { p.smatch = null; clearHits(p); }); S.res = []; S.flat = []; S.cur = -1; $('#sres').innerHTML = ''; $('#sst').textContent = ''; updNav(); }
+function clearAll() { S.gen++; allP().forEach(p => { p.smatch = null; }); pages.forEach(p => { if (p.rec) p.rec.smatch = null; p.smatch = null; clearHits(p); }); S.res = []; S.flat = []; S.cur = -1; $('#sres').innerHTML = ''; $('#sst').textContent = ''; updNav(); }
 function updNav() { $('#scnt').textContent = S.flat.length ? `${S.cur + 1} / ${S.flat.length}` + (S.running ? '…' : '') : (S.running ? 'searching…' : 'no matches'); }
-function goTo(i) {
+const shown = r => pages.find(q => (q.rec || q) === r);
+async function goTo(i) {
   if (!S.flat.length) return;
   i = (i + S.flat.length) % S.flat.length;
   const prev = S.flat[S.cur]; S.cur = i; const m = S.flat[i];
-  if (prev && prev.p !== m.p) drawHits(prev.p);
-  drawHits(m.p);
-  const box = (m.p.smatch[m.k].boxes || [])[0], vr = view.getBoundingClientRect(), pr = m.p.wrap.getBoundingClientRect();
+  let d = shown(m.p);
+  if (!d && window.__book && window.__book()) { await window.__gotoGlobal(m.p.pn - 1, 0); d = shown(m.p); }   // the match is in another part of the book
+  if (!d) return;
+  const pd = prev && shown(prev.p); if (pd && pd !== d) drawHits(pd);
+  drawHits(d);
+  const box = (m.p.smatch[m.k].boxes || [])[0], vr = view.getBoundingClientRect(), pr = d.wrap.getBoundingClientRect();
   if (box) {
     const y = pr.top - vr.top + box.top * scale, x = pr.left - vr.left + box.x0 * scale;
     view.scrollBy({ top: y - view.clientHeight * 0.35, left: (x < 10 || x > view.clientWidth - 40) ? x - view.clientWidth * 0.2 : 0 });
   } else view.scrollBy({ top: pr.top - vr.top - 6 });
   document.querySelectorAll('#sres .sr').forEach(r => r.classList.toggle('on', r._p === m.p));
+  const on = document.querySelector('#sres .sr.on'); if (on && !sp.classList.contains('mini')) on.scrollIntoView({ block: 'nearest' });
   updNav();
 }
 
@@ -167,28 +184,31 @@ async function run() {
   if (!re) return;
   S.running = true; $('#sgo').textContent = 'Stop'; let total = 0; const list = $('#sres');
   try { localStorage.setItem('ms.sq', q); } catch (e) {}
+  const L = allP();
   for (let i = a; i <= b; i++) {
-    if (gen !== S.gen) return;
-    const p = pages[i];
+    if (gen !== S.gen) { endSearchDoc(); return; }
+    const p = L[i];
     $('#sst').textContent = `Searching page ${i + 1} (${i - a + 1} of ${b - a + 1}) · found ${total} so far`;
     let tx; try { tx = await pageText(p); } catch (e) { continue; }
     if (gen !== S.gen) return;
     const ms = []; re.lastIndex = 0; let m;
     while ((m = re.exec(tx.low))) { if (!m[0].length) { re.lastIndex++; continue; } ms.push({ a: m.index, b: m.index + m[0].length }); if (ms.length >= 999) break; }
+    ms.forEach(x => { x.boxes = boxesOf(tx, x.a, x.b); });             // keep only where the matches are, not the page text
     if (ms.length) {
       p.smatch = ms; total += ms.length; S.res.push({ p, n: ms.length });
       ms.forEach((x, k) => S.flat.push({ p, k }));
       const s0 = Math.max(0, ms[0].a - 35), sn = tx.str.slice(s0, ms[0].a) , hit = tx.str.slice(ms[0].a, ms[0].b), after = tx.str.slice(ms[0].b, ms[0].b + 45);
-      const r = el('div', { className: 'sr' }, `<div class="h"><span>Page <b>${i + 1}</b></span><span><b>${ms.length}</b> time${ms.length > 1 ? 's' : ''}</span></div><small>${s0 ? '…' : ''}${esc(sn)}<mark>${esc(hit)}</mark>${esc(after)}…</small>`);
-      r._p = p; r.onclick = () => { const k = S.flat.findIndex(f => f.p === p); goTo(k); sp.classList.add('mini'); };
+      const r = el('div', { className: 'sr' }, `<div class="h"><span>Page <b>${p.kind === 'pdf' && window.__book && window.__book() ? p.pn : i + 1}</b></span><span><b>${ms.length}</b> time${ms.length > 1 ? 's' : ''}</span></div><small>${s0 ? '…' : ''}${esc(sn)}<mark>${esc(hit)}</mark>${esc(after)}…</small>`);
+      r._p = p; r.onclick = () => { const k = S.flat.findIndex(f => f.p === p); sp.classList.add('mini'); goTo(k); };
       list.appendChild(r);
-      const vr = view.getBoundingClientRect(), pr = p.wrap.getBoundingClientRect();
-      if (pr.bottom > vr.top - 400 && pr.top < vr.bottom + 400) drawHits(p);
+      const d = shown(p);
+      if (d) { const vr = view.getBoundingClientRect(), pr = d.wrap.getBoundingClientRect(); if (pr.bottom > vr.top - 400 && pr.top < vr.bottom + 400) drawHits(d); }
       if (S.cur < 0) { S.cur = 0; }
       updNav();
     }
     if ((i - a) % 4 === 3) await new Promise(r => setTimeout(r, 0));
   }
+  await endSearchDoc();
   S.running = false; $('#sgo').textContent = 'Search';
   $('#sst').textContent = total ? `“${q.trim()}” found ${total} time${total > 1 ? 's' : ''} on ${S.res.length} page${S.res.length > 1 ? 's' : ''} (pages ${a + 1}–${b + 1})` : `“${q.trim()}” was not found in pages ${a + 1}–${b + 1}`;
   updNav();
@@ -196,7 +216,7 @@ async function run() {
 /* highlights for pages that come into view */
 let st; view.addEventListener('scroll', () => {
   if (!S.flat.length) return; clearTimeout(st);
-  st = setTimeout(() => { const vr = view.getBoundingClientRect(); for (const r of S.res) { const pr = r.p.wrap.getBoundingClientRect(); if (pr.bottom > vr.top - 600 && pr.top < vr.bottom + 600 && !r.p.wrap.querySelector('.sh')) drawHits(r.p); } }, 200);
+  st = setTimeout(() => { const vr = view.getBoundingClientRect(); for (const q of pages) { if (!(q.rec || q).smatch) continue; const pr = q.wrap.getBoundingClientRect(); if (pr.bottom > vr.top - 600 && pr.top < vr.bottom + 600 && !q.wrap.querySelector('.sh')) drawHits(q); } }, 200);
 }, { passive: true });
 
 /* ---------- panel ---------- */
@@ -208,7 +228,7 @@ sb.onclick = async () => {
   await refreshScope(); $('#sq').focus();
 };
 $('#spx').onclick = () => { sp.hidden = true; clearAll(); };
-$('#sgo').onclick = () => { if (S.running) { S.gen++; S.running = false; $('#sgo').textContent = 'Search'; $('#sst').textContent += ' · stopped'; updNav(); } else run(); };
+$('#sgo').onclick = () => { if (S.running) { S.gen++; endSearchDoc(); S.running = false; $('#sgo').textContent = 'Search'; $('#sst').textContent += ' · stopped'; updNav(); } else run(); };
 $('#sq').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#sq').blur(); run(); } });
 $('#ssc').onchange = () => { $('#srng').style.display = $('#ssc').value === 'range' ? '' : 'none'; };
 $('#sprev').onclick = () => goTo(S.cur - 1); $('#snext').onclick = () => goTo(S.cur + 1);
@@ -217,7 +237,10 @@ const prevBack = window.__back;
 window.__back = () => { if (!sp.hidden) { if (sp.classList.contains('mini')) sp.classList.remove('mini'); else { sp.hidden = true; clearAll(); } return true; } return prevBack ? prevBack() : false; };
 /* a new document: old results no longer apply */
 const prevDoc = window.__docChanged;
-window.__docChanged = function (fresh, added) { if (fresh) { pages.forEach(p => { p.stx = null; }); clearAll(); outlineDoc = null; } if (prevDoc) prevDoc(fresh, added); };
+window.__docChanged = function (fresh, added) { if (fresh) { S.res = []; S.flat = []; S.cur = -1; outlineDoc = null; outline = null; $('#sres').innerHTML = ''; $('#sst').textContent = ''; updNav(); } if (prevDoc) prevDoc(fresh, added); };
+/* another part of a big book is shown: put the highlights back on its pages */
+const prevPart = window.__partChanged;
+window.__partChanged = function () { if (S.flat.length) setTimeout(() => pages.forEach(q => { if ((q.rec || q).smatch) drawHits(q); }), 50); if (prevPart) prevPart(); };
 /* every icon button gets a spoken name (TalkBack, and the automatic tests) */
 setTimeout(() => document.querySelectorAll('button[title]').forEach(b => { if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title); }), 0);
 $('#sq').setAttribute('aria-label', 'Search words');

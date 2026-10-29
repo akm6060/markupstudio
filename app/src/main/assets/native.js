@@ -45,7 +45,7 @@ $('#exbtn').after(sv, rd); $('#info').before(mn); $('#pgs').before(ob);
 
 /* ---------- opening files from Android (open with / share / picker / resume) ---------- */
 async function fetchEntry(e) {
-  const url = '/__file/' + e.id; meta[e.id] = { name: e.name, mime: e.mime };
+  const url = '/__file/' + e.id; meta[e.id] = { name: e.name, mime: e.mime, size: e.size };
   if ((/pdf/i.test(e.mime || '') || /\.pdf$/i.test(e.name || '')) && e.size > BIGPDF) {   // big book: do not load it all into memory
     const get = () => fetch(url, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r; });
     return { name: e.name || 'document.pdf', type: 'application/pdf', size: e.size, _nid: e.id, _url: url, arrayBuffer: () => get().then(r => r.arrayBuffer()), text: () => get().then(r => r.text()) };
@@ -116,11 +116,30 @@ window.__docChanged = (fresh, added) => {
 /* ---------- saving ---------- */
 let saving = false;
 const saveMode = () => pref('saveMode', 'copy');
+/* ---------- the phone's own PDF tools (big books): jobs with progress ---------- */
+const jobs = {};
+window.__job = (id, type, d) => { const j = jobs[id]; if (!j) return; if (type === 'progress') { if (j.prog) j.prog(d); } else { delete jobs[id]; A.keepAwake(false); if (d.ok) j.ok(d); else j.no(new Error(d.err || 'failed')); } };
+window.__pdfJob = (o, prog) => new Promise((ok, no) => { A.keepAwake(true); const id = A.job(JSON.stringify(o)); jobs[id] = { ok, no, prog }; });
+/* a big book is saved by the phone's PDF tools: only the pages with marks are touched, nothing is loaded into memory */
+async function saveBig(all, mode, primary) {
+  const marks = {}; let n = 0; for (const p of all) if (p.strokes && p.strokes.length) { marks[p.pn] = p.strokes; n++; }
+  if (!n) { toast('There are no marks to save'); return; }
+  const r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode, name: docName + '-edited.pdf' }, d => toast(d.msg || 'Saving…', 60000));
+  setDirty(false);
+  toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where), 5000);
+  if (r.mode === 'original') {                         // the file on disk changed: open it again at the same place
+    const t = topPage(), idx = t ? window.__pageNo(t.p) - 1 : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
+    all.forEach(p => p.strokes && p.strokes.splice(0)); clearMarksFor(primary); skipMarks = true;
+    await window.__nativeOpen([{ id: primary, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', { page: idx, frac: fr });
+  }
+}
 async function doSave() {
   if (!pages.length) { toast('Nothing to save'); return; }
   if (saving) return; saving = true; sv.disabled = true; toast('Saving…', 60000);
   try {
-    let mode = saveMode(); const primary = docPrimary || 0;
+    let mode = saveMode(); const primary = docPrimary || 0, all = window.__allPages();
+    const big = (window.__book() || (all[0].src && all[0].src.size > JSBIG) || all.length > 400) && all.every((p, i) => p.kind === 'pdf' && p.nid === all[0].nid && p.pn === i + 1);
+    if (big) { await saveBig(all, mode, all[0].nid); saving = false; sv.disabled = false; return; }
     for (const p of pages) { try { await ensure(p); } catch (e) {} }   // a damaged page must not stop the save
     await lib(PDFLIB);
     const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
@@ -130,9 +149,9 @@ async function doSave() {
     setDirty(false);
     toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where) + (bad ? ' · ' + bad + ' damaged page' + (bad > 1 ? 's' : '') + ' could not be read, so the original was not replaced.' : ''), bad ? 8000 : 4500);
     if (r.mode === 'original' && primary) {            // reload so what you see is what is on disk
-      const t = topPage(), idx = t ? pages.indexOf(t.p) : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
+      const t = topPage(), idx = t ? window.__pageNo(t.p) - 1 : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
       clearMarksFor(primary); skipMarks = true;
-      await window.__nativeOpen([{ id: primary, name: m.name || (docName + '.pdf'), mime: m.mime }], 'replace', { page: idx, frac: fr });
+      await window.__nativeOpen([{ id: primary, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', { page: idx, frac: fr });
     }
   } catch (e) { toast('Save failed: ' + (e && e.message || e), 5000); }
   saving = false; sv.disabled = false;
@@ -150,6 +169,11 @@ const mp = mk('div', { id: 'mp', className: 'panel', hidden: true }, `
  <div><b style="font-size:13px">Folders</b></div>
  <div class="row"><span>Edited copies go to</span><button id="mcd">Change</button></div><small id="mcdv"></small>
  <div class="row"><span>Exports go to</span><button id="med">Change</button></div><small id="medv"></small>
+ <hr>
+ <div><b style="font-size:13px">Big books</b></div>
+ <div class="row"><span>Show</span><select id="mpart"><option value="">Automatic</option><option value="0">All pages at once</option><option value="100">100 pages at a time</option><option value="200">200 pages at a time</option><option value="300">300 pages at a time</option><option value="500">500 pages at a time</option></select></div>
+ <small id="mmem"></small>
+ <div class="row"><button class="big" id="mmerge">Join PDF files into one…</button></div>
  <hr>
  <div class="row"><span>Theme</span><select id="mth"><option value="light">White</option><option value="dark">Dark</option><option value="auto">Same as phone</option></select></div>
  <hr>
@@ -204,7 +228,9 @@ function refreshMenu() {
   const s = JP(A.storageInfo(), {}), vol = (s.volumes || []).filter(v => !/emulated/.test(v));
   $('#mstore').textContent = (s.allFiles ? 'All-files access: allowed. ' : 'All-files access: not allowed yet. ') + (vol.length ? 'Removable storage found: ' + vol.join(', ') + '. ' : 'No SD card / USB drive detected. ') + ((s.trees || []).length ? 'Folder access granted for ' + s.trees.length + ' location(s).' : '');
   $('#mperm').style.display = s.allFiles ? 'none' : '';
-  $('#mth').value = pref('theme', 'light');
+  $('#mth').value = pref('theme', 'light'); $('#mpart').value = pref('partSize', '');
+  const mi = JP(A.memInfo ? A.memInfo() : '{}', {}), M = window.__MEM || {};
+  $('#mmem').textContent = (mi.total ? 'This phone has ' + (mi.total / 1073741824).toFixed(1) + ' GB memory' + (M.low ? ' — low-memory mode is on.' : '.') + ' ' : '') + 'Books with more pages than this are shown part by part; ◀ ▶ at the top move between parts.';
   const cd = pref('copyDir', ''), ed = pref('exportDir', '');
   $('#mcdv').textContent = cd || 'Same folder as the original file';
   $('#medv').textContent = ed || 'Download/MarkupStudio';
@@ -213,11 +239,13 @@ mp.addEventListener('change', e => {
   if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); toast(e.target.value === 'original' ? 'Save will replace the original file' : 'Save will create a new copy'); }
   if (e.target.id === 'mfs') A.setFullscreen(e.target.checked);
   if (e.target.id === 'mres') A.setPref('resume', e.target.checked ? '1' : '0');
+  if (e.target.id === 'mpart') { A.setPref('partSize', e.target.value); toast('Applies when you open a book'); }
   if (e.target.id === 'mth') { const t = e.target.value; A.setTheme(t); if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 });
 $('#mcd').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('copyDir', p); toast(p ? 'Edited copies will be saved in ' + p : 'Edited copies will be saved next to the original'); }, pref('copyDir', '')); };
 $('#med').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('exportDir', p); toast(p ? 'Exports will be saved in ' + p : 'Exports will be saved in Download/MarkupStudio'); }, pref('exportDir', '')); };
 $('#mbrowse').onclick = () => { mp.hidden = true; fbOpen('open'); };
+$('#mmerge').onclick = () => { mp.hidden = true; fbOpen('merge'); };
 $('#mperm').onclick = () => A.requestStorage(); $('#mtree').onclick = () => A.grantTree();
 window.__nativeEvent = ev => { if (ev === 'storage') { if (!mp.hidden) refreshMenu(); if (!fb.hidden) fbGo(FB.path); } };
 
@@ -455,7 +483,7 @@ pq(rp, '#asbtn').onclick = () => AS.on ? stopAS() : startAS();
 const fb = mk('div', { id: 'fb', hidden: true }, `
  <div id="fbh"><button id="fbx" title="Close">✕</button><div id="fbt">Open a file</div><button id="fbu" title="Up one folder">⬆</button><button id="fbs" title="Sort">A–Z</button></div>
  <div id="fbr"></div><div id="fbp"></div><div id="fbl"></div>
- <div id="fbf"><button id="fball">Show all files</button><button id="fbsys">Other apps…</button><span style="flex:1"></span><button id="fbdef" hidden>Use default</button><button id="fbuse" class="on" hidden>✓ Use this folder</button></div>`);
+ <div id="fbf"><button id="fball">Show all files</button><button id="fbsys">Other apps…</button><span style="flex:1"></span><button id="fbjoin" class="on" hidden>Join</button><button id="fbdef" hidden>Use default</button><button id="fbuse" class="on" hidden>✓ Use this folder</button></div>`);
 document.body.appendChild(fb);
 const FB = { mode: 'open', cb: null, path: '', all: false, sort: pref('fbSort', 'name'), roots: [] };
 const DOCS = /\.(pdf|png|jpe?g|webp|gif|bmp|txt|md|csv|json|xml|html?|docx|xlsx|xls|xlsm|ods|log|rtf)$/i;
@@ -473,8 +501,9 @@ function fbRoots() {
 }
 function fbOpen(mode, cb, start) {
   FB.mode = mode; FB.cb = cb || null;
-  $('#fbt').textContent = mode === 'folder' ? 'Choose a folder' : mode === 'add' ? 'Add a file to this document' : 'Open a file';
-  $('#fbuse').hidden = $('#fbdef').hidden = mode !== 'folder'; $('#fball').hidden = $('#fbsys').hidden = mode === 'folder';
+  $('#fbt').textContent = mode === 'folder' ? 'Choose a folder' : mode === 'add' ? 'Add a file to this document' : mode === 'merge' ? 'Tap PDFs in the order to join' : 'Open a file';
+  $('#fbuse').hidden = $('#fbdef').hidden = mode !== 'folder'; $('#fball').hidden = $('#fbsys').hidden = mode === 'folder' || mode === 'merge';
+  $('#fbjoin').hidden = mode !== 'merge'; FB.pick = []; updJoin();
   $('#fball').textContent = FB.all ? 'Documents only' : 'Show all files';
   mp.hidden = rp.hidden = true; fb.hidden = false; fbRoots();
   let p = start || (mode === 'folder' ? '' : pref('fbLast', ''));
@@ -511,18 +540,33 @@ function fbGo(path) {
     L.appendChild(m); return;
   }
   let items = r.items.filter(x => !x.n.startsWith('.'));
-  const dirs = items.filter(x => x.d), files = items.filter(x => !x.d && (FB.all || DOCS.test(x.n)));
+  const dirs = items.filter(x => x.d), files = items.filter(x => !x.d && (FB.mode === 'merge' ? /\.pdf$/i.test(x.n) : (FB.all || DOCS.test(x.n))));
   const cmp = FB.sort === 'date' ? (a, b) => b.m - a.m : (a, b) => a.n.localeCompare(b.n, undefined, { numeric: true, sensitivity: 'base' });
   dirs.sort(cmp); files.sort(cmp);
   const day = m => m ? new Date(m).toLocaleDateString() : '';
   dirs.forEach(x => L.appendChild(fbItem('📁', x.n, day(x.m), () => fbGo(path.replace(/\/$/, '') + '/' + x.n))));
-  if (FB.mode !== 'folder') files.forEach(x => L.appendChild(fbItem(ICON(x.n), x.n, fsz(x.s) + ' · ' + day(x.m), () => {
+  if (FB.mode === 'merge') files.forEach(x => {
+    const full = path.replace(/\/$/, '') + '/' + x.n, it = fbItem(ICON(x.n), x.n, fsz(x.s) + ' · ' + day(x.m), () => {
+      const i = FB.pick.indexOf(full); if (i >= 0) FB.pick.splice(i, 1); else FB.pick.push(full); fbGo(FB.path); updJoin();
+    });
+    const k = FB.pick.indexOf(full); if (k >= 0) { it.style.background = 'var(--ac2)'; it.querySelector('.ic').textContent = String(k + 1); }
+    L.appendChild(it);
+  });
+  else if (FB.mode !== 'folder') files.forEach(x => L.appendChild(fbItem(ICON(x.n), x.n, fsz(x.s) + ' · ' + day(x.m), () => {
     A.setPref('fbLast', path); fbClose(); toast('Opening ' + x.n + '…');
     A.openPaths(JSON.stringify([path.replace(/\/$/, '') + '/' + x.n]), FB.mode === 'add' ? 'add' : 'replace');
   })));
   if (!L.children.length) L.appendChild(mk('div', { id: 'fbm' }, FB.mode === 'folder' ? 'No sub-folders here. Tap “Use this folder” to pick this one.' : 'No documents in this folder.' + (FB.all ? '' : ' Tap “Show all files” to see everything.')));
   L.scrollTop = 0;
 }
+function updJoin() { const b = $('#fbjoin'); if (b) { b.textContent = FB.pick && FB.pick.length > 1 ? `Join ${FB.pick.length} files` : 'Pick 2 or more PDFs'; b.disabled = !(FB.pick && FB.pick.length > 1); } }
+$('#fbjoin').onclick = async () => {
+  const files = FB.pick.slice(); if (files.length < 2) return;
+  const name = (prompt('Name of the joined file', 'joined') || '').trim().replace(/[\\/:*?"<>|]/g, '_'); if (!name) return;
+  fbClose();
+  try { const r = await window.__pdfJob({ op: 'merge', files, name }, d => toast(d.msg || 'Joining…', 60000)); toast('Saved: ' + r.files[0], 6000); }
+  catch (e) { toast('Joining failed: ' + e.message, 6000); }
+};
 $('#fbx').onclick = fbClose; $('#fbu').onclick = () => fbUp(false);
 $('#fbs').onclick = () => { FB.sort = FB.sort === 'name' ? 'date' : 'name'; A.setPref('fbSort', FB.sort); $('#fbs').textContent = FB.sort === 'name' ? 'A–Z' : 'Newest'; fbGo(FB.path); };
 $('#fbs').textContent = FB.sort === 'name' ? 'A–Z' : 'Newest';
@@ -537,6 +581,10 @@ $('#fbuse').onclick = () => {
 
 /* ---------- lifecycle ---------- */
 window.__saveNow = () => { saveStateNow(); saveMarks(); };
+window.__partChanged = () => {                       // marks not saved yet come back on the pages of this part
+  const all = loadMarks(); for (const p of pages) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes.push(...all[k]); redraw(p); } }
+  saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
+};
 window.__partLeaving = () => { if (R.on && !R.switching) { R.resumeAt = null; stopAll(); } hlClear(); };
 window.__paused = () => { if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); else if (window.__setTool) window.__setTool('scroll'); });

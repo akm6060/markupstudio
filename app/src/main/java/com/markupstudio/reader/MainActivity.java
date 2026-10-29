@@ -51,6 +51,10 @@ import com.tom_roush.pdfbox.pdmodel.graphics.blend.BlendMode;
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor;
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
 import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode;
+import java.security.MessageDigest;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -1214,6 +1218,168 @@ public class MainActivity extends Activity {
         return p;
     }
 
+    /* ---- big books are cut once into part files (kept in the app's storage) so only one part is ever in memory ---- */
+
+    private File booksDir() {
+        File base = getExternalCacheDir();
+        if (base == null) base = getCacheDir();
+        File d = new File(base, "books");
+        if (!d.exists()) d.mkdirs();
+        return d;
+    }
+
+    private static String sha1(String t) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] h = md.digest(t.getBytes("UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 10; i++) sb.append(String.format("%02x", h[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            return String.valueOf(t.hashCode());
+        }
+    }
+
+    private String bookKey(Entry e, int partSize) {
+        long size = e.file != null ? e.file.length() : e.size, mt = e.file != null ? e.file.lastModified() : 0;
+        return sha1((e.file != null ? e.file.getPath() : String.valueOf(e.uri)) + "|" + size + "|" + mt + "|" + partSize);
+    }
+
+    private static void deleteDir(File d) {
+        File[] l = d.listFiles();
+        if (l != null) for (File f : l) { if (f.isDirectory()) deleteDir(f); else f.delete(); }
+        d.delete();
+    }
+
+    private static void readOutline(PDDocument doc, PDOutlineNode node, int lv, JSONArray out, java.util.Map<PDPage, Integer> idx) {
+        if (node == null || lv > 6 || out.length() > 3000) return;
+        for (PDOutlineItem it : node.children()) {
+            try {
+                PDPage pg = it.findDestinationPage(doc);
+                Integer i = pg == null ? null : idx.get(pg);
+                if (i != null) out.put(new JSONObject().put("title", it.getTitle() == null ? "" : it.getTitle().trim()).put("lv", lv).put("pi", i));
+            } catch (Exception ignored) {
+            }
+            readOutline(doc, it, lv + 1, out, idx);
+        }
+    }
+
+    private void prepareBook(String id, JSONObject o) throws Exception {
+        Entry e = entries.get(o.getInt("src"));
+        if (e == null) throw new FileNotFoundException("The book is no longer open");
+        int ps = Math.max(50, o.optInt("partSize", 200));
+        String key = bookKey(e, ps);
+        File dir = new File(booksDir(), key), info = new File(dir, "info.json");
+        if (info.isFile()) {                                   // prepared before: open straight away
+            try {
+                byte[] b = new byte[(int) info.length()];
+                FileInputStream in = new FileInputStream(info);
+                int off = 0, n;
+                while (off < b.length && (n = in.read(b, off, b.length - off)) > 0) off += n;
+                in.close();
+                JSONObject j = new JSONObject(new String(b, "UTF-8"));
+                JSONArray files = j.getJSONArray("files");
+                boolean ok = j.optBoolean("complete");
+                for (int i = 0; ok && i < files.length(); i++) ok = new File(files.getString(i)).isFile();
+                if (ok) {
+                    info.setLastModified(System.currentTimeMillis());
+                    jobMsg(id, "done", j.put("ok", true).put("cached", true));
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        long size = e.file != null ? e.file.length() : e.size;
+        File[] olds = booksDir().listFiles();                 // keep the storage use small: forget books prepared earlier
+        if (olds != null) {
+            java.util.Arrays.sort(olds, new java.util.Comparator<File>() {
+                public int compare(File a, File b) { return Long.compare(new File(b, "info.json").lastModified(), new File(a, "info.json").lastModified()); }
+            });
+            int kept = 0;
+            for (File f : olds) {
+                if (f.getName().equals(key)) continue;
+                if (kept < 1 && booksDir().getUsableSpace() > size * 2.3) { kept++; continue; }
+                deleteDir(f);
+            }
+        }
+        if (booksDir().getUsableSpace() < size * 1.15 + 50e6) throw new IOException("Not enough free storage space to prepare this book in parts");
+        if (dir.exists()) deleteDir(dir);
+        dir.mkdirs();
+        jobProgress(id, 0, 1, "Opening the book…");
+        PDDocument src = openPdf(e);
+        try {
+            int n = src.getNumberOfPages(), parts = (n + ps - 1) / ps;
+            java.util.List<PDPage> all = new ArrayList<>();
+            try { for (PDPage pg : src.getPages()) all.add(pg); } catch (Exception ex) { all.clear(); }
+            java.util.Map<PDPage, Integer> idx = new HashMap<>();
+            for (int i = 0; i < all.size(); i++) idx.put(all.get(i), i);
+            JSONArray outline = new JSONArray();
+            try { PDDocumentOutline ol = src.getDocumentCatalog().getDocumentOutline(); if (ol != null) readOutline(src, ol, 0, outline, idx); } catch (Exception ignored) { }
+            JSONObject j = new JSONObject().put("n", n).put("partSize", ps).put("parts", parts).put("outline", outline).put("key", key);
+            jobMsg(id, "info", j);
+            int first = Math.max(0, Math.min(parts - 1, o.optInt("first", 0)));
+            String[] files = new String[parts];
+            java.util.List<Integer> order = new ArrayList<>();
+            order.add(first);
+            for (int k = 0; k < parts; k++) if (k != first) order.add(k);
+            int done = 0;
+            for (int k : order) {
+                int a = k * ps, b = Math.min(n, a + ps);
+                PDDocument out = new PDDocument(diskMemory());
+                try {
+                    for (int i = a; i < b; i++) {
+                        PDPage np;
+                        try { np = importPage(out, i < all.size() ? all.get(i) : src.getPage(i)); }
+                        catch (Exception ex) { np = new PDPage(PDRectangle.A4); out.addPage(np); }
+                    }
+                    if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
+                    File f = new File(dir, String.format(Locale.ROOT, "part-%03d.pdf", k + 1));
+                    out.save(f);
+                    files[k] = f.getPath();
+                } finally {
+                    out.close();
+                }
+                done++;
+                jobMsg(id, "part", new JSONObject().put("k", k).put("path", files[k]).put("done", done).put("parts", parts));
+            }
+            JSONArray fa = new JSONArray();
+            for (String f : files) fa.put(f);
+            j.put("files", fa).put("complete", true);
+            OutputStream os = new FileOutputStream(info);
+            os.write(j.toString().getBytes("UTF-8"));
+            os.close();
+            jobMsg(id, "done", j.put("ok", true));
+        } finally {
+            src.close();
+        }
+    }
+
+    /* after marks were saved into the original book, put them into the prepared parts too */
+    private void markParts(String bookDir, int ps, JSONObject marks) throws Exception {
+        java.util.Map<Integer, JSONObject> byPart = new HashMap<>();
+        for (java.util.Iterator<String> it = marks.keys(); it.hasNext(); ) {
+            String k = it.next(); int pn = Integer.parseInt(k), part = (pn - 1) / ps;
+            JSONObject m = byPart.get(part); if (m == null) { m = new JSONObject(); byPart.put(part, m); }
+            m.put(String.valueOf(pn - part * ps), marks.getJSONArray(k));
+        }
+        for (java.util.Map.Entry<Integer, JSONObject> en : byPart.entrySet()) {
+            File f = new File(bookDir, String.format(Locale.ROOT, "part-%03d.pdf", en.getKey() + 1));
+            if (!f.isFile()) continue;
+            PDDocument d = PDDocument.load(f, diskMemory());
+            File t = new File(f.getPath() + ".new");
+            try {
+                for (java.util.Iterator<String> it = en.getValue().keys(); it.hasNext(); ) {
+                    String k = it.next(); int lp = Integer.parseInt(k);
+                    if (lp >= 1 && lp <= d.getNumberOfPages()) drawMarks(d, d.getPage(lp - 1), en.getValue().getJSONArray(k));
+                }
+                d.save(t);
+            } finally {
+                d.close();
+            }
+            if (!t.renameTo(f)) { copyFile(t, f); t.delete(); }
+        }
+    }
+
     private void runJob(String id, String json) {
         PDDocument src = null;
         try {
@@ -1264,6 +1430,8 @@ public class MainActivity extends Activity {
                     }
                 }
                 jobMsg(id, "done", new JSONObject().put("ok", true).put("files", outs).put("bad", bad));
+            } else if ("prepare".equals(op)) {
+                prepareBook(id, o);
             } else if ("merge".equals(op)) {
                 JSONArray files = o.getJSONArray("files");
                 PDFMergerUtility m = new PDFMergerUtility();
@@ -1308,7 +1476,31 @@ public class MainActivity extends Activity {
                         saveTmp = old;
                     }
                 }
-                if ("original".equals(r.optString("mode"))) e.size = e.file != null ? e.file.length() : t.length();
+                if ("original".equals(r.optString("mode"))) {
+                    e.size = e.file != null ? e.file.length() : t.length();
+                    String bk = o.optString("book", "");
+                    if (!bk.isEmpty() && marks != null) {               // prepared parts: same marks, and a key that matches the new file
+                        File bd = new File(booksDir(), bk);
+                        try {
+                            int ps = o.optInt("partSize", 200);
+                            jobProgress(id, total, total, "Updating the book parts…");
+                            markParts(bd.getPath(), ps, marks);
+                            File nd = new File(booksDir(), bookKey(e, ps));
+                            if (!nd.equals(bd) && bd.renameTo(nd)) {
+                                File inf = new File(nd, "info.json");
+                                byte[] b = new byte[(int) inf.length()];
+                                FileInputStream in = new FileInputStream(inf); int off = 0, k2; while (off < b.length && (k2 = in.read(b, off, b.length - off)) > 0) off += k2; in.close();
+                                JSONObject j = new JSONObject(new String(b, "UTF-8"));
+                                JSONArray fs = j.getJSONArray("files"), nf = new JSONArray();
+                                for (int i = 0; i < fs.length(); i++) nf.put(new File(nd, new File(fs.getString(i)).getName()).getPath());
+                                j.put("files", nf).put("key", nd.getName());
+                                OutputStream os = new FileOutputStream(inf); os.write(j.toString().getBytes("UTF-8")); os.close();
+                            }
+                        } catch (Exception ex) {
+                            deleteDir(bd);                              // prepared again next time
+                        }
+                    }
+                }
                 t.delete();
                 jobMsg(id, "done", r);
             } else throw new IllegalArgumentException("unknown job " + op);

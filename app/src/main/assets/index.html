@@ -89,10 +89,12 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
 </div>
 <div id="exp" hidden>
  <div class="pt"><b>Export</b><button id="ex">✕</button></div>
- <label>Pages <select id="escope"><option value="cur">Current page</option><option value="sel">Selected pages</option><option value="all">All pages</option></select></label>
+ <label>Pages <select id="escope"><option value="cur">Current page</option><option value="sel">Selected pages</option><option value="all">All pages</option><option value="range">Pages from … to …</option></select></label>
+ <div class="szr" id="erng" style="display:none"><span>Pages</span><div class="grp"><input type="number" id="efrom" min="1" style="width:74px"> to <input type="number" id="eto" min="1" style="width:74px"></div></div>
  <label>Format <select id="efmt"><option value="pdf">PDF</option><option value="png">PNG image(s)</option><option value="jpg">JPG image(s)</option><option value="webp">WebP image(s)</option><option value="docx">Word (.docx)</option><option value="pptx">PowerPoint (.pptx)</option><option value="html">HTML page</option><option value="txt">Plain text (.txt)</option></select></label>
  <div class="szr" id="eszrow"><span>File size</span><div class="grp"><button id="esm" title="Smaller file">−</button><b id="esz">100%</b><button id="esp" title="Bigger file">+</button></div></div>
  <div id="eszi"></div>
+ <div class="szr" id="eparts"><span>Save as</span><div class="grp"><select id="emode"><option value="1">One file</option><option value="n">Parts</option></select><button id="epm">−</button><b id="epn">10</b><button id="epp">+</button></div></div>
  <label id="espr">Speed <select id="espd"><option value="instant">Instant</option><option value="quickest">Quickest</option><option value="quick">Quick</option><option value="normal">Normal (best quality)</option></select></label>
  <div id="est"></div><button id="ego" class="on">Export</button>
 </div>
