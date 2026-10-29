@@ -114,13 +114,15 @@ async function doSave() {
   if (!pages.length) { toast('Nothing to save'); return; }
   if (saving) return; saving = true; sv.disabled = true; toast('Saving…', 60000);
   try {
-    const mode = saveMode(), primary = docPrimary || 0;
-    for (const p of pages) await ensure(p);
+    let mode = saveMode(); const primary = docPrimary || 0;
+    for (const p of pages) { try { await ensure(p); } catch (e) {} }   // a damaged page must not stop the save
     await lib(PDFLIB);
-    const bytes = await SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); });
+    const bytes = await SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf);
+    const bad = bytes.__bad || 0;
+    if (bad && mode === 'original') mode = 'copy';                   // never overwrite the original with blank pages
     const r = await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), mode, docName + '-edited.pdf', primary);
     setDirty(false);
-    toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where), 4500);
+    toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where) + (bad ? ' · ' + bad + ' damaged page' + (bad > 1 ? 's' : '') + ' could not be read, so the original was not replaced.' : ''), bad ? 8000 : 4500);
     if (r.mode === 'original' && primary) {            // reload so what you see is what is on disk
       const t = topPage(), idx = t ? pages.indexOf(t.p) : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
       clearMarksFor(primary); skipMarks = true;

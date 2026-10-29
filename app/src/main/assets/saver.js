@@ -56,35 +56,56 @@ S.drawStrokes = function (L, doc, page, strokes) {
   }
 };
 
-/* list: [{kind,bytes,pn,w,h,strokes}] ; raster(p) -> Promise<ArrayBuffer|Uint8Array> JPEG with the marks already baked in */
-S.buildDoc = async function (L, list, raster) {
-  const sources = new Map();
-  const load = async b => { let d = sources.get(b); if (!d) { d = await L.PDFDocument.load(b, { ignoreEncryption: true, updateMetadata: false }); sources.set(b, d); } return d; };
+/* list: [{kind,bytes,pn,w,h,strokes}] ; raster(p) -> Promise<ArrayBuffer|Uint8Array> JPEG with the marks already baked in ;
+   refOf(p) -> Promise<{num,gen}|null> the page's object number as pdf.js sees it (finds pages even when the page tree is damaged).
+   Never gives up on the whole file because of one bad page: such a page is kept blank and counted in doc.__bad */
+S.buildDoc = async function (L, list, raster, refOf) {
+  const sources = new Map(), failed = new Map(), byRef = new Map();
+  const load = async b => {
+    if (failed.has(b)) throw failed.get(b);
+    let d = sources.get(b);
+    if (!d) { try { d = await L.PDFDocument.load(b, { ignoreEncryption: true, updateMetadata: false, throwOnInvalidObject: false }); } catch (e) { failed.set(b, e); throw e; } sources.set(b, d); }
+    return d;
+  };
+  const count = d => { try { return d.getPageCount(); } catch (e) { return -1; } };
+  const refIndex = d => {                                    // object number -> page index in pdf-lib's own page list
+    let m = byRef.get(d); if (m) return m; m = new Map(); byRef.set(d, m);
+    try { d.getPages().forEach((pg, i) => m.set(pg.ref.objectNumber + '_' + pg.ref.generationNumber, i)); } catch (e) {}
+    return m;
+  };
   const first = list[0];
   // untouched page structure of a single PDF: keep the original file (bookmarks, forms, links) and just add the marks
   if (first && first.kind === 'pdf' && first.bytes && list.every((p, i) => p.kind === 'pdf' && p.bytes === first.bytes && p.pn === i + 1)) {
     try {
       const d = await load(first.bytes);
-      if (d.getPageCount() === list.length) {
+      if (count(d) === list.length && (!first.doc || first.doc.numPages === list.length)) {
         list.forEach((p, i) => S.drawStrokes(L, d, d.getPage(i), p.strokes));
-        return d;
+        d.__bad = 0; return d;
       }
-    } catch (e) { sources.clear(); }
+    } catch (e) {}
   }
-  const out = await L.PDFDocument.create();
+  const out = await L.PDFDocument.create(); let bad = 0;
   for (const p of list) {
-    let done = false;
+    let pg = null;
     if (p.kind === 'pdf' && p.bytes) {
       try {
-        const sd = await load(p.bytes), [cp] = await out.copyPages(sd, [p.pn - 1]);
-        const pg = out.addPage(cp); S.drawStrokes(L, out, pg, p.strokes); done = true;
-      } catch (e) { done = false; }
+        const sd = await load(p.bytes);
+        let idx = -1;
+        const ref = refOf ? await refOf(p).catch(() => null) : null;
+        if (ref) { const k = refIndex(sd).get(ref.num + '_' + ref.gen); if (k !== undefined) idx = k; }
+        if (idx < 0 && (!p.doc || count(sd) === p.doc.numPages)) idx = p.pn - 1;
+        if (idx >= 0 && idx < count(sd)) { const [cp] = await out.copyPages(sd, [idx]); pg = out.addPage(cp); S.drawStrokes(L, out, pg, p.strokes); }
+      } catch (e) { pg = null; }
     }
-    if (!done && p.kind === 'blank') { const pg = out.addPage([p.w, p.h]); S.drawStrokes(L, out, pg, p.strokes); done = true; }
-    if (!done) { const im = await out.embedJpg(await raster(p)); out.addPage([p.w, p.h]).drawImage(im, { x: 0, y: 0, width: p.w, height: p.h }); }
+    if (!pg && p.kind === 'blank') { pg = out.addPage([p.w, p.h]); S.drawStrokes(L, out, pg, p.strokes); }
+    if (!pg) {
+      try { const im = await out.embedJpg(await raster(p)); pg = out.addPage([p.w, p.h]); pg.drawImage(im, { x: 0, y: 0, width: p.w, height: p.h }); }
+      catch (e) { out.addPage([p.w || 595, p.h || 842]); bad++; }
+    }
   }
+  out.__bad = bad;
   return out;
 };
-S.build = async function (L, list, raster) { return (await S.buildDoc(L, list, raster)).save(); };
+S.build = async function (L, list, raster, refOf) { const d = await S.buildDoc(L, list, raster, refOf); const b = await d.save({ useObjectStreams: true }); b.__bad = d.__bad; return b; };
 if (typeof module !== 'undefined' && module.exports) module.exports = S; else root.MarkupSaver = S;
 })(typeof self !== 'undefined' ? self : this);

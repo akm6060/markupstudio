@@ -65,6 +65,9 @@ function rm(p){try{p.task&&p.task.cancel()}catch(e){}io.unobserve(p.wrap);p.wrap
 const syncEmpty=()=>{$('#empty').style.display=pages.length?'none':''};
 function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(8e6/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc]){c.style.width=W+'px';c.style.height=H+'px'}p.oc.width=p.pc.width=Math.max(1,Math.round(W*p.pr));p.oc.height=p.pc.height=Math.max(1,Math.round(H*p.pr))}
 async function ensure(p){if(p.kind==='pdf'&&!p.page){p.page=await p.doc.getPage(p.pn);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
+/* pdf.js object number of a page, so the saver can find it even in a damaged page tree */
+const refOf=async p=>{try{await ensure(p);return p.page&&p.page.ref||null}catch(e){return null}};
+window.__refOf=refOf;
 async function paint(p,ctx,k,reg){
  ctx.fillStyle='#fff';ctx.fillRect(0,0,p.w*k,p.h*k);
  if(p.kind==='pdf'){await ensure(p);const t=p.page.render({canvasContext:ctx,viewport:p.page.getViewport({scale:k})});if(reg)reg.task=t;await t.promise}
@@ -211,7 +214,7 @@ async function pageCanvas(p,k){
  const a=document.createElement('canvas');a.width=c.width;a.height=c.height;const ax=a.getContext('2d'),os=scale,od=dpr;scale=k;dpr=1;
  try{p.strokes.forEach(s=>drawS(ax,s))}finally{scale=os;dpr=od}
  x.globalCompositeOperation='multiply';x.drawImage(a,0,0);x.globalCompositeOperation='source-over';return c}
-async function textOf(p){if(p.kind==='txt')return p.lines.join('\n');if(p.kind==='pdf'){await ensure(p);const tc=await p.page.getTextContent();return tc.items.map(i=>i.str+(i.hasEOL?'\n':'')).join('')}return '(no text on this page)'}
+async function textOf(p){if(p.kind==='txt')return p.lines.join('\n');if(p.kind==='pdf'){try{await ensure(p)}catch(e){return '(this page could not be read)'}const tc=await p.page.getTextContent();return tc.items.map(i=>i.str+(i.hasEOL?'\n':'')).join('')}return '(no text on this page)'}
 let openExp=function(){if(!pages.length)return;const sel=pages.some(p=>p.sel);$('#escope').querySelector('[value=sel]').disabled=!sel;$('#escope').value=inGrid()&&sel?'sel':'all';$('#est').textContent='';$('#ego').disabled=false;$('#exp').hidden=false}
 $('#exbtn').onclick=openExp;$('#gexp').onclick=openExp;$('#ex').onclick=()=>$('#exp').hidden=true;
 async function mkDocx(J){
@@ -296,20 +299,22 @@ async function shrinkImages(doc,estSize,target,st,E){
   ctx.assign(ref,ctx.stream(await img2u8(best),dict));budget-=best.size;changed=true}
  return changed}
 async function rasterPdf(list,target,st,E){
- const d=await PDFLib.PDFDocument.create(),S={};let used=0;
- for(let i=0;i<list.length;i++){st(`Compressing page ${i+1} of ${list.length}…`);const rem=list.length-i,bud=Math.max(5000,(target-used-1200*rem)/rem),b=await encodeFit(list[i],bud,'image/jpeg',S,E);used+=b.size+1200;
-  const im=await d.embedJpg(await img2u8(b)),p=list[i];d.addPage([p.w,p.h]).drawImage(im,{x:0,y:0,width:p.w,height:p.h})}
+ const d=await PDFLib.PDFDocument.create(),S={};let used=0;d.__bad=0;
+ for(let i=0;i<list.length;i++){st(`Compressing page ${i+1} of ${list.length}…`);const rem=list.length-i,bud=Math.max(5000,(target-used-1200*rem)/rem),p=list[i];let b=null;try{b=await encodeFit(p,bud,'image/jpeg',S,E)}catch(e){b=null}
+  if(!b){d.addPage([p.w||595,p.h||842]);d.__bad++;continue}used+=b.size+1200;
+  const im=await d.embedJpg(await img2u8(b));d.addPage([p.w,p.h]).drawImage(im,{x:0,y:0,width:p.w,height:p.h})}
+ const out=await d.save({useObjectStreams:true});out.__bad=d.__bad;return out;
  return d.save({useObjectStreams:true})}
 async function exportPdf(list,pct,st,E){
  await lib(PDFLIB);st('Building PDF…');
  const raster=async p=>img2u8(await blobOf(await pageCanvas(p,2),'image/jpeg',.9));
- const orig=origOf(list),doc=await MarkupSaver.buildDoc(PDFLib,list,raster);
- if(pct>=100||!orig)return{data:await doc.save({useObjectStreams:true}),how:''};
+ const orig=origOf(list),doc=await MarkupSaver.buildDoc(PDFLib,list,raster,refOf);let bad=doc.__bad||0;
+ if(pct>=100||!orig)return{data:await doc.save({useObjectStreams:true}),how:'',bad};
  const target=orig*pct/100;let how='';
  if(await shrinkImages(doc,orig,target,st,E))how='pictures compressed, text kept';
  st('Saving…');let best=await doc.save({useObjectStreams:true});
- if(best.length>target*1.1){const r=await rasterPdf(list,target,st,E);if(r.length<best.length){best=r;how='pages turned into pictures to reach this size'}}
- return{data:best,how}}
+ if(best.length>target*1.1){try{const r=await rasterPdf(list,target,st,E);if(r.length<best.length){best=r;bad=r.__bad||0;how='pages turned into pictures to reach this size'}}catch(e){}}
+ return{data:best,how,bad}}
 $('#ego').onclick=async()=>{
  const st=$('#est'),fmt=$('#efmt').value,pct=epct,say=t=>{st.textContent=t};
  if(!dls){say('Saving is not available in this view.');return}
@@ -319,18 +324,20 @@ $('#ego').onclick=async()=>{
  const IM={png:['image/png','png'],jpg:['image/jpeg','jpg'],webp:['image/webp','webp']},S={},E=spd(),t0=performance.now();
  const pageBlob=async(i,mime,q)=>small?encodeFit(list[i],Math.max(4000,target/list.length),mime,S,E):blobOf(await pageCanvas(list[i],2),mime,q);
  try{
-  let out,name,how='';
+  let out,name,how='',bad=0;
   if(IM[fmt]){const[m,ex]=IM[fmt];let zip=null;if(list.length>1){await lib(JSZIP);zip=new JSZip()}
-   for(let i=0;i<list.length;i++){prog(i);const b=await pageBlob(i,m,.92);if(zip)zip.file(nm(i)+'.'+ex,b);else{out=b;name=nm(0)+'.'+ex}}
+   for(let i=0;i<list.length;i++){prog(i);let b;try{b=await pageBlob(i,m,.92)}catch(e){bad++;continue}if(zip)zip.file(nm(i)+'.'+ex,b);else{out=b;name=nm(0)+'.'+ex}}
+   if(!zip&&!out)throw new Error('this page could not be read');
    if(zip){out=await zip.generateAsync({type:'blob'});name=docName+'-pages.zip'}}
   else if(fmt==='txt'){const T=[];for(let i=0;i<list.length;i++){prog(i);T.push('--- Page '+(pages.indexOf(list[i])+1)+' ---\n'+await textOf(list[i]))}out=T.join('\n\n');name=docName+'.txt'}
-  else if(fmt==='pdf'){const r=await exportPdf(list,pct,say,E);out=r.data;how=r.how;name=docName+(pct<100?'-'+pct+'pc':'-marked')+'.pdf'}
-  else{const J=[];for(let i=0;i<list.length;i++){prog(i);const p=list[i];J.push({w:p.w,h:p.h,b:await pageBlob(i,'image/jpeg',.9)})}
+  else if(fmt==='pdf'){const r=await exportPdf(list,pct,say,E);out=r.data;how=r.how;bad=r.bad||0;name=docName+(pct<100?'-'+pct+'pc':'-marked')+'.pdf'}
+  else{const J=[];for(let i=0;i<list.length;i++){prog(i);const p=list[i];let b;try{b=await pageBlob(i,'image/jpeg',.9)}catch(e){bad++;continue}J.push({w:p.w,h:p.h,b})}
+   if(!J.length)throw new Error('the pages could not be read');
    say('Building file…');
    if(fmt==='docx'){out=await mkDocx(J);name=docName+'.docx'}
    else if(fmt==='pptx'){out=await mkPptx(J);name=docName+'.pptx'}
    else{const U=[];for(const j of J)U.push(await b2u(j.b));out='<!DOCTYPE html><meta charset="utf-8"><title>'+docName.replace(/[<>&]/g,'')+'</title><body style="margin:0;background:#888;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px">'+U.map(u=>`<img src="${u}" style="max-width:100%;background:#fff">`).join('');name=docName+'.html'}}
   const size=out.size!=null?out.size:out.length!=null?(out.byteLength||out.length):0;
-  await dls.save({filename:name,data:out});say('Saved ✓ '+name+(size?' · '+fmtB(size)+(orig?' (original '+fmtB(orig)+')':''):'')+(how?' · '+how:'')+' · '+((performance.now()-t0)/1000).toFixed(1)+' s');
+  await dls.save({filename:name,data:out});say('Saved ✓ '+name+(size?' · '+fmtB(size)+(orig?' (original '+fmtB(orig)+')':''):'')+(how?' · '+how:'')+' · '+((performance.now()-t0)/1000).toFixed(1)+' s'+(bad?' · '+bad+' damaged page'+(bad>1?'s':'')+' could not be read and '+(bad>1?'were':'was')+' '+(fmt==='pdf'?'left blank':'left out'):''));
  }catch(e){say(e&&e.code==='declined'?'Cancelled.':'Export failed: '+((e&&(e.message||e.code))||'unknown error'))}
  $('#ego').disabled=false};
