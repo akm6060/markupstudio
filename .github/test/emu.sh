@@ -31,9 +31,12 @@ adb exec-out screencap -p > s6-big.png
 python3 $T/tap.py "📂" "Open a file"; sleep 3
 python3 $T/tap.py "book.pdf"; sleep 45
 adb exec-out screencap -p > s7-book.png
-for i in $(seq 1 25); do adb shell input swipe 540 1500 540 300 120; sleep 0.4; done; sleep 3
+WH=$(adb shell wm size | grep -o '[0-9]*x[0-9]*' | tail -1); W=${WH%x*}; H=${WH#*x}
+for i in $(seq 1 40); do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/5)) 250; done; sleep 4
+adb exec-out screencap -p > s8a-scroll.png
+for i in $(seq 1 40); do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/5)) 250; done; sleep 4
 adb exec-out screencap -p > s8-scroll.png
-adb shell input tap 540 1000; sleep 1
+adb shell input tap $((W/2)) $((H/2)); sleep 1
 adb shell am start -n $PKG/.MainActivity --ez ms_selftest true; sleep 100
 adb exec-out screencap -p > s9-selftest.png
 adb shell ls -la /sdcard/Download/MarkupStudio/ > files.txt 2>&1 || true

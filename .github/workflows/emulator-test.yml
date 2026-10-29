@@ -46,7 +46,7 @@ jobs:
         if: always()
         run: |
           mkdir out && cd out
-          for f in s1-start.png s2-browser.png s3-download.png s4-doc.png s5-search.png s6-big.png s7-book.png s8-scroll.png s9-selftest.png files.txt mem.txt crash.txt full.txt resumed.txt pid.txt ui-last.xml; do [ -f ../$f ] && cp ../$f ./api${{ matrix.api }}-$f; done; cp ../ui-notfound-*.xml . 2>/dev/null || true
+          for f in s1-start.png s2-browser.png s3-download.png s4-doc.png s5-search.png s6-big.png s7-book.png s8a-scroll.png s8-scroll.png s9-selftest.png files.txt mem.txt crash.txt full.txt resumed.txt pid.txt ui-last.xml; do [ -f ../$f ] && cp ../$f ./api${{ matrix.api }}-$f; done; cp ../ui-notfound-*.xml . 2>/dev/null || true
           grep -E "AndroidRuntime|chromium|MarkupStudio|markupstudio|FATAL|Console|MSRange|SELFTEST|lowmemorykiller|onTrimMemory" ../full.txt > api${{ matrix.api }}-filtered.txt || true
           git init -q -b testlog-${{ matrix.api }}
           git config user.name github-actions
