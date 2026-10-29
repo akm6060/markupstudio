@@ -2,6 +2,8 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc='libs/pdf.worker.min.js';
 const $=s=>document.querySelector(s);let dpr=Math.min(window.devicePixelRatio||1,2);
 /* memory budget: phones with 4 GB or less keep fewer, smaller page pictures */
+/* reads that are cancelled when a book is closed are not errors */
+window.addEventListener('unhandledrejection',e=>{const m=String(e.reason&&(e.reason.message||e.reason)||'');if(/Failed to fetch|postMessage|aborted|Worker was destroyed|Transport destroyed|Loading aborted/i.test(m))e.preventDefault()});
 const MEM=(()=>{let tot=0;try{if(window.Android&&Android.memInfo)tot=JSON.parse(Android.memInfo()).total||0}catch(e){}if(!tot&&navigator.deviceMemory)tot=navigator.deviceMemory*1073741824;const low=!tot||tot<4.6e9;return{low,px:low?3.2e6:5.5e6,keep:low?4:7}})();
 window.__MEM=MEM;
 let dirty=false;function setDirty(v){dirty=v!==false;window.__dirtyChanged&&window.__dirtyChanged(dirty)}
@@ -240,7 +242,10 @@ async function openSplitBook(f,want){
  window.__docChanged&&window.__docChanged(true,pages);
  return true}
 function partReady(k){return new Promise(r=>{if(BOOK.ready[k]||BOOK.prepFailed)return r();(BOOK.waits[k]=BOOK.waits[k]||[]).push(r)})}
-function openPartDoc(k){const f=BOOK.files[k];if(!f.id)f.id=Android.registerFile(f.path);return pdfjsLib.getDocument({url:'/__file/'+f.id,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise}
+/* a part file is small enough to be read in one go (one copy, inside the PDF engine) */
+async function openPartDoc(k){const f=BOOK.files[k];if(!f.id)f.id=Android.registerFile(f.path);
+ const r=await fetch('/__file/'+f.id,{cache:'no-store'});if(!r.ok)throw new Error('part '+(k+1)+' could not be read');
+ const ab=new Uint8Array(await r.arrayBuffer());return pdfjsLib.getDocument({data:ab}).promise}
 /* a page of the book for searching / reading ahead, without disturbing the part on screen */
 const aux={doc:null,k:-9,uses:0};
 async function closeAux(){if(aux.doc){const d=aux.doc;aux.doc=null;aux.k=-9;try{await d.destroy()}catch(e){}}}
@@ -278,7 +283,8 @@ async function showPart(k,at,frac){
    host.innerHTML='';const old=BOOK.partDoc;BOOK.partDoc=null;for(const r of BOOK.recs)if(r.doc){r.doc=null;r.page=null;r.read=null;r.bands=null}
    if(old)try{await old.destroy()}catch(e){}
    if(aux.k===k)await closeAux();
-   const d=await openPartDoc(k);BOOK.partDoc=d;let w=595,h=842;try{const p1=await d.getPage(1),v=p1.getViewport({scale:1});w=v.width;h=v.height}catch(e){}
+   let d;try{d=await openPartDoc(k)}catch(e){message(`<b>Part ${k+1} could not be opened.</b><br><small>${e.message||e}</small>`);return false}
+   BOOK.partDoc=d;let w=595,h=842;try{const p1=await d.getPage(1),v=p1.getViewport({scale:1});w=v.width;h=v.height}catch(e){}
    for(let i=a;i<b;i++){const r=BOOK.recs[i];r.doc=d;r.lpn=i-a+1;if(!r.sized){r.w=w;r.h=h}}
   }else if(BOOK.part>=0)await reloadEngine();
   BOOK.part=k;
@@ -454,26 +460,38 @@ async function shrinkImages(doc,estSize,target,st,E){
   if(f===N('DCTDecode'))jpg=obj.contents;
   else if(f instanceof L.PDFArray&&f.size()>=1&&f.lookup(f.size()-1)===N('DCTDecode')){const pre=[];for(let i=0;i<f.size()-1;i++)pre.push(f.lookup(i));
    if(pre.every(x=>['ASCII85Decode','ASCIIHexDecode','FlateDecode','LZWDecode','RunLengthDecode'].some(n=>x===N(n)))){try{const dd=d.clone(ctx);if(pre.length)dd.set(N('Filter'),ctx.obj(pre));else dd.delete(N('Filter'));dd.delete(N('DecodeParms'));jpg=pre.length?L.decodePDFRawStream(L.PDFRawStream.of(dd,obj.contents)).decode():obj.contents}catch(e){jpg=null}}}
-  if(!jpg||jpg[0]!==0xFF||jpg[1]!==0xD8)continue;
+  let raw=null;
+  if(!jpg){                                   // zip-compressed / plain pictures: unpack the pixels (only simple 8-bit RGB or grey ones)
+   const plain=!f||f===N('FlateDecode')||(f instanceof L.PDFArray&&f.size()===1&&f.lookup(0)===N('FlateDecode'));
+   const dp=d.lookup(N('DecodeParms')),pred=dp&&dp.lookup&&dp.lookup(N('Predictor'));
+   if(plain&&!(pred&&pred.asNumber&&pred.asNumber()>1)){const w=d.lookup(N('Width')),h=d.lookup(N('Height'));raw={w:w&&w.asNumber(),h:h&&h.asNumber()};if(!raw.w||!raw.h||raw.w*raw.h>2.5e7)raw=null}}
+  if(!raw&&(!jpg||jpg[0]!==0xFF||jpg[1]!==0xD8))continue;
   const bpc=d.lookup(N('BitsPerComponent'));if(bpc&&bpc.asNumber&&bpc.asNumber()!==8)continue;
   const cs=d.lookup(N('ColorSpace'));let okc=cs===N('DeviceRGB')||cs===N('DeviceGray');
   if(!okc&&cs instanceof L.PDFArray&&cs.lookup(0)===N('ICCBased')){try{const n=cs.lookup(1).dict.lookup(N('N')).asNumber();okc=n===1||n===3}catch(e){}}
-  if(!okc||obj.contents.length<12000)continue;imgs.push({ref,obj,jpg});tot+=obj.contents.length}
+  if(!okc||obj.contents.length<12000)continue;
+  if(raw){raw.comps=cs===N('DeviceGray')||(cs instanceof L.PDFArray&&(()=>{try{return cs.lookup(1).dict.lookup(N('N')).asNumber()===1}catch(e){return false}})())?1:3}
+  imgs.push({ref,obj,jpg,raw});tot+=obj.contents.length}
  if(!imgs.length)return false;
  const other=Math.max(0,estSize-tot);let budget=target-other;if(budget<tot*.03)return false;
  const LAD=[[1,.92],[1,.85],[1,.75],[1,.65],[.85,.6],[.72,.55],[.6,.5],[.5,.45],[.4,.42],[.32,.4],[.25,.38],[.2,.36]];
  let left=tot,changed=false;
- for(let i=0;i<imgs.length;i++){const{ref,obj,jpg}=imgs[i],n=obj.contents.length,r=Math.min(1,budget/left),want=n*r;left-=n;
+ for(let i=0;i<imgs.length;i++){const{ref,obj,jpg,raw}=imgs[i],n=obj.contents.length,r=Math.min(1,budget/left),want=n*r;left-=n;
   st(`Compressing pictures ${i+1} of ${imgs.length}…`);
   if(r>=.97){budget-=n;continue}
-  let im;try{im=await loadImg(new Blob([jpg],{type:'image/jpeg'}))}catch(e){budget-=n;continue}
+  let im;
+  if(raw){try{const px=(obj.dict.get(N('Filter'))?L.decodePDFRawStream(obj).decode():obj.contents);if(px.length<raw.w*raw.h*raw.comps)throw 0;
+    const c=document.createElement('canvas');c.width=raw.w;c.height=raw.h;const x=c.getContext('2d'),id=x.createImageData(raw.w,raw.h),o=id.data;
+    for(let p=0,q=0,e=raw.w*raw.h;p<e;p++,q+=4){if(raw.comps===1){o[q]=o[q+1]=o[q+2]=px[p]}else{o[q]=px[p*3];o[q+1]=px[p*3+1];o[q+2]=px[p*3+2]}o[q+3]=255}
+    x.putImageData(id,0,0);im={naturalWidth:raw.w,naturalHeight:raw.h,_c:c}}catch(e){budget-=n;continue}}
+  else{try{im=await loadImg(new Blob([jpg],{type:'image/jpeg'}))}catch(e){budget-=n;continue}}
   const w0=im.naturalWidth,h0=im.naturalHeight,cap=Math.min(1,Math.sqrt(E.cap/(w0*h0)));let tries=0;
   let li=Math.max(0,(r>=.7?1:r>=.5?2:r>=.35?3:r>=.25?4:r>=.18?5:r>=.12?6:r>=.08?7:8)+E.off),best=null,bw=0,bh=0;
-  for(;li<LAD.length;li++){const[sc,q]=LAD[li],w=Math.max(8,Math.round(w0*sc*cap)),h=Math.max(8,Math.round(h0*sc*cap)),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);
+  for(;li<LAD.length;li++){const[sc,q]=LAD[li],w=Math.max(8,Math.round(w0*sc*cap)),h=Math.max(8,Math.round(h0*sc*cap)),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im._c||im,0,0,w,h);
    const b=await blobOf(c,'image/jpeg',q);c.width=c.height=1;tries++;if(!best||b.size<best.size){best=b;bw=w;bh=h}if(b.size<=want||tries>=E.tries)break}
   if(!best||best.size>=n){budget-=n;continue}
   const dict={Type:'XObject',Subtype:'Image',Width:bw,Height:bh,ColorSpace:'DeviceRGB',BitsPerComponent:8,Filter:'DCTDecode'},sm=obj.dict.get(N('SMask'));if(sm)dict.SMask=sm;
-  ctx.assign(ref,ctx.stream(await img2u8(best),dict));budget-=best.size;changed=true}
+  ctx.assign(ref,ctx.stream(await img2u8(best),dict));budget-=best.size;changed=true;if(im._c)im._c.width=im._c.height=0}
  return changed}
 async function rasterPdf(list,target,st,E){
  const d=await PDFLib.PDFDocument.create(),S={};let used=0;d.__bad=0;
