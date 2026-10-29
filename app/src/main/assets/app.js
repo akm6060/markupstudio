@@ -76,23 +76,31 @@ $('#file2').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(fs.le
 ['dragover','drop'].forEach(n=>document.addEventListener(n,e=>{e.preventDefault();if(n==='drop'&&e.dataTransfer.files.length)openFiles([...e.dataTransfer.files],false)}));
 
 /* ---------- pages ---------- */
-const io=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(!p)return;p.vis=en.isIntersecting;if(en.isIntersecting){showPreview(p);if(!p.done)render(p)}else{if(p.pc&&Math.abs(en.boundingClientRect.top)>1500)unrender(p);hidePreview(p)}}),{root:$('#view'),rootMargin:'900px 0px'});
+const io=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(!p)return;p.vis=en.isIntersecting;if(en.isIntersecting){showPreview(p);showHi(p)}else{hidePreview(p);hideHi(p)}}),{root:$('#view'),rootMargin:'700px 0px'});
+/* layers inside a page frame, bottom to top: small preview 0, sharp picture 1, live canvas 2, marks 3, anything else above */
+function place(p,el,rk){el._rk=rk;const w=p.wrap;let b=null;for(const c of w.children){if(c===el)continue;if((c._rk==null?9:c._rk)>rk){b=c;break}}w.insertBefore(el,b)}
+/* sharp picture of a page kept as a compact JPEG while the page is within 10 pages of the place you read */
+function showHi(p){if(!p.hurl||!p.vis||p.pc)return;if(!p.him){const im=document.createElement('img');im.className='pim';p.him=im;im.src=p.hurl;place(p,im,1)}else if(p.him.src!==p.hurl)p.him.src=p.hurl;if(p.strokes.length&&!p.oc)redraw(p)}
+function hideHi(p){if(p.him){p.him.removeAttribute('src');p.him.remove();p.him=null}if(p.oc&&!p.pc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}}
+function dropHi(p){unrender(p);hideHi(p);if(p.hurl){URL.revokeObjectURL(p.hurl);p.hurl=null}p.hscale=0}
+const isFresh=p=>(p.pc&&p.pcs===scale)||(p.hurl&&p.hscale===scale);
 const drawn=new Set();
 /* free a page's pictures and the PDF engine's cached data for it */
 function unrender(p){if(p.task)try{p.task.cancel()}catch(e){}p.task=null;p.done=false;drawn.delete(p);
  if(p.pc){p.pc.width=p.pc.height=0;p.pc.remove();p.pc=null}
- if(p.oc&&!p.strokes.length){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}else if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}
- p.words=null;if(p.page)try{p.page.cleanup()}catch(e){}}
+ if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}
+ if(p.page)try{p.page.cleanup()}catch(e){}
+ showHi(p)}
 /* keep only a few pages drawn: drop the ones furthest from the screen */
 function trimDrawn(){if(drawn.size<=MEM.keep)return;const vr=$('#view').getBoundingClientRect(),mid=(vr.top+vr.bottom)/2;
  const list=[...drawn].map(p=>{const r=p.wrap.getBoundingClientRect();return{p,d:Math.abs((r.top+r.bottom)/2-mid)}}).sort((a,b)=>b.d-a.d);
  while(list.length>MEM.keep){const x=list.shift();unrender(x.p)}}
-window.__lowMemory=()=>{const vr=$('#view').getBoundingClientRect();pages.forEach(p=>{const r=p.wrap.getBoundingClientRect();if(r.bottom<vr.top-50||r.top>vr.bottom+50)unrender(p);p.thumb=null;if(!r||r.bottom<vr.top-50||r.top>vr.bottom+50){p.read=null}})};
+window.__lowMemory=()=>{const vr=$('#view').getBoundingClientRect();pages.forEach(p=>{const r=p.wrap.getBoundingClientRect();if(r.bottom<vr.top-50||r.top>vr.bottom+50){unrender(p);if(r.bottom<vr.top-3000||r.top>vr.bottom+3000)dropHi(p)}p.thumb=null;if(!r||r.bottom<vr.top-50||r.top>vr.bottom+50){p.read=null}})};
 function mkPage(d){const wrap=document.createElement('div');wrap.className='pg';
- const p={...d,rec:d.rec||d,wrap,pc:null,oc:null,strokes:d.strokes||(d.strokes=[]),done:false,task:null,sel:false,words:null,thumb:null};wrap._p=p;bind(p);size(p);return p}
-function addPages(ds,idx){const ps=ds.map(mkPage);pages.splice(idx,0,...ps);reorderDOM();ps.forEach(p=>io.observe(p.wrap));syncEmpty();upd();return ps}
+ const p={...d,rec:d.rec||d,wrap,pc:null,oc:null,him:null,hurl:null,hscale:0,pimg:null,rendering:null,strokes:d.strokes||(d.strokes=[]),done:false,task:null,sel:false,words:null,thumb:null};wrap._p=p;bind(p);size(p);return p}
+function addPages(ds,idx){const ps=ds.map(mkPage);pages.splice(idx,0,...ps);reorderDOM();ps.forEach(p=>io.observe(p.wrap));syncEmpty();upd();settle(60);return ps}
 const reorderDOM=()=>pages.forEach(p=>host.appendChild(p.wrap));
-function rm(p){unrender(p);io.unobserve(p.wrap);p.wrap.remove()}
+function rm(p){dropHi(p);hidePreview(p);io.unobserve(p.wrap);p.wrap.remove()}
 const syncEmpty=()=>{$('#empty').style.display=pages.length?'none':''};
 /* frame size only; the pictures keep their pixels (stretched) until the page is drawn again */
 function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(MEM.px/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc])if(c){c.style.width=W+'px';c.style.height=H+'px'}}
@@ -106,16 +114,21 @@ async function paint(p,ctx,k,reg){
  if(p.kind==='pdf'){await ensure(p);const t=p.page.render({canvasContext:ctx,viewport:p.page.getViewport({scale:k})});if(reg)reg.task=t;await t.promise}
  else if(p.kind==='cv')ctx.drawImage(p.cv,0,0,p.w*k,p.h*k);
  else if(p.kind==='txt'){ctx.fillStyle='#111';ctx.font=`${9*k}px "Courier New",Courier,monospace`;ctx.textBaseline='top';p.lines.forEach((l,i)=>ctx.fillText(l,40*k,(40+i*12)*k))}}
-async function render(p){
+function render(p){if(p.rendering&&p.rsc===scale)return p.rendering;const r=p.rendering=render1(p);p.rsc=scale;r.finally(()=>{if(p.rendering===r)p.rendering=null});return r}
+async function render1(p){
  p.done=true;if(p.task)try{p.task.cancel()}catch(e){}
  try{await ensure(p)}catch(e){p.done=false;return}
  if(!pages.includes(p))return;
- size(p);const c=canvasFor(p);drawn.add(p);
- try{await paint(p,c.getContext('2d'),scale*p.pr,p)}catch(e){c.width=c.height=0;return}
- if(!p.done||!pages.includes(p)){c.width=c.height=0;return}
- if(p.pc){p.pc.width=p.pc.height=0;p.pc.remove()}p.pc=c;p.wrap.prepend(c);
+ const sc=scale;size(p);const c=canvasFor(p);drawn.add(p);
+ try{await paint(p,c.getContext('2d'),sc*p.pr,p)}catch(e){c.width=c.height=0;drawn.delete(p);p.done=false;return}
+ if(!p.done||!pages.includes(p)||sc!==scale){c.width=c.height=0;drawn.delete(p);return}
+ if(p.pc){p.pc.width=p.pc.height=0;p.pc.remove()}p.pc=c;p.pcs=sc;place(p,c,2);
+ if(p.him){p.him.removeAttribute('src');p.him.remove();p.him=null}
  if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}
- redraw(p);trimDrawn()}
+ redraw(p);
+ /* keep a compact copy so the page stays sharp after its canvas is freed */
+ try{const b=await blobOf(c,'image/jpeg',.9);if(b&&p.pc===c&&sc===scale){if(p.hurl)URL.revokeObjectURL(p.hurl);p.hurl=URL.createObjectURL(b);p.hscale=sc}}catch(e){}
+ trimDrawn()}
 function drawS(ctx,s){
  const k=scale*dpr;
  if(s.t==='hl'){ctx.fillStyle=s.c;ctx.globalAlpha=s.a||.4;s.segs.forEach(g=>ctx.fillRect(g[0]*k,g[1]*k,(g[2]-g[0])*k,(g[3]-g[1])*k));ctx.globalAlpha=1;return}
@@ -131,7 +144,7 @@ function drawP(ctx,s){
 /* marks layer: only exists while the page has marks or is being drawn on */
 function redraw(p,extra){if(!extra)p.thumb=null;
  if(!p.strokes.length&&!extra){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}return}
- if(!p.oc||p.oc.width!==Math.max(1,Math.round(p.w*scale*p.pr))){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove()}p.oc=canvasFor(p,'oc');p.wrap.appendChild(p.oc)}
+ if(!p.oc||p.oc.width!==Math.max(1,Math.round(p.w*scale*p.pr))){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove()}p.oc=canvasFor(p,'oc');place(p,p.oc,3)}
  const c=p.oc.getContext('2d'),od=dpr;dpr=p.pr||dpr;try{c.clearRect(0,0,p.oc.width,p.oc.height);p.strokes.forEach(s=>drawS(c,s));if(extra)drawS(c,extra)}finally{dpr=od}}
 function dist(pt,s){
  let m=1e9;
@@ -190,7 +203,23 @@ $('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear
 function cur_page(){return pages[curIndex()]||null}
 function zoom(f){const r=$('#view').getBoundingClientRect();zoomAt(scale*f,r.left+r.width/2,r.top+r.height/2)}
 window.addEventListener('resize',()=>{if(pages.length&&!inGrid()){const z=scale/base;base=fitW(pages[0].w);setScale(base*z)}});
-function renderNear(){const vr=$('#view').getBoundingClientRect(),i=curIndex();for(const p of [...drawn])if(Math.abs(pages.indexOf(p)-i)>3)unrender(p);for(let k=Math.max(0,i-3);k<=Math.min(pages.length-1,i+3);k++){const p=pages[k],r=p.wrap.getBoundingClientRect();if(r.bottom>vr.top-300&&r.top<vr.bottom+300)render(p)}}
+/* while you scroll only the small previews show; when scrolling stops the pages on screen are drawn
+   sharp at once, then 10 pages above and below, one by one; pages further away go back to previews */
+const RANGE=10;let SG=0,settleT=0;
+function renderNear(){settle(0)}
+function settle(ms){clearTimeout(settleT);settleT=setTimeout(runSettle,ms==null?150:ms)}
+window.__settle=settle;
+async function runSettle(){
+ if(!pages.length||inGrid()||PZ.on)return;
+ const g=++SG,i=curIndex(),v=$('#view'),vr=v.getBoundingClientRect(),n=pages.length;
+ for(const p of [...drawn]){const k=pages.indexOf(p),r=p.wrap.getBoundingClientRect();if(k<0||r.bottom<vr.top-200||r.top>vr.bottom+200)unrender(p)}
+ pages.forEach((p,k)=>{if((p.hurl||p.pc)&&Math.abs(k-i)>RANGE+2)dropHi(p)});
+ const order=[];let a=i;while(a>0&&pages[a-1].wrap.getBoundingClientRect().bottom>vr.top)a--;
+ for(let k=a;k<n;k++){const r=pages[k].wrap.getBoundingClientRect();if(r.top>=vr.bottom)break;order.push(pages[k])}
+ for(let d=0;d<=RANGE;d++)for(const k of [i+d,i-d]){const p=pages[k];if(p&&order.indexOf(p)<0)order.push(p)}
+ for(const p of order){if(g!==SG)return;if(isFresh(p)){showHi(p);continue}
+  TH.pause=performance.now()+2000;await render(p);if(g!==SG)return;await sleep(MEM.low?25:8)}
+ TH.pause=0}
 function setScale(ns){if(!pages.length)return;const v=$('#view'),ratio=v.scrollTop/(v.scrollHeight||1);scale=ns;pages.forEach(p=>{p.done=false;size(p)});v.scrollTop=ratio*v.scrollHeight;renderNear();upd()}
 const ZK='ms.zoom';function savedZoom(){try{const z=+localStorage.getItem(ZK);return z>0.2&&z<20?z:1}catch(e){return 1}}
 function saveZoom(){try{localStorage.setItem(ZK,String(scale/base))}catch(e){}}
@@ -278,7 +307,7 @@ window.__allPages=()=>pages;
 /* ---------- small previews of every page, made slowly in the background ---------- */
 const TH={w:MEM.low?96:130,busy:false,pause:0,ci:-1,d:0,prio:[]};
 window.__thumbPause=ms=>{TH.pause=performance.now()+(ms||800)};
-function showPreview(p){if(!p.timg||p.pimg||!p.vis)return;const im=document.createElement('img');im.className='pim';im.src=p.timg;p.pimg=im;p.wrap.prepend(im)}
+function showPreview(p){if(!p.timg||p.pimg||!p.vis)return;const im=document.createElement('img');im.className='pim';im.src=p.timg;p.pimg=im;place(p,im,0)}
 function hidePreview(p){if(p.pimg){p.pimg.remove();p.pimg=null}}
 function nextThumb(){
  while(TH.prio.length){const p=TH.prio.shift();if(pages.includes(p)&&(!p.timg||p.tstale)&&(p.tfail||0)<2)return p}
@@ -302,7 +331,7 @@ async function thumbLoop(){if(TH.busy)return;TH.busy=true;
   try{await makeThumb(p)}catch(e){p.tfail=(p.tfail||0)+1}
   await sleep(inGrid()?15:(MEM.low?110:60))}}finally{TH.busy=false}}
 window.__thumbLoop=thumbLoop;
-$('#view').addEventListener('scroll',upd,{passive:true});
+$('#view').addEventListener('scroll',()=>{upd();TH.pause=performance.now()+800;SG++;settle()},{passive:true});
 
 /* ---------- page arranger: tap = select, swipe across = select many, size 4 .. ~100 per screen ---------- */
 const tg=$('#tgrid');let gq=0,gcols=4;try{gcols=+localStorage.getItem('ms.gcols')||4}catch(e){}
@@ -311,7 +340,7 @@ function setCols(n){gcols=Math.max(2,Math.min(12,n));tg.style.setProperty('--col
 const firstTile=()=>{const gr=tg.getBoundingClientRect();let lo=0,hi=pages.length-1;while(lo<hi){const m=(lo+hi)>>1,t=pages[m].thEl;if(t&&t.offsetTop+t.offsetHeight<tg.scrollTop)lo=m+1;else hi=m}return pages[lo]};
 $('#gsize').oninput=e=>{const a=firstTile();setCols(14-(+e.target.value));if(a&&a.thEl)tg.scrollTop=a.thEl.offsetTop-8};
 $('#pgs').onclick=()=>{if(!pages.length)return;$('#pop').hidden=true;document.body.classList.add('grid');setCols(gcols);buildGrid(true)};
-function closeGrid(go){document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd()})}
+function closeGrid(go){document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd();settle(0)})}
 $('#gdone').onclick=()=>closeGrid();
 function tileImg(p){const d=p.thEl;if(!d)return;const im=d.firstChild;if(p.timg&&im.getAttribute('src')!==p.timg)im.src=p.timg}
 function buildGrid(jump){
