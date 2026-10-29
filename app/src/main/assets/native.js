@@ -118,13 +118,14 @@ let saving = false;
 const saveMode = () => pref('saveMode', 'copy');
 /* ---------- the phone's own PDF tools (big books): jobs with progress ---------- */
 const jobs = {};
-window.__job = (id, type, d) => { const j = jobs[id]; if (!j) return; if (type === 'progress') { if (j.prog) j.prog(d); } else { delete jobs[id]; A.keepAwake(false); if (d.ok) j.ok(d); else j.no(new Error(d.err || 'failed')); } };
-window.__pdfJob = (o, prog) => new Promise((ok, no) => { A.keepAwake(true); const id = A.job(JSON.stringify(o)); jobs[id] = { ok, no, prog }; });
+window.__job = (id, type, d) => { const j = jobs[id]; if (!j) return; if (type === 'progress') { if (j.prog) j.prog(d); } else if (type !== 'done') { if (j.on) j.on(type, d); } else { delete jobs[id]; A.keepAwake(false); if (d.ok) j.ok(d); else j.no(new Error(d.err || 'failed')); } };
+window.__pdfJob = (o, prog, on) => new Promise((ok, no) => { A.keepAwake(true); const id = A.job(JSON.stringify(o)); jobs[id] = { ok, no, prog, on }; });
 /* a big book is saved by the phone's PDF tools: only the pages with marks are touched, nothing is loaded into memory */
 async function saveBig(all, mode, primary) {
   const marks = {}; let n = 0; for (const p of all) if (p.strokes && p.strokes.length) { marks[p.pn] = p.strokes; n++; }
   if (!n) { toast('There are no marks to save'); return; }
-  const r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode, name: docName + '-edited.pdf' }, d => toast(d.msg || 'Saving…', 60000));
+  const B = window.__book();
+  const r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode, name: docName + '-edited.pdf', book: B && B.key || '', partSize: B ? B.size : 0 }, d => toast(d.msg || 'Saving…', 60000));
   setDirty(false);
   toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where), 5000);
   if (r.mode === 'original') {                         // the file on disk changed: open it again at the same place
@@ -577,6 +578,27 @@ $('#fbuse').onclick = () => {
   const p = FB.path; if (!p) return; fbClose();
   if (!A.canWriteDir(p)) toast('Android needs your OK to write there: Settings ⋮ → “Allow writing to SD card / USB”', 6000);
   if (FB.cb) FB.cb(p);
+};
+
+/* ---------- self-test of the phone's PDF tools (started only by the automatic tests) ---------- */
+window.__selfTest = async () => {
+  const log = (...a) => console.log('SELFTEST ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '));
+  try {
+    const all = window.__allPages(), nid = all[0].nid, st = { t: 'hl', c: '#facc15', a: 0.4, w: 14, segs: [[60, 90, 300, 104]] };
+    log('book', all.length, 'pages, part mode', !!window.__book(), window.__book() && window.__book().split);
+    const r1 = await window.__pdfJob({ op: 'export', src: nid, pages: [...Array(60).keys()].map(i => i + 1), marks: { 1: [st] }, parts: 2, name: 'selftest' });
+    log('export 2 parts', r1.ok, r1.files);
+    const r2 = await window.__pdfJob({ op: 'export', src: nid, pages: [1, 2, 3, 4, 5], parts: 1, dest: 'temp', name: 't' });
+    const r3 = await window.__pdfJob({ op: 'export', src: nid, pages: [6, 7, 8], parts: 1, dest: 'temp', name: 't' });
+    const r4 = await window.__pdfJob({ op: 'merge', files: [r2.files[0], r3.files[0]], name: 'selftest-merged', deleteSources: true });
+    log('merge', r4.ok, r4.files);
+    const r5 = await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [st] }, mode: 'copy', name: 'selftest-marks.pdf' });
+    log('marks copy', r5.ok, r5.where);
+    const t0 = Date.now(); let last = '';
+    await exportBig(all.slice(0, 30), 40, t => { last = t; }, { tries: 2, cap: 6e6, off: 0 }, 1);
+    log('compress 40%', last, (Date.now() - t0) + 'ms');
+    log('ALL DONE');
+  } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
 
 /* ---------- lifecycle ---------- */

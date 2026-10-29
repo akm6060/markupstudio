@@ -5,6 +5,7 @@ adb install -r MarkupStudio.apk
 adb shell mkdir -p /sdcard/Download
 adb push $T/test2col.pdf /sdcard/Download/test2col.pdf
 python3 $T/mkbig.py big.pdf 16 && adb push big.pdf /sdcard/Download/big.pdf
+python3 $T/mkbook.py book.pdf 2000 40 && adb push book.pdf /sdcard/Download/book.pdf
 if [ "$API" -ge 30 ]; then adb shell appops set --uid $PKG MANAGE_EXTERNAL_STORAGE allow; adb shell appops set $PKG MANAGE_EXTERNAL_STORAGE allow; fi
 if [ "$API" -ge 23 ]; then adb shell pm grant $PKG android.permission.READ_EXTERNAL_STORAGE || true; adb shell pm grant $PKG android.permission.WRITE_EXTERNAL_STORAGE || true; fi
 adb logcat -c
@@ -26,6 +27,18 @@ adb shell input keyevent 4; sleep 1
 python3 $T/tap.py "📂" "Open a file"; sleep 3
 python3 $T/tap.py "big.pdf"; sleep 10
 adb exec-out screencap -p > s6-big.png
+# a 2000-page, 86 MB book: prepared in parts, scrolled, then the PDF tools self-test
+python3 $T/tap.py "📂" "Open a file"; sleep 3
+python3 $T/tap.py "book.pdf"; sleep 45
+adb exec-out screencap -p > s7-book.png
+for i in $(seq 1 25); do adb shell input swipe 540 1500 540 300 120; sleep 0.4; done; sleep 3
+adb exec-out screencap -p > s8-scroll.png
+adb shell input tap 540 1000; sleep 1
+adb shell am start -n $PKG/.MainActivity --ez ms_selftest true; sleep 100
+adb exec-out screencap -p > s9-selftest.png
+adb shell ls -la /sdcard/Download/MarkupStudio/ > files.txt 2>&1 || true
+adb shell ls -laR /sdcard/Android/data/$PKG/cache/books/ >> files.txt 2>&1 || true
+adb shell dumpsys meminfo $PKG > mem.txt 2>&1 || true
 adb shell dumpsys activity activities | grep -i -E "mResumedActivity|topResumedActivity" > resumed.txt || true
 adb shell pidof $PKG > pid.txt || echo none > pid.txt
 adb logcat -d -b crash > crash.txt || true

@@ -52,6 +52,10 @@ async function ingest(f){
  const txt=await f.text();if(/[\x00-\x08\x0e-\x1f]/.test(txt.slice(0,3000)))throw new Error('binary');
  return textPages(txt,n.endsWith('.txt')?null:f.name)}
 async function openFiles(files,replace){
+ /* a really big book from the phone: cut once into part files, then only one part is ever in memory */
+ const f0=files[0];
+ if(files.length===1&&(replace||!pages.length)&&f0._url&&f0._nid&&window.__pdfJob&&/\.pdf$/i.test(f0.name||'')&&f0.size>SPLITMIN&&partSize()>0){
+  if(await openSplitBook(f0,window.__wantPage||0)){window.__wantPage=0;return}}
  let all=[],bad=[];for(const f of files){try{const ps=await ingest(f);ps.forEach((p,i)=>{p.nid=f._nid;p.sidx=i+1;p.fname=f.name;if(!p.osize)p.osize=(f.size||0)/ps.length});all.push(...ps)}catch(e){bad.push(f.name)}}
  if(bad.length)alert('Unsupported or unreadable: '+bad.join(', '));
  if(!all.length)return;
@@ -93,7 +97,7 @@ const syncEmpty=()=>{$('#empty').style.display=pages.length?'none':''};
 /* frame size only; the pictures keep their pixels (stretched) until the page is drawn again */
 function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(MEM.px/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc])if(c){c.style.width=W+'px';c.style.height=H+'px'}}
 function canvasFor(p,cls){const c=document.createElement('canvas');if(cls)c.className=cls;c.style.position='absolute';c.style.left=c.style.top='0';c.style.width=p.w*scale+'px';c.style.height=p.h*scale+'px';c.width=Math.max(1,Math.round(p.w*scale*p.pr));c.height=Math.max(1,Math.round(p.h*scale*p.pr));return c}
-async function ensure(p){if(p.kind==='pdf'&&!p.page){p.page=await p.doc.getPage(p.pn);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
+async function ensure(p){if(p.kind==='pdf'&&!p.page){if(!p.doc)throw new Error('part not loaded');p.page=await p.doc.getPage(p.lpn||p.pn);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
 /* pdf.js object number of a page, so the saver can find it even in a damaged page tree */
 const refOf=async p=>{try{await ensure(p);return p.page&&p.page.ref||null}catch(e){return null}};
 window.__refOf=refOf;
@@ -212,6 +216,44 @@ window.__pageNo=pageNo;
 
 /* ---------- big books: shown in parts of a few hundred pages ---------- */
 let BOOK=null;
+const SPLITMIN=MEM.low?40e6:80e6;
+function message(html){host.innerHTML='';const d=document.createElement('div');d.id='pmsg';d.innerHTML=html;host.appendChild(d);syncEmpty();$('#empty').style.display='none'}
+async function openSplitBook(f,want){
+ window.__beforeReplace&&window.__beforeReplace();pages.forEach(rm);pages=[];undo=[];setDirty(false);closeBook();
+ const ps=partSize(),first=Math.floor(want/ps);let info=null,failed=null;const ready={},waits={};
+ docPrimary=f._nid;docName=(f.name||'document').replace(/\.[^.]+$/,'');setTool('scroll');
+ message('<b>Preparing the book for smooth reading…</b><br><small>Big books are cut once into parts. The first part opens in a moment; the rest is prepared in the background and kept for next time.</small><div id="pmsgp"></div>');
+ const setup=j=>{if(BOOK)return;const n=j.n;
+  const recs=Array.from({length:n},(_,i)=>({kind:'pdf',pn:i+1,w:595,h:842,strokes:[],nid:f._nid,sidx:i+1,fname:f.name,src:{url:f._url,size:f.size},osize:f.size/n,doc:null}));
+  BOOK={recs,size:j.partSize,parts:j.parts,part:-1,split:true,files:[],ready,waits,key:j.key,outline:j.outline||[],src:{url:f._url,size:f.size}};
+  pb.hidden=false;document.body.classList.add('book')};
+ const gotPart=(k,path)=>{BOOK.files[k]={path,id:0};ready[k]=true;if(waits[k]){waits[k].forEach(r=>r());delete waits[k]}};
+ const job=window.__pdfJob({op:'prepare',src:f._nid,partSize:ps,first},d=>{const m=$('#pmsgp');if(m)m.textContent=d.msg||''},(type,d)=>{
+  if(type==='info')setup(d);
+  if(type==='part'&&BOOK){gotPart(d.k,d.path);const m=$('#pmsgp');if(m)m.textContent=`Part ${d.done} of ${d.parts} ready`;window.__toastPrep&&window.__toastPrep(d)}});
+ job.then(j=>{info=j;if(!BOOK)setup(j);(j.files||[]).forEach((p,k)=>{if(!ready[k])gotPart(k,p)})}).catch(e=>{failed=e;if(BOOK&&BOOK.split){BOOK.prepFailed=e;Object.keys(waits).forEach(k=>{waits[k].forEach(r=>r());delete waits[k]});window.__toast&&window.__toast('Preparing the book stopped: '+e.message,7000)}});
+ /* wait for the first part (or for an error: then the book is opened the ordinary way) */
+ await new Promise(res=>{const t=setInterval(()=>{if(failed||(BOOK&&ready[Math.min(first,BOOK.parts-1)])){clearInterval(t);res()}},150)});
+ if(!BOOK||failed&&!ready[first]){host.innerHTML='';window.__toast&&window.__toast((failed?failed.message+'. ':'')+'Opening the book directly instead (may be slow).',6000);BOOK=null;pb.hidden=true;return false}
+ const zr=savedZoom();base=scale=fitW(595);zoomed=zr!==1;scale=base*zr;
+ await showPart(Math.min(first,BOOK.parts-1),want-first*BOOK.size,0);
+ window.__docChanged&&window.__docChanged(true,pages);
+ return true}
+function partReady(k){return new Promise(r=>{if(BOOK.ready[k]||BOOK.prepFailed)return r();(BOOK.waits[k]=BOOK.waits[k]||[]).push(r)})}
+function openPartDoc(k){const f=BOOK.files[k];if(!f.id)f.id=Android.registerFile(f.path);return pdfjsLib.getDocument({url:'/__file/'+f.id,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise}
+/* a page of the book for searching / reading ahead, without disturbing the part on screen */
+const aux={doc:null,k:-9,uses:0};
+async function closeAux(){if(aux.doc){const d=aux.doc;aux.doc=null;aux.k=-9;try{await d.destroy()}catch(e){}}}
+async function bookPage(rec){
+ if(!BOOK){await ensure(rec);return{pg:rec.page,own:false}}
+ const k=Math.floor((rec.pn-1)/BOOK.size);
+ if(BOOK.split){if(k===BOOK.part&&rec.doc){await ensure(rec);return{pg:rec.page,own:false}}
+  if(aux.k!==k){await closeAux();await partReady(k);aux.doc=await openPartDoc(k);aux.k=k}
+  return{pg:await aux.doc.getPage(rec.pn-k*BOOK.size),own:true}}
+ if(BOOK.src&&BOOK.src.size>BIGPDF){if(!aux.doc||aux.uses>=120){await closeAux();aux.doc=await pdfjsLib.getDocument({url:BOOK.src.url,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise;aux.uses=0;aux.k=-2}
+  aux.uses++;return{pg:await aux.doc.getPage(rec.pn),own:true}}
+ await ensure(rec);return{pg:rec.page,own:false}}
+window.__bookPage=bookPage;window.__bookPageDone=closeAux;
 const partSize=()=>{let v='';try{v=window.Android?Android.getPref('partSize',''):localStorage.getItem('ms.partSize')||''}catch(e){}if(v==='')return MEM.low?200:300;return +v||0};
 const pb=document.createElement('div');pb.id='pbar';pb.hidden=true;
 pb.innerHTML='<button id="pbp" title="Previous part">◀</button><span id="pbt"></span><input id="pbg" type="number" min="1" placeholder="Go to page" aria-label="Go to page"><button id="pbn" title="Next part">▶</button>';
@@ -229,7 +271,17 @@ async function showPart(k,at,frac){
  if(!BOOK)return;k=Math.max(0,Math.min(BOOK.parts-1,k));
  const same=k===BOOK.part&&pages.length;
  if(!same){syncBack();window.__partLeaving&&window.__partLeaving();pages.forEach(rm);pages=[];undo=[];pTop.remove();pEnd.remove();
-  if(BOOK.part>=0)await reloadEngine();BOOK.part=k;const[a,b]=partRange(k);
+  const[a,b]=partRange(k);
+  if(BOOK.split){                                    // load this part's own file; the previous part's engine is closed
+   if(!BOOK.ready[k]){message(`<b>Preparing part ${k+1} of ${BOOK.parts}…</b><br><small>It opens by itself when ready.</small>`);await partReady(k)}
+   if(!BOOK.ready[k]){message(`<b>Part ${k+1} could not be prepared.</b><br><small>${BOOK.prepFailed?BOOK.prepFailed.message:''}</small>`);return false}
+   host.innerHTML='';const old=BOOK.partDoc;BOOK.partDoc=null;for(const r of BOOK.recs)if(r.doc){r.doc=null;r.page=null;r.read=null;r.bands=null}
+   if(old)try{await old.destroy()}catch(e){}
+   if(aux.k===k)await closeAux();
+   const d=await openPartDoc(k);BOOK.partDoc=d;let w=595,h=842;try{const p1=await d.getPage(1),v=p1.getViewport({scale:1});w=v.width;h=v.height}catch(e){}
+   for(let i=a;i<b;i++){const r=BOOK.recs[i];r.doc=d;r.lpn=i-a+1;if(!r.sized){r.w=w;r.h=h}}
+  }else if(BOOK.part>=0)await reloadEngine();
+  BOOK.part=k;
   addPages(BOOK.recs.slice(a,b),0);
   if(k>0){const[x,y]=partRange(k-1);pTop.textContent=`◀ Part ${k} · pages ${x+1}–${y}`;pTop.onclick=()=>showPart(k-1,BOOK.size-1,1);host.prepend(pTop)}
   if(k<BOOK.parts-1){const[x,y]=partRange(k+1);pEnd.textContent=`Continue: part ${k+2} · pages ${x+1}–${y} ▶`;pEnd.onclick=()=>showPart(k+1,0,0);host.appendChild(pEnd)}}
@@ -242,7 +294,7 @@ function openBook(recs,size,want){
  BOOK={recs,size,parts:Math.ceil(recs.length/size),part:-1,doc:recs[0].doc,src:recs[0].src};
  pb.hidden=false;document.body.classList.add('book');
  const k=Math.floor(Math.max(0,Math.min(recs.length-1,want))/size);showPart(k,want-k*size,0)}
-function closeBook(){if(!BOOK)return;BOOK=null;pb.hidden=true;document.body.classList.remove('book');pTop.remove();pEnd.remove()}
+function closeBook(){if(!BOOK)return;const d=BOOK.partDoc;if(d)try{d.destroy()}catch(e){}closeAux();BOOK=null;pb.hidden=true;document.body.classList.remove('book');pTop.remove();pEnd.remove()}
 /* go to a page of the whole book (0-based), switching part when needed */
 async function gotoGlobal(i,frac){if(!BOOK){const t=pages[i];if(t){const v=$('#view'),vr=v.getBoundingClientRect(),r=t.wrap.getBoundingClientRect();v.scrollTop+=r.top-vr.top+(frac||0)*r.height}return}
  i=Math.max(0,Math.min(BOOK.recs.length-1,i));const k=Math.floor(i/BOOK.size);await showPart(k,i-k*BOOK.size,frac||0)}

@@ -38,6 +38,7 @@ const S = { gen: 0, res: [], flat: [], cur: -1, re: null, running: false };
 /* ---------- text of a page with the position of every character ---------- */
 let sdoc = null, sdocUses = 0;
 async function pdfPageFor(rec) {
+  if (window.__bookPage) return window.__bookPage(rec);
   const B = window.__book && window.__book();
   if (B && B.src && B.src.url && B.src.size > BIGPDF) {          // big book: a search engine of its own, renewed every 120 pages
     if (!sdoc || sdocUses >= 120) { if (sdoc) try { await sdoc.destroy(); } catch (e) {} sdoc = await pdfjsLib.getDocument({ url: B.src.url, disableAutoFetch: true, disableStream: true, rangeChunkSize: 262144 }).promise; sdocUses = 0; }
@@ -45,7 +46,7 @@ async function pdfPageFor(rec) {
   }
   await ensure(rec); return { pg: rec.page, own: false };
 }
-async function endSearchDoc() { if (sdoc) { try { await sdoc.destroy(); } catch (e) {} sdoc = null; } }
+async function endSearchDoc() { if (window.__bookPageDone) await window.__bookPageDone(); if (sdoc) { try { await sdoc.destroy(); } catch (e) {} sdoc = null; } }
 async function pageText(p) {
   let str = '';
   const G = [], ci = [], co = [];                          // item geometry; for each character: item index, offset in item
@@ -86,6 +87,8 @@ function makeRe(q, whole) {
 /* ---------- where to look: all, chapter / topic from the book's bookmarks, or a page range ---------- */
 let outline = null, outlineDoc = null;
 async function loadOutline() {
+  const BK = window.__book && window.__book();
+  if (BK && BK.split) { if (outlineDoc !== BK) { outlineDoc = BK; outline = (BK.outline || []).map((e, i) => ({ title: e.title, lv: e.lv, pn: e.pi + 1, ord: i })).sort((a, b) => a.pn - b.pn || a.ord - b.ord); } return outline; }
   const d = pages[0] && pages[0].doc; if (!d) return [];
   if (outline && outlineDoc && window.__book && window.__book() && outlineDoc !== d && outline.length) { outlineDoc = d; return outline; }   // same book, engine renewed
   if (outlineDoc === d) return outline; outlineDoc = d; outline = [];
@@ -116,7 +119,7 @@ async function section(kind) {
   if (!cand.length) return null;
   const me = kind === 'topic' ? cand.reduce((a, e) => (e.pn > a.pn || (e.pn === a.pn && e.lv >= a.lv) ? e : a)) : cand[cand.length - 1];
   const nx = ol.find(e => e.pn > me.pn && e.lv <= me.lv);
-  const toPn = nx ? Math.max(me.pn, nx.pn - 1) : outlineDoc.numPages, L = allP();
+  const L = allP(), toPn = nx ? Math.max(me.pn, nx.pn - 1) : (outlineDoc.numPages || L.length);
   const idx = n => L.findIndex(q => q.kind === 'pdf' && q.pn === n);
   let a = idx(me.pn), b = idx(toPn); if (a < 0) a = 0; if (b < 0) b = L.length - 1;
   return { title: me.title, a, b };

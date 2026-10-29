@@ -452,6 +452,10 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (web == null) return;
+        if (intent != null && intent.getBooleanExtra("ms_selftest", false)) {      // only used by the automatic tests
+            js("window.__selfTest&&window.__selfTest()");
+            return;
+        }
         List<Entry> added = handleIntent(intent);
         if (!added.isEmpty() && jsReady) deliver(added, "replace");
     }

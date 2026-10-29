@@ -1,6 +1,7 @@
 # mkbook.py <out.pdf> <pages> <kb_per_page> : a long "book" (text + a picture on every page), standard library only
 import os, sys, zlib
 out, N, kb = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+start = int(sys.argv[4]) if len(sys.argv) > 4 else 1
 objs = []
 def add(b): objs.append(b); return len(objs)
 font = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>")
@@ -8,9 +9,10 @@ pages_id = 3 * N + 2             # objects: font, then per page (content, image,
 kids = []
 side = max(16, int((kb * 1024 / 3) ** 0.5))
 for n in range(1, N + 1):
-    lines = ["Page %d of the big test book" % n, "Chapter %d section %d" % ((n - 1) // 100 + 1, (n - 1) // 10 + 1)]
+    g = n + start - 1
+    lines = ["Page %d of the big test book" % g, "Chapter %d section %d" % ((g - 1) // 100 + 1, (g - 1) // 10 + 1)]
     lines += ["the river carried silt across the plain and farmers learned line %d" % k for k in range(1, 30)]
-    if n % 7 == 0: lines.append("ultrasound appears on this page")
+    if g % 7 == 0: lines.append("ultrasound appears on this page")
     t = "BT /F1 11 Tf 60 780 Td 14 TL " + " ".join("(%s) '" % l for l in lines) + " ET q 200 0 0 140 330 80 cm /Im1 Do Q"
     c = add(b"<< /Length %d >>\nstream\n" % len(t) + t.encode() + b"\nendstream")
     raw = os.urandom(side * side * 3)
