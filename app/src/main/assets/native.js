@@ -14,7 +14,7 @@ st.textContent = `#toast{position:fixed;left:50%;bottom:78px;transform:translate
 .panel{position:fixed;left:50%;transform:translateX(-50%);bottom:74px;width:min(390px,94vw);max-height:68vh;overflow:auto;background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.35);z-index:8;display:flex;flex-direction:column;gap:9px}
 .panel[hidden]{display:none}.panel .row{display:flex;gap:8px;align-items:center;justify-content:space-between}.panel .row>span{color:var(--mut);font-size:13px}
 .panel select{background:var(--bar);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:inherit;font-size:13px;max-width:64%;min-width:0}
-.panel input[type=range]{flex:1;min-width:0}.panel label{font-size:13px;color:var(--fg)}.panel small{color:var(--mut);font-size:12px;line-height:1.35}.panel hr{border:0;border-top:1px solid var(--bd);margin:0;width:100%}
+.panel input[type=range]{flex:1;min-width:0}.panel label{font-size:13px;color:var(--fg);white-space:normal;align-items:flex-start;line-height:1.35}.panel label input{margin-top:2px;flex:none}.panel small{color:var(--mut);font-size:12px;line-height:1.35}.panel hr{border:0;border-top:1px solid var(--bd);margin:0;width:100%}
 .panel .big{flex:1;padding:8px 6px}
 .rh{position:absolute;pointer-events:none;background:rgba(255,196,0,.5);border-radius:3px;z-index:3}.rl{position:absolute;pointer-events:none;background:rgba(37,99,235,.13);z-index:2}
 #sv.dirty::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#e11d48;margin-left:4px;vertical-align:middle}
@@ -170,9 +170,11 @@ const rp = mk('div', { id: 'rp', className: 'panel', hidden: true }, `
  <hr>
  <div><b style="font-size:13px">Page layout</b></div>
  <div class="row"><span>Columns</span><select id="rcols"><option value="auto">Find automatically</option><option value="1">1 column</option><option value="2">2 columns</option><option value="3">3 columns</option></select></div>
+ <label><input type="checkbox" id="rmain"> Read only the main story — skip boxes, coloured backgrounds, different fonts and colours</label>
+ <label><input type="checkbox" id="rheads"> Also read headings</label>
  <label><input type="checkbox" id="rhead"> Skip book name, headers and page numbers</label>
- <label><input type="checkbox" id="rtab"> Skip tables</label>
- <label><input type="checkbox" id="rpic"> Skip pictures' labels and captions</label>
+ <label><input type="checkbox" id="rtab"> Skip tables (also tables with only divider lines)</label>
+ <label><input type="checkbox" id="rpic"> Skip picture labels and notes below pictures</label>
  <label><input type="checkbox" id="rside"> Skip side notes in the margins</label>
  <label><input type="checkbox" id="rshow"> Show reading order on the page</label>
  <small>Column 1 is read to its end, then column 2. With “Show reading order”: green boxes are read in the numbered order, red is skipped.</small>
@@ -212,7 +214,7 @@ $('#mperm').onclick = () => A.requestStorage(); $('#mtree').onclick = () => A.gr
 window.__nativeEvent = ev => { if (ev === 'storage') { if (!mp.hidden) refreshMenu(); if (!fb.hidden) fbGo(FB.path); } };
 
 /* ---------- reader state ---------- */
-const RS = Object.assign({ rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40, cols: 'auto', head: true, tab: true, pic: true, side: true, show: false }, JP(pref('reader', '{}'), {}));
+const RS = Object.assign({ rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40, cols: 'auto', head: true, tab: true, pic: true, side: true, show: false, main: true, heads: false }, JP(pref('reader', '{}'), {}));
 const saveRS = () => A.setPref('reader', JSON.stringify(RS));
 const R = { on: false, gen: 0, page: null, rd: null, chunks: [], sent: 0, fin: 0, cur: -1, wi: 0, resolve: null, errs: 0, userUntil: 0, resumeAt: null, est: 0, sawRange: false };
 const AS = { on: false, last: 0, acc: 0, raf: 0, touching: false, resumeAt: 0 };
@@ -237,7 +239,7 @@ function refreshReader() {
   pq(rp, '#rrate').value = Math.round(RS.rate * 100); pq(rp, '#rrv').textContent = RS.rate.toFixed(2).replace(/0$/, '') + '×';
   pq(rp, '#rlang').value = RS.lang; pq(rp, '#rvf').value = RS.filter; pq(rp, '#rfollow').checked = RS.follow; pq(rp, '#rtap').checked = RS.tap; pq(rp, '#rawake').checked = RS.awake;
   pq(rp, '#asr').value = RS.speed; pq(rp, '#asv').textContent = RS.speed; if (ttsReady) fillVoices(); updUI();
-  pq(rp, '#rcols').value = RS.cols; pq(rp, '#rhead').checked = RS.head; pq(rp, '#rtab').checked = RS.tab; pq(rp, '#rpic').checked = RS.pic; pq(rp, '#rside').checked = RS.side; pq(rp, '#rshow').checked = RS.show;
+  pq(rp, '#rcols').value = RS.cols; pq(rp, '#rhead').checked = RS.head; pq(rp, '#rtab').checked = RS.tab; pq(rp, '#rpic').checked = RS.pic; pq(rp, '#rside').checked = RS.side; pq(rp, '#rshow').checked = RS.show; pq(rp, '#rmain').checked = RS.main; pq(rp, '#rheads').checked = RS.heads;
   pq(rp, '#rnote').textContent = 'Scanned pages (photos of text) have no text inside and cannot be read aloud.';
 }
 function updUI() { pq(rp, '#rplay').textContent = R.on ? '⏸ Pause' : '▶ Read'; pq(rp, '#asbtn').textContent = AS.on ? '⏸ Stop' : '▶ Start'; rd.classList.toggle('on', R.on || AS.on); }
@@ -252,7 +254,7 @@ rp.addEventListener('change', e => {
   if (id === 'rlang') RS.lang = v; else if (id === 'rven') RS.voiceEn = v; else if (id === 'rvhi') RS.voiceHi = v;
   else if (id === 'rvf') { RS.filter = v; fillVoices(); } else if (id === 'rfollow') RS.follow = v; else if (id === 'rtap') RS.tap = v;
   else if (id === 'rawake') { RS.awake = v; awake(R.on || AS.on); }
-  else if (/^(rcols|rhead|rtab|rpic|rside)$/.test(id)) { RS[{ rcols: 'cols', rhead: 'head', rtab: 'tab', rpic: 'pic', rside: 'side' }[id]] = v; pages.forEach(q => { q.read = null; }); layoutAll(); restartSoon(); }
+  else if (/^(rcols|rhead|rtab|rpic|rside|rmain|rheads)$/.test(id)) { RS[{ rcols: 'cols', rhead: 'head', rtab: 'tab', rpic: 'pic', rside: 'side', rmain: 'main', rheads: 'heads' }[id]] = v; pages.forEach(q => { q.read = null; }); layoutAll(); restartSoon(); }
   else if (id === 'rshow') { RS.show = v; layoutAll(); }
   else return;
   saveRS(); if (/^(rlang|rven|rvhi)$/.test(id)) restartSoon();
@@ -271,10 +273,12 @@ async function pageReadable(p) {
   let words = [], scanned = false, extra = {};
   if (p.kind === 'pdf') {
     await ensure(p);
-    const vp = p.page.getViewport({ scale: 1 }), tc = await p.page.getTextContent();
-    let ol = null; try { ol = await p.page.getOperatorList(); } catch (e) {}
-    const r = RC.analyze({ items: tc.items, fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjsLib.OPS, vpT: vp.transform, W: vp.width, H: vp.height,
-      opt: { cols: RS.cols, head: RS.head, tables: RS.tab, pics: RS.pic, side: RS.side } });
+    const i = pages.indexOf(p), repeat = new Set();               // top / bottom lines of nearby pages: book name, chapter
+    for (let j = i - 2; j <= i + 2; j++) {
+      const q = pages[j]; if (!q || q === p || q.kind !== 'pdf' || q.doc !== p.doc) continue;
+      try { if (!q.bands) { await ensure(q); q.bands = await RC.bandKeys(q.page); } q.bands.forEach(k => repeat.add(k)); } catch (e) {}
+    }
+    const r = await RC.analyzePage(p.page, pdfjsLib, { cols: RS.cols, head: RS.head, tables: RS.tab, pics: RS.pic, side: RS.side, main: RS.main, heads: RS.heads }, repeat);
     words = r.words; scanned = r.scanned; extra = { blocks: r.blocks, skipped: r.skipped };
   } else if (p.kind === 'txt') words = RC.textWords(p.lines);
   const lines = {};

@@ -10,7 +10,7 @@ const app = (m, x, y) => [m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
 const median = a => { if (!a.length) return 10; const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
 const cy = e => (e.top + e.bottom) / 2;
 RC.mul = mul;
-RC.DEF = { cols: 'auto', head: true, tables: true, pics: true, side: true };
+RC.DEF = { cols: 'auto', head: true, tables: true, pics: true, side: true, main: true, heads: false };
 
 /* ---- Devanagari: PDFs often store the i-matra (ि) before its consonant; put it back after the cluster ---- */
 RC.fixDeva = s => s.replace(/(^|[^क-हक़-य़़्])ि((?:[क-हक़-य़]़?्)*[क-हक़-य़]़?)/g, '$1$2ि');
@@ -52,7 +52,7 @@ RC.scanImages = function (fn, args, OPS, vpT, W, H) {
 
 /* ---- vector paths: horizontal / vertical rules (tables) and curves / diagonals (drawings) ---- */
 RC.scanPaths = function (fn, args, OPS, vpT, W, H) {
-  const Hs = [], Vs = [], O = [], pageA = W * H;
+  const Hs = [], Vs = [], O = [], B = [], pageA = W * H;
   const stroke = new Set(['stroke','closeStroke','fillStroke','eoFillStroke','closeFillStroke','closeEOFillStroke'].map(n => OPS[n]).filter(v => v !== undefined));
   const fill = new Set(['fill','eoFill'].map(n => OPS[n]).filter(v => v !== undefined));
   let n = 0;
@@ -68,33 +68,43 @@ RC.scanPaths = function (fn, args, OPS, vpT, W, H) {
     if (!isS && !isF) return;                                  // clipping path or invisible
     const ops = a[0], co = a[1], m = mul(vpT, ctm), P = (x, y) => app(m, x, y);
     const axis = Math.abs(m[1]) < 1e-6 && Math.abs(m[2]) < 1e-6;
-    let k = 0, cx = 0, cyy = 0, sx = 0, sy = 0;
+    let k = 0, cx = 0, cyy = 0, sx = 0, sy = 0, sub = null;
+    const subs = [];
     for (const op of ops) {
       n++;
-      if (op === OPS.moveTo) { cx = co[k++]; cyy = co[k++]; sx = cx; sy = cyy; }
-      else if (op === OPS.lineTo) { const x = co[k++], y = co[k++]; if (isS) line(P(cx, cyy), P(x, y)); cx = x; cyy = y; }
+      if (op === OPS.moveTo) { cx = co[k++]; cyy = co[k++]; sx = cx; sy = cyy; sub = { pts: [P(cx, cyy)], closed: false }; subs.push(sub); }
+      else if (op === OPS.lineTo) { const x = co[k++], y = co[k++]; if (isS) line(P(cx, cyy), P(x, y)); cx = x; cyy = y; if (sub) sub.pts.push(P(x, y)); }
       else if (op === OPS.curveTo || op === OPS.curveTo2 || op === OPS.curveTo3) {
         const c = op === OPS.curveTo ? 6 : 4, pts = [P(cx, cyy)];
         for (let j = 0; j < c; j += 2) pts.push(P(co[k + j], co[k + j + 1]));
         cx = co[k + c - 2]; cyy = co[k + c - 1]; k += c;
         const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
         O.push({ x0: Math.min(...xs), x1: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys), c: 1 });
+        if (sub) sub.pts.push(...pts.slice(1));
       }
-      else if (op === OPS.closePath) { if (isS && (cx !== sx || cyy !== sy)) line(P(cx, cyy), P(sx, sy)); cx = sx; cyy = sy; }
+      else if (op === OPS.closePath) { if (isS && (cx !== sx || cyy !== sy)) line(P(cx, cyy), P(sx, sy)); cx = sx; cyy = sy; if (sub) sub.closed = true; }
       else if (op === OPS.rectangle) {
         const x = co[k++], y = co[k++], w = co[k++], h = co[k++]; cx = sx = x; cyy = sy = y;
-        const A = P(x, y), B = P(x + w, y + h);
-        if (!axis) { if (isS) { line(A, P(x + w, y)); line(P(x + w, y), B); line(B, P(x, y + h)); line(P(x, y + h), A); } continue; }
-        const l = Math.min(A[0], B[0]), r = Math.max(A[0], B[0]), t = Math.min(A[1], B[1]), b = Math.max(A[1], B[1]), rw = r - l, rh = b - t;
+        const A = P(x, y), Bq = P(x + w, y + h);
+        subs.push({ pts: [A, P(x + w, y), Bq, P(x, y + h)], closed: true });
+        if (!axis) { if (isS) { line(A, P(x + w, y)); line(P(x + w, y), Bq); line(Bq, P(x, y + h)); line(P(x, y + h), A); } continue; }
+        const l = Math.min(A[0], Bq[0]), r = Math.max(A[0], Bq[0]), t = Math.min(A[1], Bq[1]), b = Math.max(A[1], Bq[1]), rw = r - l, rh = b - t;
         if (rw * rh > 0.6 * pageA) continue;                     // page background / frame
         if (rh <= 3 && rw >= 4) Hs.push({ x0: l, x1: r, y: (t + b) / 2 });
         else if (rw <= 3 && rh >= 4) Vs.push({ y0: t, y1: b, x: (l + r) / 2 });
         else if (isS) { Hs.push({ x0: l, x1: r, y: t }, { x0: l, x1: r, y: b }); Vs.push({ y0: t, y1: b, x: l }, { y0: t, y1: b, x: r }); }
-        // large filled rectangles (shading, highlights) are ignored
+        // large filled rectangles (shading, highlights) are ignored here; coloured backgrounds are found from the picture
       }
     }
+    if (isS) for (const q of subs) {                            // outlined closed shapes = boxes around text
+      if (q.pts.length < 3) continue;
+      const f = q.pts[0], l = q.pts[q.pts.length - 1];
+      if (!q.closed && Math.hypot(f[0] - l[0], f[1] - l[1]) > 1.5) continue;
+      const xs = q.pts.map(p => p[0]), ys = q.pts.map(p => p[1]), b = { x0: Math.min(...xs), x1: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+      if (b.x1 - b.x0 >= 20 && b.bottom - b.top >= 12 && (b.x1 - b.x0) * (b.bottom - b.top) < 0.7 * pageA) B.push(b);
+    }
   });
-  return { H: Hs, V: Vs, O };
+  return { H: Hs, V: Vs, O, B };
 };
 
 /* ---- text items -> parts -> line segments ---- */
@@ -109,10 +119,10 @@ RC.buildParts = function (items, vpT) {
     if (!s.trim()) { parts.push({ s: ' ', x0: t[4], x1: t[4] + w, base: t[5], fs, sp: true }); continue; }
     if (s.length > 6 && /\S\s{3,}\S/.test(s)) {                  // one item holding two columns: split at wide spaces
       const cw = w / s.length, re = /\S+(?:\s{1,2}\S+)*/g; let m;
-      while ((m = re.exec(s))) parts.push({ s: m[0], x0: t[4] + m.index * cw, x1: t[4] + (m.index + m[0].length) * cw, base: t[5], fs });
+      while ((m = re.exec(s))) parts.push({ s: m[0], x0: t[4] + m.index * cw, x1: t[4] + (m.index + m[0].length) * cw, base: t[5], fs, fn: it.fontName });
       continue;
     }
-    parts.push({ s, x0: t[4], x1: t[4] + w, base: t[5], fs });
+    parts.push({ s, x0: t[4], x1: t[4] + w, base: t[5], fs, fn: it.fontName });
   }
   return parts;
 };
@@ -134,7 +144,12 @@ RC.mergeParts = function (parts, cuts) {
     cur = { kind: 't', x0: p.x0, x1: p.x1, base: p.base, size: p.fs, parts: [p] };
   }
   fin();
-  for (const s of segs) { s.top = s.base - 0.9 * s.size; s.bottom = s.base + 0.25 * s.size; s.text = s.parts.map(p => p.s).join(''); s.n = s.text.replace(/\s/g, '').length; }
+  for (const s of segs) {
+    s.top = s.base - 0.9 * s.size; s.bottom = s.base + 0.25 * s.size; s.text = s.parts.map(p => p.s).join(''); s.n = s.text.replace(/\s/g, '').length;
+    const byF = new Map(), byS = new Map();                 // dominant font and size, counted by characters
+    for (const p of s.parts) { if (p.sp) continue; const l = p.s.replace(/\s/g, '').length || 1; byF.set(p.fn, (byF.get(p.fn) || 0) + l); const k = Math.round(p.fs * 4) / 4; byS.set(k, (byS.get(k) || 0) + l); }
+    s.fn = [...byF].sort((a, b) => b[1] - a[1])[0][0]; s.dsize = [...byS].sort((a, b) => b[1] - a[1])[0][0];
+  }
   return segs;
 };
 RC.buildSegments = (items, vpT) => RC.mergeParts(RC.buildParts(items, vpT), []);
@@ -265,12 +280,14 @@ function cluster(boxes, tol) {
 }
 const bbox = bs => ({ x0: Math.min(...bs.map(b => b.x0)), x1: Math.max(...bs.map(b => b.x1)), top: Math.min(...bs.map(b => b.top)), bottom: Math.max(...bs.map(b => b.bottom)) });
 const PN = /^[\s\-–—|•·()[\]]*(?:(?:page|pg\.?|p\.|पृष्ठ|पेज|पृ\.?)\s*)?(?:[0-9०-९]{1,4}|[ivxlcdm]{1,7})(?:\s*(?:of|\/|का|में से)\s*[0-9०-९]{1,4})?[\s\-–—|•·()[\]]*$/i;
-function headFoot(segs, H, drop, med) {
+RC.norm = t => String(t).toLowerCase().replace(/[0-9०-९]+/g, '#').replace(/[\s.,:;|·•\-–—()[\]'"“”‘’]+/g, ' ').trim();
+function headFoot(segs, H, drop, med, repeat) {
   const few = segs.filter(s => !s.skip).length < 5;     // a page with almost no text: keep what little there is
   for (const s of segs) {
     if (s.skip) continue;
     const t = s.text.trim();
     if ((s.base < 0.16 * H || s.top > 0.84 * H) && PN.test(t)) { drop(s, 'page number'); continue; }
+    if (repeat && repeat.size && (s.base < 0.13 * H || s.top > 0.87 * H) && s.n <= 100) { const nt = RC.norm(t), yk = Math.round(s.base / 6); if ([yk - 1, yk, yk + 1].some(k => repeat.has(nt + '@' + k))) { drop(s, 'book name / running header'); continue; } }
     const inTop = s.base < 0.09 * H, inBot = s.top > 0.91 * H;
     if (few || !(inTop || inBot) || s.n > 90 || s.size > 1.15 * med) continue;
     let gap = Infinity;
@@ -318,14 +335,24 @@ function findTables(paths, segs, G, W, H) {
       const hp = new Set(g.filter(l => l.h).map(l => Math.round(l.pos / 2))), vp = new Set(g.filter(l => !l.h).map(l => Math.round(l.pos / 2)));
       if (hp.size >= 3 && vp.size >= 3) { const b = bbox(g); if ((b.x1 - b.x0) * (b.bottom - b.top) < 0.85 * W * H && ok(b)) { b.why = 'grid'; T.push(b); } }
     }
-    const hs = paths.H.filter(h => h.x1 - h.x0 >= 60 && !T.some(t => h.y >= t.top - 2 && h.y <= t.bottom + 2)).sort((a, b) => a.y - b.y), used = new Set();
+    /* a divider sits between rows of text, not hugging the text above it like an underline */
+    const divider = h => !segs.some(s => s.x0 < h.x1 && s.x1 > h.x0 && h.y >= s.base - 0.2 * s.size && h.y - s.base < 0.35 * s.size);
+    const hs = paths.H.filter(h => h.x1 - h.x0 >= 60 && !T.some(t => h.y >= t.top - 2 && h.y <= t.bottom + 2) && divider(h)).sort((a, b) => a.y - b.y), used = new Set();
+    const med = median(segs.map(s => s.size));
     for (let i = 0; i < hs.length; i++) {
       if (used.has(i)) continue; const grp = [hs[i]];
       for (let j = i + 1; j < hs.length; j++) if (!used.has(j) && Math.abs(hs[j].x0 - hs[i].x0) <= 4 && Math.abs(hs[j].x1 - hs[i].x1) <= 4) { grp.push(hs[j]); used.add(j); }
       if (grp.length < 2) continue;
-      const b = { x0: hs[i].x0, x1: hs[i].x1, top: grp[0].y, bottom: grp[grp.length - 1].y };
-      if (b.bottom - b.top < 15 || b.bottom - b.top > 0.6 * H) continue;
-      if (tabular(segs.filter(s => inside(s, b, 1))) && ok(b)) { b.why = 'ruled'; T.push(b); }
+      /* 3+ dividers close together (rows of a table), or 2 with cells between them */
+      let run = [grp[0]];
+      const close = () => {
+        if (run.length < 2) return;
+        const b = { x0: hs[i].x0, x1: hs[i].x1, top: run[0].y, bottom: run[run.length - 1].y };
+        if (b.bottom - b.top < 15 || b.bottom - b.top > 0.6 * H) return;
+        if ((run.length >= 3 || tabular(segs.filter(s => inside(s, b, 1)))) && ok(b)) { b.why = 'ruled'; T.push(b); }
+      };
+      for (let k = 1; k < grp.length; k++) { if (grp[k].y - run[run.length - 1].y <= 4.5 * med) run.push(grp[k]); else { close(); run = [grp[k]]; } }
+      close();
     }
   }
   /* tables without lines: rows of 3+ separate cells inside one column */
@@ -341,6 +368,60 @@ function findTables(paths, segs, G, W, H) {
     flush();
   }
   return T;
+}
+/* ---- main story only: body font, size and colour; boxes and coloured backgrounds are not part of it ---- */
+const cdist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+function pxMode(px, x0, y0, x1, y1, max) {
+  const k = px.k, W = px.w, H = px.h, d = px.data;
+  x0 = Math.max(0, Math.floor(x0 * k)); x1 = Math.min(W - 1, Math.ceil(x1 * k)); y0 = Math.max(0, Math.floor(y0 * k)); y1 = Math.min(H - 1, Math.ceil(y1 * k));
+  if (x1 < x0 || y1 < y0) return null;
+  const step = Math.max(1, Math.floor(Math.sqrt((x1 - x0 + 1) * (y1 - y0 + 1) / (max || 1500)))), hist = new Map(), all = [];
+  for (let y = y0; y <= y1; y += step) for (let x = x0; x <= x1; x += step) {
+    const i = (y * W + x) * 4, key = (d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | (d[i + 2] >> 4);
+    let h = hist.get(key); if (!h) { h = [0, 0, 0, 0]; hist.set(key, h); } h[0]++; h[1] += d[i]; h[2] += d[i + 1]; h[3] += d[i + 2]; all.push(i);
+  }
+  let best = null; for (const h of hist.values()) if (!best || h[0] > best[0]) best = h;
+  return { bg: [best[1] / best[0], best[2] / best[0], best[3] / best[0]], all, d };
+}
+RC.pageBg = px => { const m = pxMode(px, 0, 0, px.w / px.k, px.h / px.k, 40000); return m ? m.bg : [255, 255, 255]; };
+function segColours(px, s) {
+  const m = pxMode(px, s.x0, s.top, s.x1, s.bottom); if (!m) return;
+  s.bg = m.bg; let n = 0, r = 0, g = 0, b = 0;
+  for (const i of m.all) { const c = [m.d[i], m.d[i + 1], m.d[i + 2]]; if (cdist(c, s.bg) > 100) { n++; r += c[0]; g += c[1]; b += c[2]; } }
+  s.fg = n >= 3 ? [r / n, g / n, b / n] : null;
+  const h = 0.25 * (s.bottom - s.top), mid = (s.top + s.bottom) / 2;           // does the colour go on past the text (a panel) or hug it (a highlight)?
+  const L = pxMode(px, s.x0 - 4, mid - h, s.x0 - 1.5, mid + h, 200), R = pxMode(px, s.x1 + 1.5, mid - h, s.x1 + 4, mid + h, 200);
+  s.bgWide = !!((L && cdist(L.bg, s.bg) < 30) || (R && cdist(R.bg, s.bg) < 30));
+}
+function mainFlow(segs, o, opt, drop, boxes, H) {
+  const live = segs.filter(s => !s.skip); if (!live.length) return;
+  const fk = fn => (o.fontKey && o.fontKey(fn)) || fn || '?';
+  const px = o.px, pageBg = px ? (px.pageBg || (px.pageBg = RC.pageBg(px))) : null;
+  if (px) live.forEach(s => segColours(px, s));
+  const coloured = s => pageBg && s.bg && s.bgWide && cdist(s.bg, pageBg) > 40;
+  const cnt = new Map();
+  for (const s of live) { if (coloured(s) || boxes.some(b => inside(s, b, 0))) continue; const k = fk(s.fn) + '|' + s.dsize; cnt.set(k, (cnt.get(k) || 0) + s.n); }
+  if (!cnt.size) return;
+  const top = [...cnt].sort((a, b) => b[1] - a[1])[0][0], cut = top.lastIndexOf('|'), bodyF = top.slice(0, cut), bodyS = +top.slice(cut + 1);
+  const sameSize = s => Math.abs(s.dsize - bodyS) <= 0.12 * bodyS;
+  /* fonts used inside the same lines as the body font also belong to the story (Hindi + English, bold or italic words) */
+  const fam = new Set([bodyF]);
+  for (const s of live) {
+    if (!sameSize(s)) continue; let inB = 0, tot = 0;
+    for (const p of s.parts) { if (p.sp) continue; const l = p.s.length; tot += l; if (fk(p.fn) === bodyF) inB += l; }
+    if (tot && inB / tot >= 0.3 && inB / tot < 1) s.parts.forEach(p => { if (!p.sp) fam.add(fk(p.fn)); });
+  }
+  let fg = null;
+  if (px) { let n = 0, a = [0, 0, 0]; for (const s of live) if (s.fg && fk(s.fn) === bodyF && sameSize(s)) { n += s.n; for (let i = 0; i < 3; i++) a[i] += s.fg[i] * s.n; } if (n) fg = a.map(v => v / n); }
+  const bodyChars = live.reduce((a, s) => a + s.n, 0);
+  const realBoxes = boxes.filter(b => live.filter(s => inside(s, b, 0)).reduce((a, s) => a + s.n, 0) < 0.45 * bodyChars);
+  for (const s of live) {
+    if (coloured(s)) { drop(s, 'coloured background'); continue; }
+    if (realBoxes.some(b => inside(s, b, 0))) { drop(s, 'inside a box'); continue; }
+    if (!sameSize(s)) { if (!(opt.heads && s.dsize > bodyS)) { drop(s, s.dsize > bodyS ? 'heading / bigger text' : 'smaller text'); continue; } }
+    else if (!fam.has(fk(s.fn))) { drop(s, 'different font'); continue; }
+    if (fg && s.fg && cdist(s.fg, fg) > 110) { drop(s, 'coloured text'); continue; }
+  }
 }
 function sideNotes(segs, drop, W, H) {
   const body = segs.filter(s => !s.skip && s.n >= 25); if (body.length < 4) return;
@@ -407,7 +488,7 @@ RC.analyze = function (o) {
   const drop = (s, why) => { if (!s.skip) { s.skip = why; skipped.push(s); } };
   const med = median(segs.map(s => s.size));
   if (imgs.length) segs.forEach(s => { if (imgs.some(b => inside(s, b, 1))) drop(s, 'picture'); });
-  if (opt.head) headFoot(segs, H, drop, med);
+  if (opt.head) headFoot(segs, H, drop, med, o.repeat);
   let figs = [], tables = [];
   if (paths && opt.pics) {
     figs = findFigures(paths.O, segs, W, H);
@@ -419,6 +500,7 @@ RC.analyze = function (o) {
   }
   if (opt.pics) captions(segs, imgs.concat(figs, opt.tables ? tables : []), drop, med);
   if (opt.side) sideNotes(segs, drop, W, H);
+  if (opt.main) mainFlow(segs, o, opt, drop, paths ? paths.B.filter(b => !tables.some(t => b.x0 >= t.x0 - 3 && b.x1 <= t.x1 + 3 && b.top >= t.top - 3 && b.bottom <= t.bottom + 3)) : [], H);
   const live = segs.filter(s => !s.skip);
   const boxes = imgs.concat(figs, tables).map(b => ({ kind: 'i', x0: b.x0, x1: b.x1, top: b.top, bottom: b.bottom, base: b.bottom }));
   const forced = nCols ? (nCols === 1 ? [] : RC.forcedGutters(live, nCols)) : null;
@@ -428,6 +510,39 @@ RC.analyze = function (o) {
     blocks: readBlocks(ordered),
     skipped: skipped.map(s => ({ x0: s.x0, x1: s.x1, top: s.top, bottom: s.bottom, why: s.skip, text: s.text }))
   };
+};
+RC.analyzePage = async function (page, pdfjs, opt, repeat) {
+  const vp = page.getViewport({ scale: 1 }), tc = await page.getTextContent();
+  let ol = null; try { ol = await page.getOperatorList(); } catch (e) {}
+  let px = null;
+  if (opt && opt.main !== false && typeof document !== 'undefined') {
+    try {
+      const k = Math.min(1.2, 1400 / Math.max(vp.width, vp.height)), v2 = page.getViewport({ scale: k }), c = document.createElement('canvas');
+      c.width = Math.ceil(v2.width); c.height = Math.ceil(v2.height);
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: x, viewport: v2 }).promise;
+      px = { data: x.getImageData(0, 0, c.width, c.height).data, w: c.width, h: c.height, k }; c.width = c.height = 1;
+    } catch (e) { px = null; }
+  }
+  const names = {};
+  const fontKey = fn => {
+    if (fn in names) return names[fn];
+    let n = fn; try { const f = page.commonObjs.get(fn); n = (f && (f.name || f.loadedName)) || fn; } catch (e) {}
+    return (names[fn] = String(n).replace(/^[A-Z]{6}\+/, '').toLowerCase());
+  };
+  return RC.analyze({ items: tc.items, fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjs.OPS, vpT: vp.transform, W: vp.width, H: vp.height, opt, px, fontKey, repeat });
+};
+/* short lines at the very top / bottom of a page, for spotting the book name or chapter repeated on every page */
+RC.bandKeys = async function (page) {
+  const vp = page.getViewport({ scale: 1 }), tc = await page.getTextContent(), H = vp.height, out = new Set(), rows = new Map();
+  for (const it of tc.items) {
+    if (!it.str || !it.str.trim()) continue;
+    const t = mul(vp.transform, it.transform), y = t[5];
+    if (y > 0.13 * H && y < 0.87 * H) continue;
+    const yk = Math.round(y / 6); out.add(RC.norm(it.str) + '@' + yk); const k = Math.round(y / 3); rows.set(k, { y: yk, t: ((rows.get(k) || {}).t || '') + ' ' + it.str });
+  }
+  for (const r of rows.values()) out.add(RC.norm(r.t) + '@' + r.y);
+  return out;
 };
 RC.textWords = function (lines) {            // plain-text pages (monospace layout used by the viewer)
   const words = [];
