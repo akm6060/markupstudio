@@ -95,6 +95,14 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
 </div>
 <input id="file" type="file" multiple hidden><input id="file2" type="file" multiple hidden>
 <script>
+/* plain old JavaScript on purpose: tells the user what to do when the phone's WebView is too old */
+if (typeof pdfjsLib === 'undefined') {
+  document.body.innerHTML = '<div style="padding:28px 22px;font:17px/1.5 sans-serif;color:#222;background:#fff;height:100%">' +
+    '<b>Markup Studio needs an update of “Android System WebView”.</b><br><br>' +
+    'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open Markup Studio again.</div>';
+}
+</script>
+<script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='libs/pdf.worker.min.js';
 const $=s=>document.querySelector(s);let dpr=Math.min(window.devicePixelRatio||1,2);
 let dirty=false;function setDirty(v){dirty=v!==false;window.__dirtyChanged&&window.__dirtyChanged(dirty)}

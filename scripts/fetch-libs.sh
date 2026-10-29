@@ -12,8 +12,9 @@ npm init -y >/dev/null
 npm install --no-audit --no-fund \
   pdfjs-dist@3.11.174 pdf-lib@1.17.1 jszip@3.10.1 mammoth@1.6.0 xlsx@0.18.5 pptxgenjs@3.12.0
 N="$TMP/node_modules"
-cp "$N/pdfjs-dist/build/pdf.min.js"            "$OUT/pdf.min.js"
-cp "$N/pdfjs-dist/build/pdf.worker.min.js"     "$OUT/pdf.worker.min.js"
+# legacy build: runs on the older WebView versions found on Android 5-11 phones
+cp "$N/pdfjs-dist/legacy/build/pdf.min.js"         "$OUT/pdf.min.js"
+cp "$N/pdfjs-dist/legacy/build/pdf.worker.min.js"  "$OUT/pdf.worker.min.js"
 cp "$N/pdf-lib/dist/pdf-lib.min.js"            "$OUT/pdf-lib.min.js"
 cp "$N/jszip/dist/jszip.min.js"                "$OUT/jszip.min.js"
 cp "$N/mammoth/mammoth.browser.min.js"         "$OUT/mammoth.browser.min.js"
