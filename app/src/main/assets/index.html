@@ -40,13 +40,14 @@ label{white-space:nowrap;font-size:12px;display:flex;gap:5px;align-items:center;
 #empty button{margin-top:12px;background:var(--ac);color:#fff;border:none;padding:10px 18px}
 #grid{display:none;flex:1;flex-direction:column;min-height:0}
 body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{display:none!important}
-#tgrid{flex:1;overflow:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px;align-content:start}
-.th{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border-radius:10px;border:2px solid transparent;cursor:pointer;position:relative;user-select:none}
-.th canvas{width:100%;height:auto;display:block;background:#fff;box-shadow:0 1px 5px rgba(0,0,0,.3)}
-.th .ph{width:100%;aspect-ratio:3/4;background:#fff;opacity:.5}
+#gtop{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--bar);border-bottom:1px solid var(--bd)}#gtop b{font-size:15px}#gtop label{flex:1;justify-content:flex-end}#gtop input{width:42%;max-width:220px}
+#tgrid{position:relative;flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:var(--gap,10px);align-content:start;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+.th{position:relative;border-radius:6px;border:2px solid transparent;cursor:pointer;background:transparent;padding:2px}
+.th .tp{width:100%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:block;pointer-events:none}.th .tp:not([src]){background:#f1f3f5}
 .th.sel{border-color:var(--ac);background:var(--ac2)}
-.th.sel::after{content:"✓";position:absolute;top:2px;right:4px;background:var(--ac);color:#fff;border-radius:50%;width:18px;height:18px;font-size:12px;text-align:center;line-height:18px}
-.th span{font-size:12px;color:var(--mut)}
+.th.sel::after{content:"✓";position:absolute;top:2px;right:2px;background:var(--ac);color:#fff;border-radius:50%;width:16px;height:16px;font-size:11px;text-align:center;line-height:16px}
+.th span{display:block;text-align:center;font-size:11px;color:var(--mut);line-height:1.3;pointer-events:none}
+#tgrid.tiny .th span{display:none}#tgrid.tiny .th.sel::after{width:10px;height:10px;font-size:8px;line-height:10px}#tgrid.tiny .th{padding:0;border-width:1px}
 #pop{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;width:min(320px,92vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:8px;z-index:5}#pop[hidden]{display:none}
 #pop label{font-size:13px;justify-content:space-between}#pop input[type=range]{flex:1;width:auto}
 #pv{height:46px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;border:1px solid var(--bd)}#pv i{display:block;width:80%;border-radius:2px}
@@ -71,16 +72,17 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
  <button id="cfg" title="Width & opacity">⚙</button>
  <div class="sep"></div>
  <button id="undo" title="Undo">↶</button><button id="clr" title="Clear marks on page">🗑</button>
- <button id="zo">−</button><button id="zi">+</button>
  <div id="info"></div>
 </div>
 <div id="view"><div id="empty"><div style="font-size:34px">📄</div><p>Open a file here, or use <b>Open with</b> / <b>Share</b> from any file manager. PDF, images, text, Word and Excel are supported. Files stay on your device.</p><button id="open2">Choose files</button></div><div id="pages"></div></div>
-<div id="grid"><div id="tgrid"></div>
+<div id="grid">
+ <div id="gtop"><b>Pages</b><span id="gcnt"></span><label>Size <input type="range" id="gsize" min="2" max="12" step="1"></label><button id="gdone" class="on">✓ Done</button></div>
+ <div id="tgrid"></div>
  <div id="gbar">
-  <button id="gall">All</button><button id="gnone">None</button><span id="gcnt"></span><div class="sep"></div>
-  <button id="gup">↑ Up</button><button id="gdn">↓ Down</button><div class="sep"></div>
-  <button id="gadd">＋ Blank</button><button id="gfile">📎 Add file</button><button id="gdup">⧉ Copy</button><button id="gdel">🗑 Delete</button><div class="sep"></div>
-  <button id="gexp">⬇ Export</button><button id="gdone" class="on">✓ Done</button>
+  <button id="gall">All</button><button id="gnone">None</button><div class="sep"></div>
+  <button id="gup">↑ Move up</button><button id="gdn">↓ Move down</button><div class="sep"></div>
+  <button id="gdup">⧉ Copy</button><button id="gdel">🗑 Delete</button><button id="gadd">＋ Blank</button><button id="gfile">📎 Add file</button><div class="sep"></div>
+  <button id="gexp">⬇ Export</button>
  </div></div>
 <div id="pop" hidden>
  <div class="pt"><b id="pn">Pen</b><button id="px">✕</button></div>

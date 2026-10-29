@@ -40,8 +40,8 @@ const mk = (tag, props, html) => { const e = document.createElement(tag); Object
 const btn = (id, txt, title) => mk('button', { id, title }, txt);
 
 /* ---------- bar buttons ---------- */
-const sv = btn('sv', '💾', 'Save edits'), rd = btn('rd', '🔊', 'Read aloud / auto-scroll'), mn = btn('mn', '⋮', 'Settings'), ob = btn('ob', '📂', 'Open a file');
-$('#exbtn').after(sv, rd); $('#info').before(mn); $('#pgs').before(ob);
+const pm = btn('pm', '📄', 'This page: move, delete, bookmark…'), rd = btn('rd', '🔊', 'Read aloud / auto-scroll'), mn = btn('mn', '⋮', 'Settings'), ob = btn('ob', '📂', 'Open a file');
+$('#exbtn').after(pm, rd); $('#info').before(mn); $('#pgs').before(ob);
 
 /* ---------- opening files from Android (open with / share / picker / resume) ---------- */
 async function fetchEntry(e) {
@@ -100,83 +100,147 @@ const pageKey = p => p.nid ? A.entryKey(p.nid) + '|' + p.sidx : null;
 function saveMarks() {
   try {
     const all = loadMarks(), has = {};
-    for (const p of pages) { const k = pageKey(p); if (!k) continue; if (p.strokes.length) has[k] = p.strokes; else if (!(k in has)) has[k] = null; }
+    for (const p of pages) { const k = pageKey(p); if (!k) continue; const l = p.strokes.filter(s => !s.inOrig); if (l.length) has[k] = l; else if (!(k in has)) has[k] = null; }
     for (const k in has) { if (has[k]) all[k] = has[k]; else delete all[k]; }
     const s = JSON.stringify(all); if (s.length < 4e6) localStorage.setItem(MK, s);
   } catch (e) {}
 }
 function clearMarksFor(nid) { try { const all = loadMarks(), pre = A.entryKey(nid) + '|'; for (const k in all) if (k.startsWith(pre)) delete all[k]; localStorage.setItem(MK, JSON.stringify(all)); } catch (e) {} }
 let mst; const saveMarksSoon = () => { clearTimeout(mst); mst = setTimeout(saveMarks, 1000); };
-window.__dirtyChanged = d => { sv.classList.toggle('dirty', d); if (d) saveMarksSoon(); };
+window.__dirtyChanged = d => { if (d) { saveMarksSoon(); scheduleSave(); } };
 let skipMarks = false;
 window.__beforeReplace = () => { if (skipMarks) { skipMarks = false; } else saveMarks(); saveStateNow(); };
 window.__docChanged = (fresh, added) => {
+  if (fresh) window.__resetSave();
   const all = loadMarks(); let n = 0;
   for (const p of added) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes.push(...all[k]); n++; redraw(p); } }
   if (n && fresh) { setDirty(); toast('Restored your unsaved marks on ' + n + ' page' + (n > 1 ? 's' : '')); }
   saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
 
-/* ---------- saving ---------- */
-let saving = false;
-const saveMode = () => pref('saveMode', 'copy');
 /* ---------- the phone's own PDF tools (big books): jobs with progress ---------- */
 const jobs = {};
 window.__job = (id, type, d) => { const j = jobs[id]; if (!j) return; if (type === 'progress') { if (j.prog) j.prog(d); } else if (type !== 'done') { if (j.on) j.on(type, d); } else { delete jobs[id]; A.keepAwake(false); if (d.ok) j.ok(d); else j.no(new Error(d.err || 'failed')); } };
 window.__pdfJob = (o, prog, on) => new Promise((ok, no) => { A.keepAwake(true); const id = A.job(JSON.stringify(o)); jobs[id] = { ok, no, prog, on }; });
-/* a big book is saved by the phone's PDF tools: only the pages with marks are touched, nothing is loaded into memory */
-async function saveBig(all, mode, primary) {
-  const marks = {}; let n = 0; for (const p of all) if (p.strokes && p.strokes.length) { marks[p.pn] = p.strokes; n++; }
-  if (!n) { toast('There are no marks to save'); return; }
-  const B = window.__book();
-  const r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode, name: docName + '-edited.pdf', book: B && B.key || '', partSize: B ? B.size : 0 }, d => toast(d.msg || 'Saving…', 60000));
-  setDirty(false);
-  toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where), 5000);
-  if (r.mode === 'original') {                         // the file on disk changed: open it again at the same place
-    const t = topPage(), idx = t ? window.__pageNo(t.p) - 1 : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
-    all.forEach(p => p.strokes && p.strokes.splice(0)); clearMarksFor(primary); skipMarks = true;
-    await window.__nativeOpen([{ id: primary, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', { page: idx, frac: fr });
+/* ---------- auto-save: every change is saved by itself (into the original or into one "-edited" copy) ---------- */
+const saveMode = () => pref('saveMode', 'copy');
+const AS2 = { t: 0, busy: false, again: false, struct: false, copyMade: false, pend: false, told: false, reopen: null };
+window.__structChanged = () => { AS2.struct = true; };
+const firstPdf = () => pages.find(p => p.kind === 'pdf');
+const nativeDoc = () => { const f = firstPdf(); return !!(window.__pdfJob && f && f.nid && pages.every(p => p.kind === 'blank' || (p.kind === 'pdf' && p.nid === f.nid))); };
+const isBig = () => { const f = firstPdf(); return nativeDoc() && (!!window.__book() || (f.src && f.src.size > JSBIG) || pages.length > 400); };
+function scheduleSave(ms) { if (!pages.length) return; AS2.pend = true; clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, ms != null ? ms : (isBig() ? 4000 : 1500)); window.__saveNote && window.__saveNote('not saved yet'); }
+const posNow = () => { const t = topPage(); return { page: t ? pages.indexOf(t.p) : 0, frac: t ? t.frac : 0 }; };
+async function saveBigNow(mode) {
+  const f = firstPdf(), primary = f.nid, toCopy = mode !== 'original', B = window.__book(), name = docName + '-edited.pdf';
+  const done = []; let r;
+  if (AS2.struct || (toCopy && !AS2.copyMade)) {                // pages moved / added / deleted, or the first copy: write the whole book
+    const order = pages.map(p => p.kind === 'blank' ? { blank: [p.w, p.h] } : { pn: p.pn }), marks = {};
+    pages.forEach((p, i) => { const l = p.strokes.filter(s => !s.inOrig); if (l.length) { marks[i + 1] = l; done.push(...l); } });
+    r = await window.__pdfJob({ op: 'rebuild', src: primary, order, marks, mode: toCopy ? 'copyr' : 'original', name }, d => window.__saveNote(d.msg || 'saving…'));
+    done.forEach(s => { if (toCopy) s.inCopy = true; else s.inOrig = true; });
+    AS2.struct = false; if (toCopy) AS2.copyMade = true; else { pages.forEach(p => p.strokes.forEach(s => { s.inOrig = true; })); r.reopen = true; }
+    return r;
   }
+  const marks = {};
+  pages.forEach((p, i) => { const l = p.strokes.filter(s => toCopy ? !s.inCopy && !s.inOrig : !s.inOrig); if (l.length) { marks[toCopy ? i + 1 : p.pn] = l; done.push(...l); } });
+  if (!done.length) return null;
+  try { r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode: toCopy ? 'copyr' : 'original', name, book: B && B.key || '', partSize: B ? B.size : 0 }, d => window.__saveNote(d.msg || 'saving…')); }
+  catch (e) { if (/nocopy/.test(e.message)) { AS2.copyMade = false; return saveBigNow(mode); } throw e; }
+  done.forEach(s => { if (toCopy) s.inCopy = true; else s.inOrig = true; });
+  if (r.key && B) B.key = r.key;
+  if (!toCopy && !r.incremental && !B) r.reopen = true;          // the file was rewritten under the page reader
+  return r;
 }
-async function doSave() {
-  if (!pages.length) { toast('Nothing to save'); return; }
-  if (saving) return; saving = true; sv.disabled = true; toast('Saving…', 60000);
+async function saveSmallNow(mode) {
+  const toCopy = mode !== 'original', primary = docPrimary || 0, done = [];
+  pages.forEach(p => p.strokes.forEach(s => { if (!s.inOrig) done.push(s); }));
+  if (!toCopy && !done.length && !AS2.struct) return null;
+  for (const p of pages) { try { await ensure(p); } catch (e) {} }
+  await lib(PDFLIB);
+  const views = pages.map(p => Object.assign(Object.create(p), { strokes: p.strokes.filter(s => !s.inOrig) }));
+  const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, views, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
+  let m = toCopy ? 'copyr' : 'original'; if ((bytes.__bad || 0) && m === 'original') m = 'copyr';   // never overwrite the original with blank pages
+  const r = await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), m, docName + '-edited.pdf', primary);
+  if (r.mode === 'original') { done.forEach(s => { s.inOrig = true; }); if (AS2.struct) r.reopen = true; } else AS2.copyMade = true;
+  AS2.struct = false;
+  return r;
+}
+async function autoSave() {
+  clearTimeout(AS2.t); if (!AS2.pend || !pages.length) return;
+  if (AS2.busy) { AS2.again = true; return; }
+  AS2.busy = true; AS2.pend = false; window.__saveNote('saving…'); let r = null;
   try {
-    let mode = saveMode(); const primary = docPrimary || 0, all = window.__allPages();
-    const big = (window.__book() || (all[0].src && all[0].src.size > JSBIG) || all.length > 400) && all.every((p, i) => p.kind === 'pdf' && p.nid === all[0].nid && p.pn === i + 1);
-    if (big) { await saveBig(all, mode, all[0].nid); saving = false; sv.disabled = false; return; }
-    for (const p of pages) { try { await ensure(p); } catch (e) {} }   // a damaged page must not stop the save
-    await lib(PDFLIB);
-    const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, pages, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
-    const bad = bytes.__bad || 0;
-    if (bad && mode === 'original') mode = 'copy';                   // never overwrite the original with blank pages
-    const r = await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), mode, docName + '-edited.pdf', primary);
-    setDirty(false);
-    toast((r.note ? r.note + ' ' : '') + (r.mode === 'original' ? 'Saved in the original file.' : 'Saved: ' + r.where) + (bad ? ' · ' + bad + ' damaged page' + (bad > 1 ? 's' : '') + ' could not be read, so the original was not replaced.' : ''), bad ? 8000 : 4500);
-    if (r.mode === 'original' && primary) {            // reload so what you see is what is on disk
-      const t = topPage(), idx = t ? window.__pageNo(t.p) - 1 : 0, fr = t ? t.frac : 0, m = meta[primary] || {};
-      clearMarksFor(primary); skipMarks = true;
-      await window.__nativeOpen([{ id: primary, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', { page: idx, frac: fr });
-    }
-  } catch (e) { toast('Save failed: ' + (e && e.message || e), 5000); }
-  saving = false; sv.disabled = false;
+    const mode = saveMode();
+    r = isBig() ? await saveBigNow(mode) : await saveSmallNow(mode);
+    window.__saveNote(r ? 'saved ✓' : ''); if (r) saveMarksSoon();
+    if (r && r.note) toast(r.note, 6000);
+    if (r && !AS2.told) { AS2.told = true; toast(r.mode === 'original' ? 'Changes are saved by themselves into the original file' : 'Changes are saved by themselves to: ' + r.where, 5000); }
+    setTimeout(() => { if (!AS2.pend && !AS2.busy) window.__saveNote(''); }, 2500);
+  } catch (e) {
+    AS2.pend = true; window.__saveNote('not saved');
+    toast('Auto-save failed: ' + (e && e.message || e) + ' — trying again soon.', 6000);
+    clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, 15000);
+  } finally { AS2.busy = false; }
+  if (r && r.reopen) {                                   // page order changed inside the original file: open it again at the same place
+    const f = firstPdf(), m = meta[f ? f.nid : docPrimary] || {}, pos = posNow(); skipMarks = true;
+    await window.__nativeOpen([{ id: f.nid, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', pos);
+  }
+  if (AS2.again) { AS2.again = false; scheduleSave(600); }
 }
-sv.onclick = doSave;
+window.__flushSave = async () => { if (AS2.pend && !AS2.busy) await autoSave(); let n = 0; while (AS2.busy && n++ < 900) await new Promise(r => setTimeout(r, 200)); };
+window.__resetSave = () => { clearTimeout(AS2.t); AS2.struct = false; AS2.copyMade = false; AS2.pend = false; AS2.told = false; };
+
+/* ---------- 📄 this page: move, delete, copy, blank page, export, bookmarks, go to page ---------- */
+const pmp = mk('div', { id: 'pmp', className: 'panel', hidden: true }, `
+ <div class="row"><b id="pmt">Page</b><button id="pmx">✕</button></div>
+ <div class="row"><button class="big" id="pmup">↑ Move up</button><button class="big" id="pmdn">↓ Move down</button></div>
+ <div class="row"><button class="big" id="pmdup">⧉ Duplicate</button><button class="big" id="pmbl">＋ Blank page after</button></div>
+ <div class="row"><button class="big" id="pmdel">🗑 Delete page</button><button class="big" id="pmexp">⬇ Export page</button></div>
+ <div class="row"><button class="big" id="pmbm">🔖 Bookmark this page</button><button class="big" id="pmarr">▦ All pages</button></div>
+ <div class="row"><span>Go to page</span><input type="number" id="pmgo" min="1" inputmode="numeric" enterkeyhint="go" style="width:110px;font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg)"></div>
+ <div><b style="font-size:13px">Bookmarks</b></div><div id="pmbl2"></div>`);
+document.body.appendChild(pmp);
+const bmKey = () => { const f = firstPdf() || pages[0]; return 'ms.bm.' + (f && f.nid ? A.entryKey(f.nid) : docName); };
+const bmGet = () => { try { return JSON.parse(localStorage.getItem(bmKey()) || '[]'); } catch (e) { return []; } };
+const bmSet = l => { try { localStorage.setItem(bmKey(), JSON.stringify(l)); } catch (e) {} };
+function pmRefresh() {
+  const p = pages[window.__curIndex()], i = pages.indexOf(p); $('#pmt').textContent = `Page ${i + 1} of ${pages.length}`;
+  const l = bmGet(), has = l.some(b => b.n === i + 1); $('#pmbm').textContent = has ? '🔖 Remove bookmark' : '🔖 Bookmark this page';
+  const box = $('#pmbl2'); box.innerHTML = l.length ? '' : '<small>No bookmarks yet.</small>';
+  l.sort((a, b) => a.n - b.n).forEach(b => { const d = mk('div', { className: 'fi' }, `<div class="ic">🔖</div><div class="nm"><div>Page ${b.n}</div>${b.t ? `<div class="mt">${esc(b.t)}</div>` : ''}</div>`); d.onclick = () => { pmp.hidden = true; window.__gotoGlobal(b.n - 1, 0); }; box.appendChild(d); });
+}
+pm.onclick = () => { const open = pmp.hidden; document.querySelectorAll('.panel').forEach(x => { if (x !== pmp && x.id !== 'sp') x.hidden = true; }); pmp.hidden = !open; if (open) pmRefresh(); };
+$('#pmx').onclick = () => pmp.hidden = true;
+const curP = () => pages[window.__curIndex()];
+$('#pmup').onclick = () => { const p = curP(); window.__pageOps.move(p, -1); window.__gotoGlobal(pages.indexOf(p), 0); pmRefresh(); };
+$('#pmdn').onclick = () => { const p = curP(); window.__pageOps.move(p, 1); window.__gotoGlobal(pages.indexOf(p), 0); pmRefresh(); };
+$('#pmdup').onclick = () => { window.__pageOps.dup(curP()); toast('Page copied'); pmRefresh(); };
+$('#pmbl').onclick = () => { window.__pageOps.blank(curP()); toast('Blank page added after this one'); pmRefresh(); };
+$('#pmdel').onclick = () => { const p = curP(), i = pages.indexOf(p); if (!confirm('Delete page ' + (i + 1) + '?')) return; if (window.__pageOps.del(p)) { toast('Page deleted'); window.__gotoGlobal(Math.min(i, pages.length - 1), 0); } pmRefresh(); };
+$('#pmexp').onclick = () => { pmp.hidden = true; $('#exbtn').click(); $('#escope').value = 'cur'; $('#escope').dispatchEvent(new Event('change')); };
+$('#pmbm').onclick = async () => {
+  const p = curP(), i = pages.indexOf(p); let l = bmGet();
+  if (l.some(b => b.n === i + 1)) l = l.filter(b => b.n !== i + 1);
+  else { let t = ''; try { const r = await pageReadable(p); t = r.words.slice(0, 9).map(w => w.w).join(' '); } catch (e) {} l.push({ n: i + 1, t }); }
+  bmSet(l); pmRefresh();
+};
+$('#pmarr').onclick = () => { pmp.hidden = true; $('#pgs').click(); };
+$('#pmgo').addEventListener('keydown', e => { if (e.key === 'Enter') { const n = +e.target.value; e.target.value = ''; e.target.blur(); if (n > 0) { pmp.hidden = true; window.__gotoGlobal(n - 1, 0); } } });
 
 /* ---------- panels ---------- */
 const mp = mk('div', { id: 'mp', className: 'panel', hidden: true }, `
  <div class="row"><b>Settings</b><button id="mpx">✕</button></div>
- <div><b style="font-size:13px">When I tap Save 💾</b></div>
- <label><input type="radio" name="sm" value="original"> Save into the original file (replaces it)</label>
- <label><input type="radio" name="sm" value="copy"> Save a new copy (“-edited”)</label>
- <small>Chosen once here — Save never asks. Replacing the original works for PDF files; other file types always get a PDF copy.</small>
+ <div><b style="font-size:13px">Saving</b></div>
+ <label><input type="radio" name="sm" value="original"> Save every change into the original file</label>
+ <label><input type="radio" name="sm" value="copy"> Save every change into one copy (“-edited”)</label>
+ <small>Every mark and page change is saved by itself a moment later. Marks saved into the original stay in the file (they cannot be erased later). Other file types are always saved as a PDF copy.</small>
  <hr>
  <div><b style="font-size:13px">Folders</b></div>
  <div class="row"><span>Edited copies go to</span><button id="mcd">Change</button></div><small id="mcdv"></small>
  <div class="row"><span>Exports go to</span><button id="med">Change</button></div><small id="medv"></small>
  <hr>
  <div><b style="font-size:13px">Big books</b></div>
- <div class="row"><span>Show</span><select id="mpart"><option value="">Automatic</option><option value="0">All pages at once</option><option value="100">100 pages at a time</option><option value="200">200 pages at a time</option><option value="300">300 pages at a time</option><option value="500">500 pages at a time</option></select></div>
  <small id="mmem"></small>
  <div class="row"><button class="big" id="mmerge">Join PDF files into one…</button></div>
  <hr>
@@ -233,18 +297,17 @@ function refreshMenu() {
   const s = JP(A.storageInfo(), {}), vol = (s.volumes || []).filter(v => !/emulated/.test(v));
   $('#mstore').textContent = (s.allFiles ? 'All-files access: allowed. ' : 'All-files access: not allowed yet. ') + (vol.length ? 'Removable storage found: ' + vol.join(', ') + '. ' : 'No SD card / USB drive detected. ') + ((s.trees || []).length ? 'Folder access granted for ' + s.trees.length + ' location(s).' : '');
   $('#mperm').style.display = s.allFiles ? 'none' : '';
-  $('#mth').value = pref('theme', 'light'); $('#mpart').value = pref('partSize', '');
+  $('#mth').value = pref('theme', 'light');
   const mi = JP(A.memInfo ? A.memInfo() : '{}', {}), M = window.__MEM || {};
-  $('#mmem').textContent = (mi.total ? 'This phone has ' + (mi.total / 1073741824).toFixed(1) + ' GB memory' + (M.low ? ' — low-memory mode is on.' : '.') + ' ' : '') + 'Books with more pages than this are shown part by part; ◀ ▶ at the top move between parts.';
+  $('#mmem').textContent = (mi.total ? 'This phone has ' + (mi.total / 1073741824).toFixed(1) + ' GB memory' + (M.low ? ' — low-memory mode is on.' : '.') + ' ' : '') + 'Big books scroll as one book; only the pages around where you read are kept in memory, the rest show small previews.';
   const cd = pref('copyDir', ''), ed = pref('exportDir', '');
   $('#mcdv').textContent = cd || 'Same folder as the original file';
   $('#medv').textContent = ed || 'Download/MarkupStudio';
 }
 mp.addEventListener('change', e => {
-  if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); toast(e.target.value === 'original' ? 'Save will replace the original file' : 'Save will create a new copy'); }
+  if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); window.__resetSave(); AS2.pend = true; scheduleSave(800); toast(e.target.value === 'original' ? 'Save will replace the original file' : 'Save will create a new copy'); }
   if (e.target.id === 'mfs') A.setFullscreen(e.target.checked);
   if (e.target.id === 'mres') A.setPref('resume', e.target.checked ? '1' : '0');
-  if (e.target.id === 'mpart') { A.setPref('partSize', e.target.value); toast('Applies when you open a book'); }
   if (e.target.id === 'mth') { const t = e.target.value; A.setTheme(t); if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 });
 $('#mcd').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('copyDir', p); toast(p ? 'Edited copies will be saved in ' + p : 'Edited copies will be saved next to the original'); }, pref('copyDir', '')); };
@@ -320,7 +383,7 @@ async function pageReadable(p) {
       try { if (!q.bands) { await ensure(q); q.bands = await RC.bandKeys(q.page); } q.bands.forEach(k => repeat.add(k)); } catch (e) {}
     }
     const r = await RC.analyzePage(p.page, pdfjsLib, { cols: RS.cols, head: RS.head, tables: RS.tab, pics: RS.pic, side: RS.side, main: RS.main, heads: RS.heads }, repeat);
-    words = r.words; scanned = r.scanned; extra = { blocks: r.blocks, skipped: r.skipped };
+    words = r.words; scanned = r.scanned; extra = { blocks: r.blocks, skipped: r.skipped, sgroups: r.sgroups || [] };
   } else if (p.kind === 'txt') words = RC.textWords(p.lines);
   const lines = {};
   for (const w of words) { const L = lines[w.si]; if (!L) lines[w.si] = { x0: w.x0, x1: w.x1, top: w.top, bottom: w.bottom }; else { L.x0 = Math.min(L.x0, w.x0); L.x1 = Math.max(L.x1, w.x1); L.top = Math.min(L.top, w.top); L.bottom = Math.max(L.bottom, w.bottom); } }
@@ -405,13 +468,13 @@ window.__tts = function (ev, id, s) {
 function stopSpeech() { clearInterval(R.est); try { A.ttsStop(); } catch (e) {} if (R.resolve) { const r = R.resolve; R.resolve = null; r('stop'); } }
 function stopAll() { R.gen++; stopSpeech(); R.on = false; hlClear(); awake(AS.on); updUI(); }
 const waitTts = () => new Promise(res => { let n = 0; const t = setInterval(() => { if (ttsReady || ++n > 30) { clearInterval(t); res(); } }, 100); });
-async function readFrom(p, wi) {
+async function readFrom(p, wi, ov) {
   const gen = ++R.gen; stopSpeech(); R.on = true; R.errs = 0; hlClear(); updUI(); awake(true);
   if (!ttsReady) { A.ttsInit(); await waitTts(); if (gen !== R.gen) return; if (!ttsReady) { R.on = false; updUI(); awake(AS.on); return; } }
   if (AS.on) stopAS();
   let page = p, start = wi || 0, first = true, spoke = false;
   while (gen === R.gen) {
-    R.page = page; let rdp; try { rdp = await pageReadable(page); } catch (e) { rdp = { words: [], lines: {}, scanned: false }; }
+    R.page = page; let rdp; try { rdp = first && ov ? ov : await pageReadable(page); } catch (e) { rdp = { words: [], lines: {}, scanned: false }; }
     if (gen !== R.gen) return;
     if (!first && RS.follow) scrollToPage(page);
     if (RS.show && !page.wrap.querySelector('.lay')) drawLayout(page);
@@ -450,21 +513,39 @@ async function skipPage(d) {
 pq(rp, '#rplay').onclick = toggleRead; pq(rp, '#rstop').onclick = () => { R.resumeAt = null; stopAll(); };
 pq(rp, '#rprev').onclick = () => skipPage(-1); pq(rp, '#rnext').onclick = () => skipPage(1);
 
-/* ---------- tap / stylus a word or line to read from there ---------- */
-let tap = null, hinted = false;
-view.addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now(), ok: tool === 'scroll' && RS.tap && !inGrid() && e.isPrimary }; }, true);
+/* ---------- one tap = read from that word; double tap = stop reading ----------
+   tapping text that the reading rules skip (a box, a table, a caption…) reads that block first, then the normal rules go on */
+let tap = null, hinted = false, tapTimer = 0, lastUp = { t: 0, x: 0, y: 0 };
+window.__isReading = () => R.on;
+view.addEventListener('pointerdown', e => { tap = { x: e.clientX, y: e.clientY, t: performance.now(), ok: tool === 'scroll' && !inGrid() && e.isPrimary }; }, true);
 view.addEventListener('pointermove', e => { if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.ok = false; }, true);
 view.addEventListener('pointercancel', () => { tap = null; }, true);
-view.addEventListener('pointerup', async e => {
-  const t = tap; tap = null; if (!t || !t.ok || performance.now() - t.t > 600) return;
+function linesOf(words) { const L = {}; for (const w of words) { const l = L[w.si]; if (!l) L[w.si] = { x0: w.x0, x1: w.x1, top: w.top, bottom: w.bottom }; else { l.x0 = Math.min(l.x0, w.x0); l.x1 = Math.max(l.x1, w.x1); l.top = Math.min(l.top, w.top); l.bottom = Math.max(l.bottom, w.bottom); } } return L; }
+async function readAtPoint(p, x, y) {
+  let rdp; try { rdp = await pageReadable(p); } catch (err) { return; }
+  const dd = (W, i) => { const w = W[i]; const dx = Math.max(w.x0 - x, 0, x - w.x1), dy = Math.max(w.top - y, 0, y - w.bottom); return Math.sqrt(dx * dx + 4 * dy * dy); };
+  const wi = RC.nearestWord(rdp.words, x, y, 28); let best = wi >= 0 ? { d: dd(rdp.words, wi) } : { d: Infinity }, bg = null, bj = -1;
+  for (const g of rdp.sgroups || []) { const j = RC.nearestWord(g.words, x, y, 28); if (j >= 0) { const d = dd(g.words, j); if (d < best.d) { best = { d }; bg = g; bj = j; } } }
+  if (!bg) { if (wi >= 0) readFrom(p, wi); return; }
+  /* read the tapped block, then carry on with the main text below it (same column first) */
+  let k = -1, kd = Infinity;
+  rdp.words.forEach((w, i) => { if (w.top < bg.bottom - 2) return; const d = (w.top - bg.bottom) + (w.x1 > bg.x0 && w.x0 < bg.x1 ? 0 : 400) + Math.abs(w.x0 - bg.x0) * 0.2; if (d < kd) { kd = d; k = i; } });
+  const words = bg.words.slice(bj).concat(k >= 0 ? rdp.words.slice(k) : []);
+  toast('Reading this ' + (/table/.test(bg.why) ? 'table' : /box/.test(bg.why) ? 'box' : 'part') + ', then the main text', 2200);
+  readFrom(p, 0, { words, lines: Object.assign(linesOf(words), rdp.lines), scanned: false });
+}
+view.addEventListener('pointerup', e => {
+  const t = tap; tap = null; if (!t || !t.ok || performance.now() - t.t > 450) return;
   if (window.__pinchAt && performance.now() - window.__pinchAt < 600) return;
+  const now = performance.now(), dbl = now - lastUp.t < 330 && Math.hypot(e.clientX - lastUp.x, e.clientY - lastUp.y) < 40;
+  lastUp = { t: now, x: e.clientX, y: e.clientY };
+  if (dbl) { clearTimeout(tapTimer); lastUp.t = 0; if (R.on) { R.resumeAt = null; stopAll(); window.__dblStop = performance.now(); toast('Reading stopped', 1500); } return; }
+  if (!RS.tap) return;
   const wrap = e.target.closest && e.target.closest('.pg'); if (!wrap || !wrap._p) return;
   const p = wrap._p, r = p.wrap.getBoundingClientRect(), x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
-  let rdp; try { rdp = await pageReadable(p); } catch (err) { return; }
-  const wi = RC.nearestWord(rdp.words, x, y, 28); if (wi < 0) return;
-  readFrom(p, wi);
+  clearTimeout(tapTimer); tapTimer = setTimeout(() => readAtPoint(p, x, y), 340);   // wait: it may be a double tap
 }, true);
-view.addEventListener('scroll', () => { if (!hinted && pages.length) { hinted = true; if (RS.tap && pref('hint', '') !== '1') { A.setPref('hint', '1'); toast('Tip: tap any word to hear it read from there', 3500); } } }, { passive: true, once: true });
+view.addEventListener('scroll', () => { if (!hinted && pages.length) { hinted = true; if (RS.tap && pref('hint', '') !== '1') { A.setPref('hint', '1'); toast('Tip: tap any word to hear it read from there · double tap stops', 3500); } } }, { passive: true, once: true });
 
 /* ---------- auto-scroll (no voice) ---------- */
 function asLoop(t) {
@@ -585,7 +666,7 @@ window.__selfTest = async () => {
   const log = (...a) => console.log('SELFTEST ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' '));
   try {
     const all = window.__allPages(), nid = all[0].nid, st = { t: 'hl', c: '#facc15', a: 0.4, w: 14, segs: [[60, 90, 300, 104]] };
-    log('book', all.length, 'pages, part mode', !!window.__book(), window.__book() && window.__book().split);
+    log('book', all.length, 'pages, prepared in parts', !!window.__book());
     const r1 = await window.__pdfJob({ op: 'export', src: nid, pages: [...Array(60).keys()].map(i => i + 1), marks: { 1: [st] }, parts: 2, name: 'selftest' });
     log('export 2 parts', r1.ok, r1.files);
     const r2 = await window.__pdfJob({ op: 'export', src: nid, pages: [1, 2, 3, 4, 5], parts: 1, dest: 'temp', name: 't' });
@@ -597,6 +678,18 @@ window.__selfTest = async () => {
     const t0 = Date.now(); let last = '';
     await exportBig(all.slice(0, 30), 40, t => { last = t; }, { tries: 2, cap: 6e6, off: 0 }, 1);
     log('compress 40%', last, (Date.now() - t0) + 'ms');
+    /* auto-save path: the whole book rebuilt into one copy, then a mark added to that copy as an incremental update */
+    const r6 = await window.__pdfJob({ op: 'rebuild', src: nid, order: [...Array(12).keys()].map(i => ({ pn: i + 1 })).concat([{ blank: [595, 842] }]), marks: {}, mode: 'copyr', name: 'selftest-copy.pdf' });
+    log('rebuild copy', r6.ok, r6.where);
+    const r7 = await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [st] }, mode: 'copyr', name: 'x' });
+    log('marks into copy', r7.ok, 'incremental', r7.incremental, r7.where);
+    const fid = A.registerFile(r7.where), ab = new Uint8Array(await (await fetch('/__file/' + fid, { cache: 'no-store' })).arrayBuffer());
+    const d = await pdfjsLib.getDocument({ data: ab }).promise, pg2 = await d.getPage(2), vp = pg2.getViewport({ scale: 0.5 }), c = document.createElement('canvas');
+    c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    await pg2.render({ canvasContext: x, viewport: vp }).promise; const px = x.getImageData(0, 0, c.width, c.height).data; let yellow = 0;
+    for (let i = 0; i < px.length; i += 4) if (px[i] > 225 && px[i + 1] > 195 && px[i + 2] < 205) yellow++;
+    log('copy check: pages', d.numPages, 'yellow pixels on page 2', yellow, yellow > 200 ? 'PASS' : 'FAIL');
+    await d.destroy();
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
@@ -608,7 +701,7 @@ window.__partChanged = () => {                       // marks not saved yet come
   saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
 window.__partLeaving = () => { if (R.on && !R.switching) { R.resumeAt = null; stopAll(); } hlClear(); };
-window.__paused = () => { if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
+window.__paused = () => { if (AS2.pend) autoSave(); if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); else if (window.__setTool) window.__setTool('scroll'); });
 
 /* ---------- startup: files from the intent, else the last document ---------- */

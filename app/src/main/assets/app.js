@@ -54,6 +54,7 @@ async function ingest(f){
  const txt=await f.text();if(/[\x00-\x08\x0e-\x1f]/.test(txt.slice(0,3000)))throw new Error('binary');
  return textPages(txt,n.endsWith('.txt')?null:f.name)}
 async function openFiles(files,replace){
+ if(window.__flushSave)await window.__flushSave();          // the open document's last changes are saved first
  /* a really big book from the phone: cut once into part files, then only one part is ever in memory */
  const f0=files[0];
  if(files.length===1&&(replace||!pages.length)&&f0._url&&f0._nid&&window.__pdfJob&&/\.pdf$/i.test(f0.name||'')&&f0.size>SPLITMIN){
@@ -167,7 +168,7 @@ function build(c,p){
 function bind(p){
  const oc=p.wrap;let cur=null;p.cancel=()=>{if(cur&&cur!=='erase'){cur=null;redraw(p)}else cur=null};
  const pt=e=>{const r=oc.getBoundingClientRect();return[(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]};
- const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(dist(x,s)<=s.w/2+6/scale){p.strokes.splice(i,1);undo.push({k:'del',p,s,i});setDirty();redraw(p);break}}};
+ const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(dist(x,s)<=s.w/2+6/scale){if(s.inOrig){window.__toast&&window.__toast('This mark is already saved inside the original file');break}p.strokes.splice(i,1);undo.push({k:'del',p,s,i});setDirty();redraw(p);break}}};
  oc.onpointerdown=e=>{
   if(tool==='scroll'||PZ.on||!e.isPrimary)return;e.preventDefault();oc.setPointerCapture(e.pointerId);
   if(tool==='erase'){cur='erase';erase(e);return}
@@ -183,7 +184,7 @@ function bind(p){
  oc.onpointerup=end;oc.onpointercancel=end;
 }
 $('#undo').onclick=doUndo;
-function doUndo(){const a=undo.pop();if(!a)return;if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else a.p.strokes.splice(a.i,0,a.s);setDirty();redraw(a.p)}
+function doUndo(){const a=undo.pop();if(!a)return;if(a.k==='add'&&a.s.inOrig){window.__toast&&window.__toast('This mark is already saved inside the original file');return}if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else a.p.strokes.splice(a.i,0,a.s);setDirty();redraw(a.p)}
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo()}});
 $('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+pageNo(p)+'?')){p.strokes.forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes.splice(0);setDirty();redraw(p)}};
 function cur_page(){return pages[curIndex()]||null}
@@ -206,8 +207,8 @@ $('#view').addEventListener('touchstart',e=>{if(e.touches.length!==2||!pages.len
 $('#view').addEventListener('touchmove',e=>{if(!PZ.on||e.touches.length<2)return;e.preventDefault();const[a,b]=e.touches,d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);PZ.f=Math.max(.25/scale,Math.min(6/scale,d/PZ.d0));host.style.transform='scale('+PZ.f+')';window.__pinchAt=performance.now()},{passive:false});
 const pinchEnd=e=>{if(!PZ.on||e.touches.length>=2)return;PZ.on=false;host.style.transform='';window.__pinchAt=performance.now();if(Math.abs(PZ.f-1)>.02)zoomAt(scale*PZ.f,PZ.cx,PZ.cy)};
 $('#view').addEventListener('touchend',pinchEnd);$('#view').addEventListener('touchcancel',pinchEnd);
-$('#view').addEventListener('dblclick',e=>{if(tool!=='scroll'||!pages.length)return;const z=scale/base;zoomAt(z>1.05?base:base*2,e.clientX,e.clientY)});
-$('#zi').onclick=()=>zoom(1.2);$('#zo').onclick=()=>zoom(1/1.2);
+$('#view').addEventListener('dblclick',e=>{if(tool!=='scroll'||!pages.length||(window.__isReading&&window.__isReading())||(window.__dblStop&&performance.now()-window.__dblStop<600))return;const z=scale/base;zoomAt(z>1.05?base:base*2,e.clientX,e.clientY)});
+
 function upd(){const p=inGrid()?null:cur_page();$('#info').textContent=pages.length?`Page ${p?pageNo(p):1} / ${pages.length} · ${Math.round(scale/base*100)}%`+(saveNote?' · '+saveNote:''):''}
 let saveNote='';window.__saveNote=t=>{saveNote=t;upd()};
 /* page number as printed in the list: in a big book, the page number in the whole book */
@@ -264,8 +265,10 @@ async function bookPage(rec){
 window.__bookPage=bookPage;window.__bookPageDone=async()=>{};
 function closeBook(){if(!BOOK)return;for(const e of BOOK.docs.values())e.p.then(d=>d.destroy()).catch(()=>{});BOOK=null}
 /* fast "which page is on screen" (binary search on the frame positions) */
-function curIndex(){const v=$('#view'),y=v.scrollTop+v.clientHeight*0.3;let lo=0,hi=pages.length-1;if(hi<0)return 0;
- while(lo<hi){const m=(lo+hi+1)>>1;if(pages[m].wrap.offsetTop<=y)lo=m;else hi=m-1}return lo}
+let lastCi=0;
+function curIndex(){const v=$('#view');if(!v.clientHeight)return Math.min(lastCi,Math.max(0,pages.length-1));   // hidden (page arranger open): the page last seen
+ const y=v.scrollTop+v.clientHeight*0.3;let lo=0,hi=pages.length-1;if(hi<0)return 0;
+ while(lo<hi){const m=(lo+hi+1)>>1;if(pages[m].wrap.offsetTop<=y)lo=m;else hi=m-1}return lastCi=lo}
 window.__curIndex=curIndex;
 async function gotoGlobal(i,frac){const t=pages[Math.max(0,Math.min(pages.length-1,i))];if(!t)return;const v=$('#view');
  v.scrollTop=t.wrap.offsetTop-6+(frac||0)*t.wrap.offsetHeight;await sleep(30);v.scrollTop=t.wrap.offsetTop-6+(frac||0)*t.wrap.offsetHeight;upd();renderNear()}
@@ -301,38 +304,59 @@ async function thumbLoop(){if(TH.busy)return;TH.busy=true;
 window.__thumbLoop=thumbLoop;
 $('#view').addEventListener('scroll',upd,{passive:true});
 
-/* ---------- page manager (thumbnails) ---------- */
-$('#pgs').onclick=()=>{if(!pages.length)return;$('#pop').hidden=true;document.body.classList.add('grid');buildGrid()};
-function closeGrid(go){document.body.classList.remove('grid');gq++;const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))t.wrap.scrollIntoView({block:'start'});upd()})}
+/* ---------- page arranger: tap = select, swipe across = select many, size 4 .. ~100 per screen ---------- */
+const tg=$('#tgrid');let gq=0,gcols=4;try{gcols=+localStorage.getItem('ms.gcols')||4}catch(e){}
+const gio=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(en.isIntersecting&&p&&(!p.timg||p.tstale)){TH.prio.push(p);thumbLoop()}}),{root:tg,rootMargin:'300px 0px'});
+function setCols(n){gcols=Math.max(2,Math.min(12,n));tg.style.setProperty('--cols',gcols);tg.style.setProperty('--gap',gcols>8?'2px':gcols>5?'5px':'10px');tg.classList.toggle('tiny',gcols>8);$('#gsize').value=14-gcols;try{localStorage.setItem('ms.gcols',gcols)}catch(e){}}
+const firstTile=()=>{const gr=tg.getBoundingClientRect();let lo=0,hi=pages.length-1;while(lo<hi){const m=(lo+hi)>>1,t=pages[m].thEl;if(t&&t.offsetTop+t.offsetHeight<tg.scrollTop)lo=m+1;else hi=m}return pages[lo]};
+$('#gsize').oninput=e=>{const a=firstTile();setCols(14-(+e.target.value));if(a&&a.thEl)tg.scrollTop=a.thEl.offsetTop-8};
+$('#pgs').onclick=()=>{if(!pages.length)return;$('#pop').hidden=true;document.body.classList.add('grid');setCols(gcols);buildGrid(true)};
+function closeGrid(go){document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd()})}
 $('#gdone').onclick=()=>closeGrid();
-let gq=0;
-function buildGrid(){
- const g=$('#tgrid'),st=g.scrollTop;g.innerHTML='';
- pages.forEach((p,i)=>{const d=document.createElement('div');d.className='th'+(p.sel?' sel':'');p.thEl=d;
-  if(p.thumb)d.appendChild(p.thumb);else{const h=document.createElement('div');h.className='ph';h.style.aspectRatio=p.w+'/'+p.h;d.appendChild(h)}
-  const n=document.createElement('span');n.textContent=pageNo(p);d.appendChild(n);
-  d.onclick=e=>{if(e.shiftKey&&lastSel>=0){const[a,b]=[Math.min(lastSel,i),Math.max(lastSel,i)];for(let k=a;k<=b;k++){pages[k].sel=true;pages[k].thEl.classList.add('sel')}}else{p.sel=!p.sel;d.classList.toggle('sel',p.sel)}lastSel=i;cnt()};
-  d.ondblclick=()=>closeGrid(p);g.appendChild(d)});
- g.scrollTop=st;cnt();fillThumbs()}
+function tileImg(p){const d=p.thEl;if(!d)return;const im=d.firstChild;if(p.timg&&im.getAttribute('src')!==p.timg)im.src=p.timg}
+function buildGrid(jump){
+ gio.disconnect();const st=tg.scrollTop,fr=document.createDocumentFragment();tg.innerHTML='';
+ pages.forEach((p,i)=>{const d=document.createElement('div');d.className='th'+(p.sel?' sel':'');d._p=p;d._i=i;p.thEl=d;
+  const im=document.createElement('img');im.className='tp';im.alt='';im.style.aspectRatio=p.w+'/'+p.h;if(p.timg)im.src=p.timg;d.appendChild(im);
+  const n=document.createElement('span');n.textContent=i+1;d.appendChild(n);fr.appendChild(d);gio.observe(d)});
+ tg.appendChild(fr);cnt();
+ if(jump){const c=pages[curIndex()];const go=()=>{if(c&&c.thEl)tg.scrollTop=c.thEl.offsetTop-tg.clientHeight/3};go();requestAnimationFrame(go);setTimeout(go,120)}else tg.scrollTop=st}
 const cnt=()=>{const n=pages.filter(p=>p.sel).length;$('#gcnt').textContent=n?n+' selected':pages.length+' pages'};
-async function fillThumbs(){const id=++gq;
- for(const p of pages.slice()){if(id!==gq)return;if(p.thumb)continue;
-  try{await ensure(p);const tw=150,c=document.createElement('canvas');c.width=tw;c.height=Math.max(1,Math.round(tw*p.h/p.w));const x=c.getContext('2d');await paint(p,x,tw/p.w,null);
-   const os=scale,od=dpr;scale=tw/p.w;dpr=1;p.strokes.forEach(s=>drawS(x,s));scale=os;dpr=od;p.thumb=c;
-   if(p.thEl&&p.thEl.isConnected){const h=p.thEl.querySelector('.ph');if(h)h.remove();p.thEl.prepend(c)}}catch(e){}}}
-$('#gall').onclick=()=>{pages.forEach(p=>{p.sel=true;p.thEl&&p.thEl.classList.add('sel')});cnt()};
-$('#gnone').onclick=()=>{pages.forEach(p=>{p.sel=false;p.thEl&&p.thEl.classList.remove('sel')});cnt()};
-const bookLock=()=>{if(!BOOK)return false;alert('This big book is shown in parts, so pages cannot be moved, added or deleted here.\nUse Export → parts / page range to make a smaller copy.');return true};
-function move(dir){if(bookLock())return;const n=pages.length;
+function setSel(i,v){const p=pages[i];if(!p||p.sel===v)return;p.sel=v;p.thEl&&p.thEl.classList.toggle('sel',v)}
+/* gestures: tap toggles one page; a sideways swipe starts "select by swiping" (then move freely, the list scrolls at the edges);
+   an up/down swipe just scrolls; double tap opens that page */
+let gs=null,lastTap={i:-1,t:0};
+tg.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('.th');if(!t)return;gs={x:e.clientX,y:e.clientY,i:t._i,mode:null,cur:t._i,snap:null,val:false,id:e.pointerId}});
+tg.addEventListener('pointermove',e=>{
+ if(!gs)return;const dx=e.clientX-gs.x,dy=e.clientY-gs.y;
+ if(!gs.mode){if(Math.abs(dx)>9&&Math.abs(dx)>Math.abs(dy)*0.8){gs.mode='drag';gs.snap=pages.map(p=>p.sel);gs.val=!pages[gs.i].sel;try{tg.setPointerCapture(gs.id)}catch(x){}setSel(gs.i,gs.val)}else if(Math.abs(dy)>9){gs.mode='scroll';return}else return}
+ if(gs.mode!=='drag')return;e.preventDefault();
+ const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest('.th');
+ if(t&&t._i!==gs.cur){const a0=Math.min(gs.i,gs.cur),b0=Math.max(gs.i,gs.cur),a1=Math.min(gs.i,t._i),b1=Math.max(gs.i,t._i);
+  for(let k=a0;k<=b0;k++)if(k<a1||k>b1)setSel(k,gs.snap[k]);for(let k=a1;k<=b1;k++)setSel(k,gs.val);gs.cur=t._i;cnt()}
+ const r=tg.getBoundingClientRect();if(e.clientY>r.bottom-50)tg.scrollTop+=14;else if(e.clientY<r.top+50)tg.scrollTop-=14},{passive:false});
+const gend=e=>{if(!gs)return;const g=gs;gs=null;
+ if(!g.mode&&e.type==='pointerup'){const now=performance.now();
+  if(lastTap.i===g.i&&now-lastTap.t<320){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);return}
+  lastTap={i:g.i,t:now};setSel(g.i,!pages[g.i].sel);lastSel=g.i;cnt()}};
+tg.addEventListener('pointerup',gend);tg.addEventListener('pointercancel',gend);
+$('#gall').onclick=()=>{pages.forEach((p,i)=>setSel(i,true));cnt()};
+$('#gnone').onclick=()=>{pages.forEach((p,i)=>setSel(i,false));cnt()};
+const changed=()=>{window.__structChanged&&window.__structChanged();setDirty()};
+function move(dir){const n=pages.length;if(!pages.some(p=>p.sel))return;
  if(dir<0){for(let i=1;i<n;i++)if(pages[i].sel&&!pages[i-1].sel)[pages[i-1],pages[i]]=[pages[i],pages[i-1]]}
  else{for(let i=n-2;i>=0;i--)if(pages[i].sel&&!pages[i+1].sel)[pages[i+1],pages[i]]=[pages[i],pages[i+1]]}
- reorderDOM();setDirty();buildGrid()}
+ reorderDOM();changed();buildGrid();const f=pages.find(p=>p.sel);if(f&&f.thEl){const r=f.thEl.getBoundingClientRect(),gr=tg.getBoundingClientRect();if(r.top<gr.top||r.bottom>gr.bottom)tg.scrollTop+=r.top-gr.top-gr.height/3}}
 $('#gup').onclick=()=>move(-1);$('#gdn').onclick=()=>move(1);
-$('#gdel').onclick=()=>{if(bookLock())return;const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;
- del.forEach(rm);pages=pages.filter(p=>!p.sel);undo=undo.filter(a=>pages.includes(a.p));setDirty();syncEmpty();upd();if(!pages.length){closeGrid();return}buildGrid()};
-$('#gadd').onclick=()=>{if(bookLock())return;const ref=pages.find(p=>p.sel)||pages[pages.length-1]||{w:A4[0],h:A4[1]};addPages([{kind:'blank',w:ref.w,h:ref.h}],insIdx());setDirty();buildGrid()};
-$('#gdup').onclick=()=>{if(bookLock())return;for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(!p.sel)continue;const c=addPages([{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,page:p.page,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname}],i+1)[0];c.strokes=JSON.parse(JSON.stringify(p.strokes))}setDirty();buildGrid()};
-
+function deletePages(del){if(!del.length)return false;if(del.length>=pages.length){alert('At least one page must stay.');return false}
+ del.forEach(rm);pages=pages.filter(p=>!del.includes(p));undo=undo.filter(a=>pages.includes(a.p));changed();syncEmpty();upd();return true}
+$('#gdel').onclick=()=>{const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;if(deletePages(del))buildGrid()};
+function blankAfter(i){const ref=pages[i]||pages[pages.length-1]||{w:A4[0],h:A4[1]};const b=addPages([{kind:'blank',w:ref.w,h:ref.h}],i+1)[0];changed();return b}
+$('#gadd').onclick=()=>{blankAfter(insIdx()-1);buildGrid()};
+function copyOf(p){return{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,part:p.part,lpn:p.lpn,page:null,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname,timg:null,strokes:JSON.parse(JSON.stringify(p.strokes)).map(s=>{delete s.inOrig;delete s.inCopy;return s})}}
+function duplicate(list){for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(list.includes(p))addPages([copyOf(p)],i+1)}changed()}
+$('#gdup').onclick=()=>{const l=pages.filter(p=>p.sel);if(!l.length)return;duplicate(l);buildGrid()};
+window.__pageOps={move:(p,d)=>{pages.forEach(q=>q.sel=q===p);move(d);pages.forEach(q=>q.sel=false)},del:p=>deletePages([p]),dup:p=>duplicate([p]),blank:p=>blankAfter(pages.indexOf(p)),closeGrid};
 /* ---------- export ---------- */
 let docName='document',dls=null,docPrimary=0;
 const JSZIP='libs/jszip.min.js',PDFLIB='libs/pdf-lib.min.js',PPTX='libs/pptxgen.bundle.js';

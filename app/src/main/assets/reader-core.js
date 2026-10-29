@@ -505,8 +505,21 @@ RC.analyze = function (o) {
   const boxes = imgs.concat(figs, tables).map(b => ({ kind: 'i', x0: b.x0, x1: b.x1, top: b.top, bottom: b.bottom, base: b.bottom }));
   const forced = nCols ? (nCols === 1 ? [] : RC.forcedGutters(live, nCols)) : null;
   const ordered = RC.order(live.concat(boxes), 0, forced).filter(e => e.kind === 't');
+  /* skipped text in blocks (a box, a table, a caption…): read only when the user taps on it */
+  const ss = skipped.slice().sort((a, b) => a.top - b.top || a.x0 - b.x0), groups = [];
+  for (const s of ss) {
+    let g = null;
+    for (let k = groups.length - 1; k >= 0; k--) { const q = groups[k]; if (q.why === s.skip && s.top - q.bottom < 2.2 * s.size && s.x0 < q.x1 + 2 * s.size && s.x1 > q.x0 - 2 * s.size) { g = q; break; } }
+    if (!g) { g = { why: s.skip, x0: s.x0, x1: s.x1, top: s.top, bottom: s.bottom, segs: [] }; groups.push(g); }
+    g.segs.push(s); g.x0 = Math.min(g.x0, s.x0); g.x1 = Math.max(g.x1, s.x1); g.top = Math.min(g.top, s.top); g.bottom = Math.max(g.bottom, s.bottom);
+  }
+  const sgroups = groups.map((g, gi) => {
+    const ws = []; g.segs.sort((a, b) => (a.base - b.base) || (a.x0 - b.x0));
+    g.segs.forEach((seg, k) => { const w = segWords(seg); w.forEach(x => { x.si = 100000 + gi * 1000 + k; }); if (w.length) w[w.length - 1].brk = k === g.segs.length - 1 ? 'para' : 'line'; ws.push(...w); });
+    return { why: g.why, x0: g.x0, x1: g.x1, top: g.top, bottom: g.bottom, words: ws };
+  }).filter(g => g.words.length);
   return {
-    words: RC.toWords(ordered), imgs, scanned, gutters: forced || pageG, tables, figs,
+    words: RC.toWords(ordered), imgs, scanned, gutters: forced || pageG, tables, figs, sgroups,
     blocks: readBlocks(ordered),
     skipped: skipped.map(s => ({ x0: s.x0, x1: s.x1, top: s.top, bottom: s.bottom, why: s.skip, text: s.text }))
   };

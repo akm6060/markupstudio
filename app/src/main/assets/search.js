@@ -11,7 +11,7 @@ const css = el('style'); css.textContent = `
 .sh{position:absolute;pointer-events:none;background:rgba(250,204,21,.45);outline:1px solid rgba(202,138,4,.85);z-index:3;border-radius:2px}
 .sh.cur{background:rgba(249,115,22,.55);outline:2px solid #ea580c}
 #sp .row input[type=search],#sp .row input[type=number]{flex:1;min-width:0;font:inherit;font-size:15px;padding:7px 9px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg)}
-#sp .row input[type=number]{max-width:84px;font-size:14px}
+#sp .row input[type=number]{max-width:110px;font-size:14px}
 #sres{display:flex;flex-direction:column;max-height:38vh;overflow:auto;border-top:1px solid var(--bd)}
 .sr{display:flex;flex-direction:column;gap:2px;padding:8px 4px;border-bottom:1px solid var(--bd);cursor:pointer}.sr:active,.sr.on{background:var(--ac2)}
 .sr .h{display:flex;justify-content:space-between;font-size:14px}.sr .h b{color:var(--ac)}.sr small{color:var(--mut);font-size:12px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -25,6 +25,7 @@ const sb = el('button', { id: 'sb', title: 'Search' }, '🔍');
 ($('#rd') || $('#exbtn')).after(sb);
 const sp = el('div', { id: 'sp', className: 'panel', hidden: true }, `
  <div class="row"><b>Search</b><button id="spx">✕</button></div>
+ <div class="row"><span>Go to page</span><input type="number" id="sgp" min="1" inputmode="numeric" enterkeyhint="go" placeholder="number"></div>
  <div class="row"><input type="search" id="sq" placeholder="Word or phrase (Hindi or English)" enterkeyhint="search"><button id="sgo" class="on">Search</button></div>
  <div class="row"><span>Where</span><select id="ssc"><option value="all">All pages</option><option value="chapter">This chapter</option><option value="topic">This topic</option><option value="range">Pages from … to …</option></select></div>
  <div class="row" id="srng"><span>Pages</span><input type="number" id="sfrom" min="1"><span>to</span><input type="number" id="sto" min="1"></div>
@@ -185,11 +186,11 @@ async function run() {
   clearAll();
   const gen = S.gen, ww = $('#sww').checked, re = makeRe(q.toLowerCase(), ww), [a, b] = await scopeRange();
   if (!re) return;
-  S.running = true; $('#sgo').textContent = 'Stop'; let total = 0; const list = $('#sres');
+  S.running = true; window.__searchRunning = true; $('#sgo').textContent = 'Stop'; let total = 0; const list = $('#sres');
   try { localStorage.setItem('ms.sq', q); } catch (e) {}
   const L = allP();
   for (let i = a; i <= b; i++) {
-    if (gen !== S.gen) { endSearchDoc(); return; }
+    if (gen !== S.gen) { endSearchDoc(); window.__searchRunning = false; return; }
     const p = L[i];
     $('#sst').textContent = `Searching page ${i + 1} (${i - a + 1} of ${b - a + 1}) · found ${total} so far`;
     let tx; try { tx = await pageText(p); } catch (e) { continue; }
@@ -209,10 +210,10 @@ async function run() {
       if (S.cur < 0) { S.cur = 0; }
       updNav();
     }
-    if ((i - a) % 4 === 3) await new Promise(r => setTimeout(r, 0));
+    if ((i - a) % 6 === 5) await new Promise(r => setTimeout(r, 25));      // small batches: the phone stays responsive and memory is given back
   }
   await endSearchDoc();
-  S.running = false; $('#sgo').textContent = 'Search';
+  S.running = false; window.__searchRunning = false; $('#sgo').textContent = 'Search';
   $('#sst').textContent = total ? `“${q.trim()}” found ${total} time${total > 1 ? 's' : ''} on ${S.res.length} page${S.res.length > 1 ? 's' : ''} (pages ${a + 1}–${b + 1})` : `“${q.trim()}” was not found in pages ${a + 1}–${b + 1}`;
   updNav();
 }
@@ -231,7 +232,8 @@ sb.onclick = async () => {
   await refreshScope(); $('#sq').focus();
 };
 $('#spx').onclick = () => { sp.hidden = true; clearAll(); };
-$('#sgo').onclick = () => { if (S.running) { S.gen++; endSearchDoc(); S.running = false; $('#sgo').textContent = 'Search'; $('#sst').textContent += ' · stopped'; updNav(); } else run(); };
+$('#sgo').onclick = () => { if (S.running) { S.gen++; endSearchDoc(); S.running = false; window.__searchRunning = false; $('#sgo').textContent = 'Search'; $('#sst').textContent += ' · stopped'; updNav(); } else run(); };
+$('#sgp').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const n = +e.target.value; e.target.value = ''; e.target.blur(); if (n > 0 && window.__gotoGlobal) { sp.hidden = true; window.__gotoGlobal(Math.min(n, allP().length) - 1, 0); } } });
 $('#sq').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#sq').blur(); run(); } });
 $('#ssc').onchange = () => { $('#srng').style.display = $('#ssc').value === 'range' ? '' : 'none'; };
 $('#sprev').onclick = () => goTo(S.cur - 1); $('#snext').onclick = () => goTo(S.cur + 1);
