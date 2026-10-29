@@ -201,7 +201,7 @@ async function run() {
       p.smatch = ms; total += ms.length; S.res.push({ p, n: ms.length });
       ms.forEach((x, k) => S.flat.push({ p, k }));
       const s0 = Math.max(0, ms[0].a - 35), sn = tx.str.slice(s0, ms[0].a) , hit = tx.str.slice(ms[0].a, ms[0].b), after = tx.str.slice(ms[0].b, ms[0].b + 45);
-      const r = el('div', { className: 'sr' }, `<div class="h"><span>Page <b>${p.kind === 'pdf' && window.__book && window.__book() ? p.pn : i + 1}</b></span><span><b>${ms.length}</b> time${ms.length > 1 ? 's' : ''}</span></div><small>${s0 ? '…' : ''}${esc(sn)}<mark>${esc(hit)}</mark>${esc(after)}…</small>`);
+      const r = el('div', { className: 'sr' }, `<div class="h"><span>Page <b>${i + 1}</b></span><span><b>${ms.length}</b> time${ms.length > 1 ? 's' : ''}</span></div><small>${s0 ? '…' : ''}${esc(sn)}<mark>${esc(hit)}</mark>${esc(after)}…</small>`);
       r._p = p; r.onclick = () => { const k = S.flat.findIndex(f => f.p === p); sp.classList.add('mini'); goTo(k); };
       list.appendChild(r);
       const d = shown(p);

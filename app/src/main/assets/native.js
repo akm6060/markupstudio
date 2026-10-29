@@ -71,7 +71,11 @@ ob.onclick = () => fbOpen('open');
 
 /* ---------- remembering the last document / position ---------- */
 let userTouched = false;
-function topPage() { const vr = view.getBoundingClientRect(); for (const p of pages) { const r = p.wrap.getBoundingClientRect(); if (r.bottom > vr.top + 4) return { p, frac: Math.max(0, Math.min(1, (vr.top - r.top) / (r.height || 1))) }; } return null; }
+function topPage() {                          // fast for books of thousands of pages
+  if (!pages.length) return null; const v = view; let lo = 0, hi = pages.length - 1, y = v.scrollTop + 4;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (pages[m].wrap.offsetTop <= y) lo = m; else hi = m - 1; }
+  const p = pages[lo], top = p.wrap.offsetTop, hgt = p.wrap.offsetHeight || 1; return { p, frac: Math.max(0, Math.min(1, (y - top) / hgt)) };
+}
 function restorePos(idx, frac) {
   if (!pages.length) return; idx = Math.max(0, Math.min(pages.length - 1, idx | 0)); userTouched = false;
   const go = () => { const t = pages[idx]; if (!t || userTouched) return; const vr = view.getBoundingClientRect(), r = t.wrap.getBoundingClientRect(); view.scrollTop += r.top - vr.top + (frac || 0) * r.height; };
@@ -440,10 +444,6 @@ async function toggleRead() {
 }
 async function skipPage(d) {
   if (!pages.length) return; const cur = R.page && pages.includes(R.page) ? R.page : (topPage() || {}).p; let i = pages.indexOf(cur) + d;
-  if ((i < 0 || i >= pages.length) && window.__book()) {                            // previous / next part
-    const B = window.__book(); if (i < 0 && B.part > 0) { await window.__showPart(B.part - 1, B.size - 1, 0); i = pages.length - 1; } else if (i >= pages.length && B.part < B.parts - 1) { await window.__showPart(B.part + 1, 0, 0); i = 0; } else return;
-    if (R.on) readFrom(pages[i], 0); else R.resumeAt = { p: pages[i], wi: 0 }; return;
-  }
   if (i < 0 || i >= pages.length) return; scrollToPage(pages[i]);
   if (R.on) readFrom(pages[i], 0); else R.resumeAt = { p: pages[i], wi: 0 };
 }

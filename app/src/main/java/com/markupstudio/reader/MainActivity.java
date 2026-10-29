@@ -55,6 +55,11 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDoc
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode;
 import java.security.MessageDigest;
+import com.tom_roush.pdfbox.cos.COSArray;
+import com.tom_roush.pdfbox.cos.COSBase;
+import com.tom_roush.pdfbox.cos.COSDictionary;
+import com.tom_roush.pdfbox.cos.COSName;
+import com.tom_roush.pdfbox.pdmodel.PDResources;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.ViewGroup;
@@ -969,6 +974,7 @@ public class MainActivity extends Activity {
             v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
             v.put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/" + subDir);
             Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+            lastPublicUri = u;
             if (u == null) throw new IOException("MediaStore insert failed");
             OutputStream os = getContentResolver().openOutputStream(u);
             if (os == null) throw new IOException("cannot open output");
@@ -1212,6 +1218,48 @@ public class MainActivity extends Activity {
         return new float[]{ox + u, oy + v};
     }
 
+    /* only the changed pages are added at the end of the file ("incremental update"): fast even for huge books */
+    private static void markChanged(PDDocument doc, PDPage page) {
+        COSDictionary d = page.getCOSObject();
+        d.setNeedToBeUpdated(true);
+        COSBase par = d.getDictionaryObject(COSName.PARENT);
+        int guard = 0;
+        while (par instanceof COSDictionary && guard++ < 64) {
+            ((COSDictionary) par).setNeedToBeUpdated(true);
+            par = ((COSDictionary) par).getDictionaryObject(COSName.PARENT);
+        }
+        doc.getDocumentCatalog().getCOSObject().setNeedToBeUpdated(true);
+        try {
+            PDResources r = page.getResources();
+            if (r != null) {
+                COSDictionary rd = r.getCOSObject();
+                rd.setNeedToBeUpdated(true);
+                COSBase eg = rd.getDictionaryObject(COSName.EXT_G_STATE);
+                if (eg instanceof COSDictionary) ((COSDictionary) eg).setNeedToBeUpdated(true);
+            }
+        } catch (Exception ignored) {
+        }
+        COSBase c = d.getDictionaryObject(COSName.CONTENTS);
+        if (c instanceof COSArray) ((COSArray) c).setNeedToBeUpdated(true);
+    }
+
+    /** saves doc (loaded from a file) with its changes added at the end; falls back to a full save */
+    private static boolean saveChanges(PDDocument doc, File out) throws IOException {
+        try {
+            OutputStream os = new BufferedOutputStream(new FileOutputStream(out), 1 << 16);
+            try {
+                doc.saveIncremental(os);
+            } finally {
+                os.close();
+            }
+            if (out.length() > 0) return true;
+        } catch (Exception ex) {
+            Log.w("MarkupStudio", "incremental save failed, full save: " + ex);
+        }
+        doc.save(out);
+        return false;
+    }
+
     /** a copy of one page that keeps everything it inherits from the book (size, resources, rotation) */
     private static PDPage importPage(PDDocument out, PDPage src) throws IOException {
         PDPage p = out.importPage(src);
@@ -1319,7 +1367,20 @@ public class MainActivity extends Activity {
             for (int i = 0; i < all.size(); i++) idx.put(all.get(i), i);
             JSONArray outline = new JSONArray();
             try { PDDocumentOutline ol = src.getDocumentCatalog().getDocumentOutline(); if (ol != null) readOutline(src, ol, 0, outline, idx); } catch (Exception ignored) { }
-            JSONObject j = new JSONObject().put("n", n).put("partSize", ps).put("parts", parts).put("outline", outline).put("key", key);
+            JSONArray sizes = new JSONArray();                // every page's size as shown (crop box, turned by rotation)
+            for (int i = 0; i < n; i++) {
+                float w = 595, h = 842;
+                try {
+                    PDPage pg = i < all.size() ? all.get(i) : src.getPage(i);
+                    PDRectangle cb = pg.getCropBox();
+                    w = cb.getWidth(); h = cb.getHeight();
+                    int r = ((pg.getRotation() % 360) + 360) % 360;
+                    if (r == 90 || r == 270) { float t = w; w = h; h = t; }
+                } catch (Exception ignored) {
+                }
+                sizes.put(new JSONArray().put(Math.round(w * 10) / 10.0).put(Math.round(h * 10) / 10.0));
+            }
+            JSONObject j = new JSONObject().put("n", n).put("partSize", ps).put("parts", parts).put("outline", outline).put("key", key).put("sizes", sizes);
             jobMsg(id, "info", j);
             int first = Math.max(0, Math.min(parts - 1, o.optInt("first", 0)));
             String[] files = new String[parts];
@@ -1453,21 +1514,106 @@ public class MainActivity extends Activity {
                 }
                 jobMsg(id, "done", new JSONObject().put("ok", true).put("files", new JSONArray().put(where)));
             } else if ("marks".equals(op)) {
-                /* save marks into a big book without loading it into memory */
-                Entry e = entries.get(o.getInt("src"));
+                /* auto-save of marks: drawn into the original book or into the copy made before, changes added at the end */
+                int sid = o.getInt("src");
+                Entry e = entries.get(sid);
                 if (e == null) throw new FileNotFoundException("The book is no longer open");
-                jobProgress(id, 0, 1, "Opening the book…");
-                src = openPdf(e);
+                String mode = o.optString("mode", "original");
+                boolean toCopy = !"original".equals(mode);
+                Object tgt = toCopy ? copyTarget.get(sid) : null;
+                if (toCopy && tgt == null) throw new IllegalStateException("nocopy");
+                jobProgress(id, 0, 1, "Saving…");
+                File srcFile = null;
+                if (toCopy) {
+                    if (tgt instanceof File) srcFile = (File) tgt;
+                    else { srcFile = new File(workDir(), "copy-" + System.nanoTime() + ".pdf"); InputStream in = openTarget(tgt); OutputStream os = new FileOutputStream(srcFile); try { byte[] buf = new byte[1 << 16]; int k; while ((k = in.read(buf)) > 0) os.write(buf, 0, k); } finally { in.close(); os.close(); } }
+                    if (!pdfboxReady) { PDFBoxResourceLoader.init(getApplicationContext()); pdfboxReady = true; }
+                    src = PDDocument.load(srcFile, diskMemory());
+                } else src = openPdf(e);
                 int n = 0, total = marks == null ? 0 : marks.length();
                 if (marks != null) for (java.util.Iterator<String> it = marks.keys(); it.hasNext(); ) {
                     String k = it.next(); int pn = Integer.parseInt(k);
-                    if (pn >= 1 && pn <= src.getNumberOfPages()) drawMarks(src, src.getPage(pn - 1), marks.getJSONArray(k));
-                    jobProgress(id, ++n, total, "Adding marks to page " + pn);
+                    if (pn >= 1 && pn <= src.getNumberOfPages()) { PDPage pg = src.getPage(pn - 1); drawMarks(src, pg, marks.getJSONArray(k)); markChanged(src, pg); }
+                    n++;
                 }
                 if (src.isEncrypted()) src.setAllSecurityToBeRemoved(true);
                 File t = new File(workDir(), "save-" + System.nanoTime() + ".pdf");
-                jobProgress(id, total, total, "Writing the book (this can take a minute)…");
-                src.save(t);
+                boolean inc = !src.isEncrypted() && saveChanges(src, t);
+                src.close();
+                src = null;
+                if (srcFile != null && !(tgt instanceof File)) srcFile.delete();
+                JSONObject r;
+                synchronized (saveLock) {
+                    File old = saveTmp;
+                    saveTmp = t;
+                    try {
+                        r = toCopy ? new JSONObject().put("ok", true).put("where", writeTarget(tgt)).put("mode", "copy").put("note", "")
+                                   : doSave("original", o.optString("name", "book-edited.pdf"), sid);
+                    } finally {
+                        saveTmp = old;
+                    }
+                }
+                r.put("incremental", inc);
+                if (!toCopy && "original".equals(r.optString("mode"))) {
+                    e.size = e.file != null ? e.file.length() : t.length();
+                    String bk = o.optString("book", "");
+                    if (!bk.isEmpty() && marks != null) {               // prepared parts: same marks, and a key that matches the new file
+                        File bd = new File(booksDir(), bk);
+                        try {
+                            int ps = o.optInt("partSize", 200);
+                            markParts(bd.getPath(), ps, marks);
+                            File nd = new File(booksDir(), bookKey(e, ps));
+                            if (!nd.equals(bd) && bd.renameTo(nd)) {
+                                File inf = new File(nd, "info.json");
+                                byte[] bb = new byte[(int) inf.length()];
+                                FileInputStream in = new FileInputStream(inf); int off = 0, k2; while (off < bb.length && (k2 = in.read(bb, off, bb.length - off)) > 0) off += k2; in.close();
+                                JSONObject j = new JSONObject(new String(bb, "UTF-8"));
+                                JSONArray fs = j.getJSONArray("files"), nf = new JSONArray();
+                                for (int i = 0; i < fs.length(); i++) nf.put(new File(nd, new File(fs.getString(i)).getName()).getPath());
+                                j.put("files", nf).put("key", nd.getName());
+                                OutputStream os = new FileOutputStream(inf); os.write(j.toString().getBytes("UTF-8")); os.close();
+                                r.put("key", nd.getName());
+                            }
+                        } catch (Exception ex) {
+                            deleteDir(bd);
+                        }
+                    }
+                }
+                t.delete();
+                jobMsg(id, "done", r);
+            } else if ("rebuild".equals(op)) {
+                /* pages were moved, copied, deleted or added: write the book again in the new order */
+                int sid = o.getInt("src");
+                Entry e = entries.get(sid);
+                if (e == null) throw new FileNotFoundException("The book is no longer open");
+                JSONArray order = o.getJSONArray("order");
+                jobProgress(id, 0, order.length(), "Opening the book…");
+                src = openPdf(e);
+                int nSrc = src.getNumberOfPages(), total = order.length();
+                PDDocument out = new PDDocument(diskMemory());
+                File t = new File(workDir(), "rebuild-" + System.nanoTime() + ".pdf");
+                try {
+                    for (int i = 0; i < total; i++) {
+                        JSONObject it = order.getJSONObject(i);
+                        PDPage np;
+                        if (it.has("blank")) {
+                            JSONArray wh = it.getJSONArray("blank");
+                            np = new PDPage(new PDRectangle((float) wh.getDouble(0), (float) wh.getDouble(1)));
+                            out.addPage(np);
+                        } else {
+                            int pn = it.getInt("pn");
+                            try { if (pn < 1 || pn > nSrc) throw new IOException(); np = importPage(out, src.getPage(pn - 1)); }
+                            catch (Exception ex) { np = new PDPage(PDRectangle.A4); out.addPage(np); }
+                        }
+                        if (marks != null && marks.has(String.valueOf(i + 1))) drawMarks(out, np, marks.getJSONArray(String.valueOf(i + 1)));
+                        if (i % 25 == 0) jobProgress(id, i, total, "Arranging page " + (i + 1) + " of " + total);
+                    }
+                    if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
+                    jobProgress(id, total, total, "Writing the book…");
+                    out.save(t);
+                } finally {
+                    out.close();
+                }
                 src.close();
                 src = null;
                 JSONObject r;
@@ -1475,36 +1621,12 @@ public class MainActivity extends Activity {
                     File old = saveTmp;
                     saveTmp = t;
                     try {
-                        r = doSave(o.optString("mode", "copy"), o.optString("name", "book-edited.pdf"), o.getInt("src"));
+                        r = doSave("original".equals(o.optString("mode")) ? "original" : "copyr", o.optString("name", "book-edited.pdf"), sid);
                     } finally {
                         saveTmp = old;
                     }
                 }
-                if ("original".equals(r.optString("mode"))) {
-                    e.size = e.file != null ? e.file.length() : t.length();
-                    String bk = o.optString("book", "");
-                    if (!bk.isEmpty() && marks != null) {               // prepared parts: same marks, and a key that matches the new file
-                        File bd = new File(booksDir(), bk);
-                        try {
-                            int ps = o.optInt("partSize", 200);
-                            jobProgress(id, total, total, "Updating the book parts…");
-                            markParts(bd.getPath(), ps, marks);
-                            File nd = new File(booksDir(), bookKey(e, ps));
-                            if (!nd.equals(bd) && bd.renameTo(nd)) {
-                                File inf = new File(nd, "info.json");
-                                byte[] b = new byte[(int) inf.length()];
-                                FileInputStream in = new FileInputStream(inf); int off = 0, k2; while (off < b.length && (k2 = in.read(b, off, b.length - off)) > 0) off += k2; in.close();
-                                JSONObject j = new JSONObject(new String(b, "UTF-8"));
-                                JSONArray fs = j.getJSONArray("files"), nf = new JSONArray();
-                                for (int i = 0; i < fs.length(); i++) nf.put(new File(nd, new File(fs.getString(i)).getName()).getPath());
-                                j.put("files", nf).put("key", nd.getName());
-                                OutputStream os = new FileOutputStream(inf); os.write(j.toString().getBytes("UTF-8")); os.close();
-                            }
-                        } catch (Exception ex) {
-                            deleteDir(bd);                              // prepared again next time
-                        }
-                    }
-                }
+                if ("original".equals(r.optString("mode"))) e.size = e.file != null ? e.file.length() : t.length();
                 t.delete();
                 jobMsg(id, "done", r);
             } else throw new IllegalArgumentException("unknown job " + op);
@@ -1527,9 +1649,48 @@ public class MainActivity extends Activity {
             js("window.__lowMemory&&window.__lowMemory(" + level + ")");
     }
 
+    /* the copy made by auto-save is written again each time (same file), not a new copy per save */
+    private final Map<Integer, Object> copyTarget = new HashMap<>();
+    private Uri lastPublicUri = null;
+
+    private String writeTarget(Object t) throws Exception {
+        if (t instanceof File) {
+            File f = (File) t;
+            copyTmpToFile(f);
+            scan(f);
+            return f.getPath();
+        }
+        Uri u = (Uri) t;
+        OutputStream os = getContentResolver().openOutputStream(u, "wt");
+        if (os == null) throw new IOException("cannot write the copy");
+        try {
+            copyTmpTo(os);
+        } finally {
+            os.close();
+        }
+        return String.valueOf(u);
+    }
+
+    private InputStream openTarget(Object t) throws IOException {
+        if (t instanceof File) return new FileInputStream((File) t);
+        InputStream in = getContentResolver().openInputStream((Uri) t);
+        if (in == null) throw new FileNotFoundException("copy");
+        return in;
+    }
+
     private JSONObject doSave(String mode, String name, int primary) throws Exception {
         Entry e = entries.get(primary);
         String note = "";
+        boolean reuse = "copyr".equals(mode);
+        if (reuse) mode = "copy";
+        if (reuse && copyTarget.containsKey(primary)) {
+            try {
+                String w = writeTarget(copyTarget.get(primary));
+                return new JSONObject().put("ok", true).put("where", w).put("mode", "copy").put("note", "");
+            } catch (Exception ex) {
+                copyTarget.remove(primary);                     // the copy was moved or deleted: make a new one
+            }
+        }
         String where = null, outMode = mode;
         if ("export".equals(mode)) {
             String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
@@ -1547,8 +1708,11 @@ public class MainActivity extends Activity {
                 }
             }
             if (where == null) {
+                lastPublicUri = null;
                 where = writeCopy(e, name);
                 outMode = "copy";
+                if (where != null && new File(where).isFile() && new File(where).canWrite()) copyTarget.put(primary, new File(where));
+                else if (lastPublicUri != null) copyTarget.put(primary, lastPublicUri);
             }
         }
         return new JSONObject().put("ok", true).put("where", where).put("mode", outMode).put("note", note);
