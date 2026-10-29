@@ -23,7 +23,6 @@ adb shell input text ultrasound; sleep 1
 adb shell input keyevent 66; sleep 6
 adb exec-out screencap -p > s5-search.png
 adb shell input keyevent 4; sleep 1
-adb shell input keyevent 4; sleep 1
 python3 $T/tap.py "📂" "Open a file"; sleep 3
 python3 $T/tap.py "big.pdf"; sleep 10
 adb exec-out screencap -p > s6-big.png
