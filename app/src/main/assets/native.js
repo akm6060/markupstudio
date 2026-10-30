@@ -93,28 +93,45 @@ view.addEventListener('touchend', () => { AS.touching = false; AS.resumeAt = per
 view.addEventListener('touchcancel', () => { AS.touching = false; }, { passive: true });
 view.addEventListener('wheel', () => { R.userUntil = performance.now() + 2500; }, { passive: true });
 
-/* ---------- marks survive closing the app (until saved) ---------- */
+/* ---------- marks not saved yet survive closing the app or a crash ---------- */
 const MK = 'ms.marks';
 const loadMarks = () => { try { return JSON.parse(localStorage.getItem(MK) || '{}'); } catch (e) { return {}; } };
-const pageKey = p => p.nid ? A.entryKey(p.nid) + '|' + p.sidx : null;
+const pageKey = p => p.nid ? A.entryKey(p.nid) + '|' + (p.sidx || p.pn) : null;
+const clean = l => l.map(s => { const o = Object.assign({}, s); delete o.inOrig; delete o.inCopy; delete o.img; return o; });
+/* every page whose marks are not yet in the file: its whole list of marks */
 function saveMarks() {
   try {
-    const all = loadMarks(), has = {};
-    for (const p of pages) { const k = pageKey(p); if (!k) continue; const l = p.strokes.filter(s => !s.inOrig); if (l.length) has[k] = l; else if (!(k in has)) has[k] = null; }
-    for (const k in has) { if (has[k]) all[k] = has[k]; else delete all[k]; }
+    const all = loadMarks(), mode = saveMode();
+    for (const p of pages) { const k = pageKey(p); if (!k) continue; if (pDirty(p, mode)) all[k] = clean(p.strokes); else delete all[k]; }
     const s = JSON.stringify(all); if (s.length < 4e6) localStorage.setItem(MK, s);
   } catch (e) {}
 }
-function clearMarksFor(nid) { try { const all = loadMarks(), pre = A.entryKey(nid) + '|'; for (const k in all) if (k.startsWith(pre)) delete all[k]; localStorage.setItem(MK, JSON.stringify(all)); } catch (e) {} }
-let mst; const saveMarksSoon = () => { clearTimeout(mst); mst = setTimeout(saveMarks, 1000); };
+let mst; const saveMarksSoon = () => { clearTimeout(mst); mst = setTimeout(saveMarks, 250); };
 window.__dirtyChanged = d => { if (d) { saveMarksSoon(); scheduleSave(); } };
 let skipMarks = false;
 window.__beforeReplace = () => { if (skipMarks) { skipMarks = false; } else saveMarks(); saveStateNow(); };
+/* a freshly opened PDF: the marks saved inside it come back as marks that can be erased or changed */
+function applyMarks(list, saved) {
+  const local = loadMarks(); let n = 0;
+  for (const p of list) {
+    if (saved && saved[p.pn] && !p.ver) { p.strokes.splice(0, p.strokes.length, ...saved[p.pn]); p.thumb = null; p.tstale = true; redraw(p); }
+    const k = pageKey(p);
+    if (k && local[k] && JSON.stringify(local[k]) !== JSON.stringify(clean(p.strokes))) { p.strokes.splice(0, p.strokes.length, ...local[k]); p.ver = (p.ver || 0) + 1; p.tstale = true; redraw(p); n++; }
+  }
+  if (n) setDirty();
+  if (window.__txFonts) window.__txFonts(list);
+}
 window.__docChanged = (fresh, added) => {
-  if (fresh) window.__resetSave();
-  const all = loadMarks(); let n = 0;
-  for (const p of added) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes.push(...all[k]); n++; redraw(p); } }
-  if (n && fresh) { setDirty(); toast('Restored your unsaved marks on ' + n + ' page' + (n > 1 ? 's' : '')); }
+  if (fresh) {
+    window.__resetSave();
+    const f = firstPdf(); AS2.oN = 0;
+    AS2.og = 1;
+    pages.forEach(p => { p.ver = 0; p.vO = 0; p.vC = 0; p.og = 1; p.opn = p.kind === 'pdf' && f && p.nid === f.nid ? p.pn : 0; p.fo = p.opn; if (p.opn) AS2.oN++; });
+  } else added.forEach(p => { p.ver = p.strokes.length ? 1 : 0; p.vO = p.vC = 0; p.opn = p.fo = 0; });
+  const byNid = {};
+  added.forEach(p => { if (p.kind === 'pdf' && p.nid && window.__pdfJob) (byNid[p.nid] = byNid[p.nid] || []).push(p); });
+  const other = added.filter(p => !(p.kind === 'pdf' && p.nid && window.__pdfJob)); if (other.length) applyMarks(other, null);
+  for (const nid in byNid) window.__pdfJob({ op: 'readmarks', src: +nid }).then(r => applyMarks(byNid[nid].filter(p => pages.includes(p)), r.marks || {})).catch(() => applyMarks(byNid[nid], null));
   saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
 
@@ -122,74 +139,84 @@ window.__docChanged = (fresh, added) => {
 const jobs = {};
 window.__job = (id, type, d) => { const j = jobs[id]; if (!j) return; if (type === 'progress') { if (j.prog) j.prog(d); } else if (type !== 'done') { if (j.on) j.on(type, d); } else { delete jobs[id]; A.keepAwake(false); if (d.ok) j.ok(d); else j.no(new Error(d.err || 'failed')); } };
 window.__pdfJob = (o, prog, on) => new Promise((ok, no) => { A.keepAwake(true); const id = A.job(JSON.stringify(o)); jobs[id] = { ok, no, prog, on }; });
-/* ---------- auto-save: every change is saved by itself (into the original or into one "-edited" copy) ---------- */
+/* ---------- auto-save: every change goes into the original file or into one "-edited" copy, quietly ----------
+   Each page's marks are written into the file as a separate layer plus the marks themselves, so after saving they can
+   still be erased or changed. Pages moved, added or deleted: the file is written again in the new order.
+   p.ver counts changes of a page's marks; p.vO / p.vC = the version already in the original / copy;
+   p.opn = where the page was in the original when it was opened (rebuilds take pages from there, a kept backup);
+   p.fo / p.cpn = where the page is now in the original / copy file. */
 const saveMode = () => pref('saveMode', 'copy');
-const AS2 = { t: 0, busy: false, again: false, struct: false, copyMade: false, pend: false, told: false, reopen: null };
-window.__structChanged = () => { AS2.struct = true; };
+const AS2 = { t: 0, busy: false, again: false, pend: false, fails: 0, oN: 0, cN: 0, og: 1 };
+window.__structChanged = () => {};
 const firstPdf = () => pages.find(p => p.kind === 'pdf');
-const nativeDoc = () => { const f = firstPdf(); return !!(window.__pdfJob && f && f.nid && pages.every(p => p.kind === 'blank' || (p.kind === 'pdf' && p.nid === f.nid))); };
+const nativeDoc = () => { const f = firstPdf(); return !!(window.__pdfJob && f && f.nid && pages.every(p => p.kind === 'blank' || (p.kind === 'pdf' && p.nid === f.nid && p.opn))); };
 const isBig = () => { const f = firstPdf(); return nativeDoc() && (!!window.__book() || (f.src && f.src.size > JSBIG) || pages.length > 400); };
-function scheduleSave(ms) { if (!pages.length) return; AS2.pend = true; clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, ms != null ? ms : (isBig() ? 4000 : 1500)); window.__saveNote && window.__saveNote('not saved yet'); }
+function pDirty(p, mode) { const v = p.ver || 0; return mode === 'original' ? v !== (p.vO || 0) : v !== (p.vC || 0); }
+window.__pDirty = pDirty;
+function scheduleSave(ms) { if (!pages.length) return; AS2.pend = true; clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, ms != null ? ms : (isBig() ? 1200 : 500)); }
 const posNow = () => { const t = topPage(); return { page: t ? pages.indexOf(t.p) : 0, frac: t ? t.frac : 0 }; };
-async function saveBigNow(mode) {
-  const f = firstPdf(), primary = f.nid, toCopy = mode !== 'original', B = window.__book(), name = docName + '-edited.pdf';
-  const done = []; let r;
-  if (AS2.struct || (toCopy && !AS2.copyMade)) {                // pages moved / added / deleted, or the first copy: write the whole book
-    const order = pages.map(p => p.kind === 'blank' ? { blank: [p.w, p.h] } : { pn: p.pn }), marks = {};
-    pages.forEach((p, i) => { const l = p.strokes.filter(s => !s.inOrig); if (l.length) { marks[i + 1] = l; done.push(...l); } });
-    r = await window.__pdfJob({ op: 'rebuild', src: primary, order, marks, mode: toCopy ? 'copyr' : 'original', name }, d => window.__saveNote(d.msg || 'saving…'));
-    done.forEach(s => { if (toCopy) s.inCopy = true; else s.inOrig = true; });
-    AS2.struct = false; if (toCopy) AS2.copyMade = true; else { pages.forEach(p => p.strokes.forEach(s => { s.inOrig = true; })); r.reopen = true; }
+const orderOk = (key, n) => n > 0 && pages.length === n && pages.every((p, i) => p[key] === i + 1);
+/* text marks travel to the file as a picture as well (Hindi and English look exactly as on screen) */
+const wire = l => l.map(s => s.t === 'tx' && window.__txImg ? Object.assign({}, s, { img: window.__txImg(s) }) : s);
+async function saveNative(mode) {
+  const toCopy = mode !== 'original', f = firstPdf(), primary = f.nid, B = window.__book(), name = docName + '-edited.pdf';
+  const key = toCopy ? 'cpn' : 'fo', vk = toCopy ? 'vC' : 'vO', ver = pages.map(p => p.ver || 0);
+  if (!orderOk(key, toCopy ? AS2.cN : AS2.oN)) {            // first copy, or pages moved / added / deleted: write the whole file
+    const order = pages.map(p => p.kind === 'blank' ? { blank: [p.w, p.h] } : { pn: p.og === AS2.og ? p.opn : -1 }), marks = {};
+    pages.forEach((p, i) => { if (p.strokes.length) marks[i + 1] = wire(p.strokes); });
+    const r = await window.__pdfJob({ op: 'rebuild', src: primary, order, marks, mode: toCopy ? 'copyr' : 'original', name });
+    const into = r.mode === 'original' ? 'o' : 'c';
+    if (into === 'o' && !r.backup) AS2.og++;                  // no backup kept: the rewritten original is the source from now on
+    pages.forEach((p, i) => { if (into === 'o') { p.fo = i + 1; p.vO = ver[i]; if (!r.backup && p.kind !== 'blank') { p.opn = i + 1; p.og = AS2.og; } } else { p.cpn = i + 1; p.vC = ver[i]; } });
+    if (into === 'o') AS2.oN = pages.length; else AS2.cN = pages.length;
     return r;
   }
-  const marks = {};
-  pages.forEach((p, i) => { const l = p.strokes.filter(s => toCopy ? !s.inCopy && !s.inOrig : !s.inOrig); if (l.length) { marks[toCopy ? i + 1 : p.pn] = l; done.push(...l); } });
-  if (!done.length) return null;
-  try { r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode: toCopy ? 'copyr' : 'original', name, book: B && B.key || '', partSize: B ? B.size : 0 }, d => window.__saveNote(d.msg || 'saving…')); }
-  catch (e) { if (/nocopy/.test(e.message)) { AS2.copyMade = false; return saveBigNow(mode); } throw e; }
-  done.forEach(s => { if (toCopy) s.inCopy = true; else s.inOrig = true; });
+  const marks = {}, sent = [];
+  pages.forEach((p, i) => { if (pDirty(p, mode)) { marks[p[key]] = wire(p.strokes); sent.push([p, ver[i]]); } });
+  if (!sent.length) return null;
+  let r;
+  try { r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode: toCopy ? 'copyr' : 'original', name, book: B && B.key || '', partSize: B ? B.size : 0 }); }
+  catch (e) { if (/nocopy/.test(e.message)) { AS2.cN = 0; return saveNative(mode); } throw e; }
+  sent.forEach(([p, v]) => { p[vk] = v; });
   if (r.key && B) B.key = r.key;
-  if (!toCopy && !r.incremental && !B) r.reopen = true;          // the file was rewritten under the page reader
   return r;
 }
-async function saveSmallNow(mode) {
-  const toCopy = mode !== 'original', primary = docPrimary || 0, done = [];
-  pages.forEach(p => p.strokes.forEach(s => { if (!s.inOrig) done.push(s); }));
-  if (!toCopy && !done.length && !AS2.struct) return null;
-  for (const p of pages) { try { await ensure(p); } catch (e) {} }
-  await lib(PDFLIB);
-  const views = pages.map(p => Object.assign(Object.create(p), { strokes: p.strokes.filter(s => !s.inOrig) }));
-  const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, views, async p => { const c = await pageCanvas(p, 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
-  let m = toCopy ? 'copyr' : 'original'; if ((bytes.__bad || 0) && m === 'original') m = 'copyr';   // never overwrite the original with blank pages
-  const r = await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), m, docName + '-edited.pdf', primary);
-  if (r.mode === 'original') { done.forEach(s => { s.inOrig = true; }); if (AS2.struct) r.reopen = true; } else AS2.copyMade = true;
-  AS2.struct = false;
+/* pictures, Word, text, several files: a PDF copy is made once, then marks are written into it like above */
+async function saveOther() {
+  const primary = docPrimary || 0, ver = pages.map(p => p.ver || 0);
+  if (!primary) return null;
+  if (!orderOk('cpn', AS2.cN)) {
+    for (const p of pages) { try { await ensure(p); } catch (e) {} }
+    await lib(PDFLIB);
+    const views = pages.map(p => Object.assign(Object.create(p), { strokes: [] }));
+    const bytes = await window.__withBytes(pages, () => SV.build(PDFLib, views, async p => { const c = await pageCanvas(Object.assign(Object.create(p), { strokes: [] }), 2); return new Uint8Array(await (await blobOf(c, 'image/jpeg', .9)).arrayBuffer()); }, window.__refOf));
+    await __saveBlob(new Blob([bytes], { type: 'application/pdf' }), 'copyr', docName + '-edited.pdf', primary);
+    pages.forEach((p, i) => { p.cpn = i + 1; p.vC = p.strokes.length ? -1 : ver[i]; });
+    AS2.cN = pages.length;
+  }
+  const marks = {}, sent = [];
+  pages.forEach((p, i) => { if (pDirty(p, 'copy')) { marks[p.cpn] = wire(p.strokes); sent.push([p, ver[i]]); } });
+  if (!sent.length) return { mode: 'copy' };
+  const r = await window.__pdfJob({ op: 'marks', src: primary, marks, mode: 'copyr', name: docName + '-edited.pdf' });
+  sent.forEach(([p, v]) => { p.vC = v; });
   return r;
 }
 async function autoSave() {
   clearTimeout(AS2.t); if (!AS2.pend || !pages.length) return;
   if (AS2.busy) { AS2.again = true; return; }
-  AS2.busy = true; AS2.pend = false; window.__saveNote('saving…'); let r = null;
+  AS2.busy = true; AS2.pend = false; let r = null;
   try {
-    const mode = saveMode();
-    r = isBig() ? await saveBigNow(mode) : await saveSmallNow(mode);
-    window.__saveNote(r ? 'saved ✓' : ''); if (r) saveMarksSoon();
-    if (r && r.note) toast(r.note, 6000);
-    if (r && !AS2.told) { AS2.told = true; toast(r.mode === 'original' ? 'Changes are saved by themselves into the original file' : 'Changes are saved by themselves to: ' + r.where, 5000); }
-    setTimeout(() => { if (!AS2.pend && !AS2.busy) window.__saveNote(''); }, 2500);
+    r = nativeDoc() ? await saveNative(saveMode()) : await saveOther();
+    AS2.fails = 0; saveMarks();
   } catch (e) {
-    AS2.pend = true; window.__saveNote('not saved');
-    toast('Auto-save failed: ' + (e && e.message || e) + ' — trying again soon.', 6000);
-    clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, 15000);
+    AS2.pend = true; AS2.fails++;
+    if (AS2.fails === 3) toast('Could not save the changes yet: ' + (e && e.message || e) + ' — trying again.', 6000);
+    clearTimeout(AS2.t); AS2.t = setTimeout(autoSave, Math.min(30000, 3000 * AS2.fails));
   } finally { AS2.busy = false; }
-  if (r && r.reopen) {                                   // page order changed inside the original file: open it again at the same place
-    const f = firstPdf(), m = meta[f ? f.nid : docPrimary] || {}, pos = posNow(); skipMarks = true;
-    await window.__nativeOpen([{ id: f.nid, name: m.name || (docName + '.pdf'), mime: m.mime, size: m.size }], 'replace', pos);
-  }
-  if (AS2.again) { AS2.again = false; scheduleSave(600); }
+  if (AS2.again) { AS2.again = false; scheduleSave(300); }
 }
-window.__flushSave = async () => { if (AS2.pend && !AS2.busy) await autoSave(); let n = 0; while (AS2.busy && n++ < 900) await new Promise(r => setTimeout(r, 200)); };
-window.__resetSave = () => { clearTimeout(AS2.t); AS2.struct = false; AS2.copyMade = false; AS2.pend = false; AS2.told = false; };
+window.__flushSave = async () => { if (AS2.pend && !AS2.busy) await autoSave(); let n = 0; while (AS2.busy && n++ < 900) await new Promise(r => setTimeout(r, 200)); if (AS2.pend) await autoSave(); };
+window.__resetSave = () => { clearTimeout(AS2.t); AS2.cN = 0; AS2.pend = false; AS2.fails = 0; };
 
 /* ---------- 📄 this page: move, delete, copy, blank page, export, bookmarks, go to page ---------- */
 const pmp = mk('div', { id: 'pmp', className: 'panel', hidden: true }, `
@@ -198,6 +225,7 @@ const pmp = mk('div', { id: 'pmp', className: 'panel', hidden: true }, `
  <div class="row"><button class="big" id="pmdup">⧉ Duplicate</button><button class="big" id="pmbl">＋ Blank page after</button></div>
  <div class="row"><button class="big" id="pmdel">🗑 Delete page</button><button class="big" id="pmexp">⬇ Export page</button></div>
  <div class="row"><button class="big" id="pmbm">🔖 Bookmark this page</button><button class="big" id="pmarr">▦ All pages</button></div>
+ <div class="row"><span>Move this page to</span><input type="number" id="pmmv" min="1" inputmode="numeric" enterkeyhint="done" placeholder="page no." style="width:110px;font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg)"></div>
  <div class="row"><span>Go to page</span><input type="number" id="pmgo" min="1" inputmode="numeric" enterkeyhint="go" style="width:110px;font:inherit;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg)"></div>
  <div><b style="font-size:13px">Bookmarks</b></div><div id="pmbl2"></div>`);
 document.body.appendChild(pmp);
@@ -217,7 +245,8 @@ $('#pmup').onclick = () => { const p = curP(); window.__pageOps.move(p, -1); win
 $('#pmdn').onclick = () => { const p = curP(); window.__pageOps.move(p, 1); window.__gotoGlobal(pages.indexOf(p), 0); pmRefresh(); };
 $('#pmdup').onclick = () => { window.__pageOps.dup(curP()); toast('Page copied'); pmRefresh(); };
 $('#pmbl').onclick = () => { window.__pageOps.blank(curP()); toast('Blank page added after this one'); pmRefresh(); };
-$('#pmdel').onclick = () => { const p = curP(), i = pages.indexOf(p); if (!confirm('Delete page ' + (i + 1) + '?')) return; if (window.__pageOps.del(p)) { toast('Page deleted'); window.__gotoGlobal(Math.min(i, pages.length - 1), 0); } pmRefresh(); };
+$('#pmdel').onclick = () => { const p = curP(), i = pages.indexOf(p); if (window.__pageOps.del(p)) { toast('Page ' + (i + 1) + ' deleted · ↶ undo brings it back'); window.__gotoGlobal(Math.min(i, pages.length - 1), 0); } pmRefresh(); };
+$('#pmmv').addEventListener('keydown', e => { if (e.key === 'Enter') { const n = +e.target.value, p = curP(); e.target.value = ''; e.target.blur(); if (n > 0 && p) { window.__pageOps.moveTo(p, n - 1); window.__gotoGlobal(pages.indexOf(p), 0); toast('Page moved to ' + (pages.indexOf(p) + 1)); pmRefresh(); } } });
 $('#pmexp').onclick = () => { pmp.hidden = true; $('#exbtn').click(); $('#escope').value = 'cur'; $('#escope').dispatchEvent(new Event('change')); };
 $('#pmbm').onclick = async () => {
   const p = curP(), i = pages.indexOf(p); let l = bmGet();
@@ -233,11 +262,12 @@ const mp = mk('div', { id: 'mp', className: 'panel', hidden: true }, `
  <div class="row"><b>Settings</b><button id="mpx">✕</button></div>
  <div><b style="font-size:13px">Saving</b></div>
  <label><input type="radio" name="sm" value="original"> Save every change into the original file</label>
- <label><input type="radio" name="sm" value="copy"> Save every change into one copy (“-edited”)</label>
- <small>Every mark and page change is saved by itself a moment later. Marks saved into the original stay in the file (they cannot be erased later). Other file types are always saved as a PDF copy.</small>
+ <label><input type="radio" name="sm" value="copy"> Keep the original unchanged — save into a copy (name + “-edited”)</label>
+ <small>Every mark, text and page change is saved by itself at once, also when the app is closed. Saved marks and text can still be erased later. Pictures, Word and text files are saved as a PDF copy.</small>
  <hr>
  <div><b style="font-size:13px">Folders</b></div>
- <div class="row"><span>Edited copies go to</span><button id="mcd">Change</button></div><small id="mcdv"></small>
+ <div class="row"><span>Edited copy goes to</span><select id="mcw"><option value="orig">Folder of the original</option><option value="dir">Folder I choose</option></select></div>
+ <div class="row" id="mcdr"><small id="mcdv"></small><button id="mcd">Choose</button></div>
  <div class="row"><span>Exports go to</span><button id="med">Change</button></div><small id="medv"></small>
  <hr>
  <div><b style="font-size:13px">Big books</b></div>
@@ -300,17 +330,19 @@ function refreshMenu() {
   $('#mth').value = pref('theme', 'light');
   const mi = JP(A.memInfo ? A.memInfo() : '{}', {}), M = window.__MEM || {};
   $('#mmem').textContent = (mi.total ? 'This phone has ' + (mi.total / 1073741824).toFixed(1) + ' GB memory' + (M.low ? ' — low-memory mode is on.' : '.') + ' ' : '') + 'Big books scroll as one book; only the pages around where you read are kept in memory, the rest show small previews.';
-  const cd = pref('copyDir', ''), ed = pref('exportDir', '');
-  $('#mcdv').textContent = cd || 'Same folder as the original file';
+  const cd = pref('copyDir', ''), ed = pref('exportDir', ''), cw = pref('copyWhere', cd ? 'dir' : 'orig');
+  $('#mcw').value = cw; $('#mcdr').style.display = cw === 'dir' ? '' : 'none';
+  $('#mcdv').textContent = cd || 'No folder chosen yet';
   $('#medv').textContent = ed || 'Download/MarkupStudio';
 }
 mp.addEventListener('change', e => {
-  if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); window.__resetSave(); AS2.pend = true; scheduleSave(800); toast(e.target.value === 'original' ? 'Save will replace the original file' : 'Save will create a new copy'); }
+  if (e.target.name === 'sm') { A.setPref('saveMode', e.target.value); window.__resetSave(); AS2.pend = true; scheduleSave(300); }
+  if (e.target.id === 'mcw') { A.setPref('copyWhere', e.target.value); refreshMenu(); if (e.target.value === 'dir' && !pref('copyDir', '')) $('#mcd').click(); }
   if (e.target.id === 'mfs') A.setFullscreen(e.target.checked);
   if (e.target.id === 'mres') A.setPref('resume', e.target.checked ? '1' : '0');
   if (e.target.id === 'mth') { const t = e.target.value; A.setTheme(t); if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
 });
-$('#mcd').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('copyDir', p); toast(p ? 'Edited copies will be saved in ' + p : 'Edited copies will be saved next to the original'); }, pref('copyDir', '')); };
+$('#mcd').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('copyDir', p); if (p) A.setPref('copyWhere', 'dir'); }, pref('copyDir', '')); };
 $('#med').onclick = () => { mp.hidden = true; fbOpen('folder', p => { A.setPref('exportDir', p); toast(p ? 'Exports will be saved in ' + p : 'Exports will be saved in Download/MarkupStudio'); }, pref('exportDir', '')); };
 $('#mbrowse').onclick = () => { mp.hidden = true; fbOpen('open'); };
 $('#mmerge').onclick = () => { mp.hidden = true; fbOpen('merge'); };
@@ -679,15 +711,27 @@ window.__selfTest = async () => {
     /* auto-save path: the whole book rebuilt into one copy, then a mark added to that copy as an incremental update */
     const r6 = await window.__pdfJob({ op: 'rebuild', src: nid, order: [...Array(12).keys()].map(i => ({ pn: i + 1 })).concat([{ blank: [595, 842] }]), marks: {}, mode: 'copyr', name: 'selftest-copy.pdf' });
     log('rebuild copy', r6.ok, r6.where);
-    const r7 = await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [st] }, mode: 'copyr', name: 'x' });
+    const tx = { t: 'tx', x: 60, y: 300, text: 'नमस्ते Hello', f: 'hind', sz: 18, b: true, u: true, c: '#dc2626', w: 0, h: 0 };
+    const txi = Object.assign({}, tx, { img: window.__txImg(tx) });
+    const r7 = await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [st], 3: [txi] }, mode: 'copyr', name: 'x' });
     log('marks into copy', r7.ok, 'incremental', r7.incremental, r7.where);
-    const fid = A.registerFile(r7.where), ab = new Uint8Array(await (await fetch('/__file/' + fid, { cache: 'no-store' })).arrayBuffer());
-    const d = await pdfjsLib.getDocument({ data: ab }).promise, pg2 = await d.getPage(2), vp = pg2.getViewport({ scale: 0.5 }), c = document.createElement('canvas');
-    c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-    await pg2.render({ canvasContext: x, viewport: vp }).promise; const px = x.getImageData(0, 0, c.width, c.height).data; let yellow = 0;
-    for (let i = 0; i < px.length; i += 4) if (px[i] > 225 && px[i + 1] > 195 && px[i + 2] < 205) yellow++;
-    log('copy check: pages', d.numPages, 'yellow pixels on page 2', yellow, yellow > 200 ? 'PASS' : 'FAIL');
-    await d.destroy();
+    const yellowOf = async (show) => {
+      const ab = new Uint8Array(await (await fetch('/__file/' + A.registerFile(r7.where), { cache: 'no-store' })).arrayBuffer());
+      const d = await pdfjsLib.getDocument({ data: ab }).promise, pg2 = await d.getPage(2), vp = pg2.getViewport({ scale: 0.5 }), c = document.createElement('canvas');
+      c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      const o = { canvasContext: x, viewport: vp }; if (show) o.optionalContentConfigPromise = d.getOptionalContentConfig();
+      await pg2.render(o).promise; const px = x.getImageData(0, 0, c.width, c.height).data; let yellow = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] > 225 && px[i + 1] > 195 && px[i + 2] < 205) yellow++;
+      const n = d.numPages; await d.destroy(); return { yellow, n };
+    };
+    let y1 = await yellowOf(true), y0 = await yellowOf(false);
+    log('copy check: pages', y1.n, 'marks seen by other apps', y1.yellow, y1.yellow > 200 ? 'PASS' : 'FAIL', '· hidden in this app', y0.yellow, y0.yellow < 20 ? 'PASS' : 'FAIL');
+    const rm1 = await window.__pdfJob({ op: 'readmarks', src: A.registerFile(r7.where) });
+    const m2 = (rm1.marks || {})['2'] || [], m3 = (rm1.marks || {})['3'] || [];
+    log('marks read back', m2.length === 1 && m2[0].t === 'hl' ? 'PASS' : 'FAIL', 'text read back', m3.length === 1 && m3[0].text === tx.text && !m3[0].img ? 'PASS' : 'FAIL');
+    await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [] }, mode: 'copyr', name: 'x' });
+    y1 = await yellowOf(true); const rm2 = await window.__pdfJob({ op: 'readmarks', src: A.registerFile(r7.where) });
+    log('erased after saving', y1.yellow < 20 && !(rm2.marks || {})['2'] && (rm2.marks || {})['3'] ? 'PASS' : 'FAIL', y1.yellow);
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
@@ -695,11 +739,10 @@ window.__selfTest = async () => {
 /* ---------- lifecycle ---------- */
 window.__saveNow = () => { saveStateNow(); saveMarks(); };
 window.__partChanged = () => {                       // marks not saved yet come back on the pages of this part
-  const all = loadMarks(); for (const p of pages) { const k = pageKey(p); if (k && all[k] && !p.strokes.length) { p.strokes.push(...all[k]); redraw(p); } }
   saveStateSoon(); if (RS.show) setTimeout(layoutAll, 600);
 };
 window.__partLeaving = () => { if (R.on && !R.switching) { R.resumeAt = null; stopAll(); } hlClear(); };
-window.__paused = () => { if (AS2.pend) autoSave(); if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
+window.__paused = () => { saveMarks(); if (AS2.pend) autoSave(); if (R.on) { R.resumeAt = { p: R.page, wi: R.wi }; stopAll(); } if (AS.on) stopAS(); window.__saveNow(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) window.__paused(); else if (window.__setTool) window.__setTool('scroll'); });
 
 /* ---------- startup: files from the intent, else the last document ---------- */

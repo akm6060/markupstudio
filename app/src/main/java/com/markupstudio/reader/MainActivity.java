@@ -59,6 +59,17 @@ import com.tom_roush.pdfbox.cos.COSArray;
 import com.tom_roush.pdfbox.cos.COSBase;
 import com.tom_roush.pdfbox.cos.COSDictionary;
 import com.tom_roush.pdfbox.cos.COSName;
+import com.tom_roush.pdfbox.cos.COSStream;
+import com.tom_roush.pdfbox.cos.COSString;
+import com.tom_roush.pdfbox.pdmodel.PDDocumentCatalog;
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import com.tom_roush.pdfbox.pdmodel.graphics.optionalcontent.PDOptionalContentGroup;
+import com.tom_roush.pdfbox.pdmodel.graphics.optionalcontent.PDOptionalContentProperties;
+import com.tom_roush.pdfbox.util.Matrix;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.webkit.WebChromeClient;
 import com.tom_roush.pdfbox.pdmodel.PDResources;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
@@ -273,6 +284,7 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
+        web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
@@ -1037,7 +1049,9 @@ public class MainActivity extends Activity {
 
     private String writeCopy(Entry e, String suggested) throws Exception {
         String nm = (e != null && e.name != null ? stripExt(e.name) + "-edited.pdf" : suggested);
-        String chosen = writeToDir(prefs.getString("p_copyDir", ""), nm, "application/pdf");
+        String cdir = prefs.getString("p_copyDir", "");
+        boolean nextToOriginal = !"dir".equals(prefs.getString("p_copyWhere", cdir.isEmpty() ? "orig" : "dir")) || cdir.isEmpty();
+        String chosen = nextToOriginal ? null : writeToDir(prefs.getString("p_copyDir", ""), nm, "application/pdf");
         if (chosen != null) return chosen;
         if (e != null && e.file != null && e.file.getParentFile() != null) {
             File dir = e.file.getParentFile();
@@ -1051,6 +1065,7 @@ public class MainActivity extends Activity {
             String w = writeViaTreeNew(dir, f.getName(), "application/pdf");
             if (w != null) return w;
         }
+        if (nextToOriginal) { String w = writeToDir(prefs.getString("p_copyDir", ""), nm, "application/pdf"); if (w != null) return w; }
         return writePublic("MarkupStudio", nm, "application/pdf");
     }
 
@@ -1128,14 +1143,134 @@ public class MainActivity extends Activity {
         }
     }
 
-    /* the same drawing the page does for pen / underline / highlighter, written into the PDF page */
-    private static void drawMarks(PDDocument doc, PDPage page, JSONArray strokes) throws Exception {
-        if (strokes == null || strokes.length() == 0) return;
+    /* marks are kept in the PDF as one extra drawing per page inside the optional layer "Markup Studio marks"
+       (other PDF apps show it), plus the marks themselves (/MSMarks) so the app can show them again as marks
+       that can be erased or changed; the app hides that layer and draws the marks itself */
+    static final COSName MS_LAYER = COSName.getPDFName("MSLayer"), MS_PRE = COSName.getPDFName("MSPre"),
+            MS_MARKS = COSName.getPDFName("MSMarks"), MS_OWN = COSName.getPDFName("MSOwn"), OCP = COSName.getPDFName("OCProperties");
+    static final String MS_GROUP = "Markup Studio marks";
+
+    private static PDOptionalContentGroup msGroup(PDDocument doc) {
+        PDDocumentCatalog cat = doc.getDocumentCatalog();
+        PDOptionalContentProperties ocp = cat.getOCProperties();
+        if (ocp == null) { ocp = new PDOptionalContentProperties(); cat.setOCProperties(ocp); }
+        PDOptionalContentGroup g = ocp.getGroup(MS_GROUP);
+        if (g == null) { g = new PDOptionalContentGroup(MS_GROUP); ocp.addGroup(g); }
+        COSDictionary od = ocp.getCOSObject();
+        od.setNeedToBeUpdated(true);
+        for (String k : new String[]{"OCGs", "D"}) {
+            COSBase v = od.getDictionaryObject(COSName.getPDFName(k));
+            if (v instanceof COSArray) ((COSArray) v).setNeedToBeUpdated(true);
+            if (v instanceof COSDictionary) {
+                ((COSDictionary) v).setNeedToBeUpdated(true);
+                for (String k2 : new String[]{"ON", "OFF", "Order"}) {
+                    COSBase w = ((COSDictionary) v).getDictionaryObject(COSName.getPDFName(k2));
+                    if (w instanceof COSArray) ((COSArray) w).setNeedToBeUpdated(true);
+                }
+            }
+        }
+        cat.getCOSObject().setNeedToBeUpdated(true);
+        return g;
+    }
+
+    /** drop the drawing objects an earlier save of the marks left in the page resources */
+    private static void cleanRes(PDPage page) {
+        try {
+            PDResources r = page.getResources();
+            if (r == null) return;
+            for (COSName kind : new COSName[]{COSName.EXT_G_STATE, COSName.XOBJECT}) {
+                COSBase d = r.getCOSObject().getDictionaryObject(kind);
+                if (!(d instanceof COSDictionary)) continue;
+                COSDictionary dd = (COSDictionary) d;
+                for (COSName k : new ArrayList<>(dd.keySet())) {
+                    COSBase v = dd.getDictionaryObject(k);
+                    if (v instanceof COSDictionary && ((COSDictionary) v).getBoolean(MS_OWN, false)) { dd.removeItem(k); dd.setNeedToBeUpdated(true); }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static String plainJson(JSONArray strokes) throws Exception {
+        JSONArray a = new JSONArray();
+        for (int i = 0; i < strokes.length(); i++) {
+            JSONObject o = new JSONObject(strokes.getJSONObject(i).toString());
+            o.remove("img"); o.remove("inOrig"); o.remove("inCopy");
+            a.put(o);
+        }
+        return a.toString();
+    }
+
+    /** replace the page's marks (none = remove them) */
+    private static void writeLayer(PDDocument doc, PDPage page, JSONArray strokes) throws Exception {
+        COSDictionary pd = page.getCOSObject();
+        COSBase c = pd.getDictionaryObject(COSName.CONTENTS);
+        COSArray arr = new COSArray();
+        boolean pre = false, had = false;
+        if (c instanceof COSArray) {
+            COSArray ca = (COSArray) c;
+            for (int i = 0; i < ca.size(); i++) {
+                COSBase raw = ca.get(i), r = ca.getObject(i);
+                if (r instanceof COSStream) {
+                    if (((COSStream) r).getBoolean(MS_LAYER, false)) { had = true; continue; }
+                    if (arr.size() == 0 && ((COSStream) r).getBoolean(MS_PRE, false)) pre = true;
+                }
+                arr.add(raw);
+            }
+        } else if (c != null) arr.add(pd.getItem(COSName.CONTENTS));
+        boolean has = strokes != null && strokes.length() > 0;
+        if (!has && !had && !pd.containsKey(MS_MARKS)) return;
+        cleanRes(page);
+        if (has && !pre) {
+            COSStream q = doc.getDocument().createCOSStream();
+            OutputStream os = q.createOutputStream();
+            os.write("q\n".getBytes("ISO-8859-1"));
+            os.close();
+            q.setBoolean(MS_PRE, true);
+            arr.add(0, q);
+        }
+        pd.setItem(COSName.CONTENTS, arr);
+        if (!has) { pd.removeItem(MS_MARKS); return; }
+        PDOptionalContentGroup g = msGroup(doc);
+        PDPageContentStream cs = new PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, false);
+        try {
+            cs.restoreGraphicsState();
+            cs.saveGraphicsState();
+            cs.beginMarkedContent(COSName.OC, g);
+            drawStrokes(doc, page, cs, strokes);
+            cs.endMarkedContent();
+            cs.restoreGraphicsState();
+        } finally {
+            cs.close();
+        }
+        COSBase now = pd.getDictionaryObject(COSName.CONTENTS);
+        if (now instanceof COSArray) {
+            COSBase last = ((COSArray) now).getObject(((COSArray) now).size() - 1);
+            if (last instanceof COSStream) ((COSStream) last).setBoolean(MS_LAYER, true);
+        }
+        pd.setString(MS_MARKS, plainJson(strokes));
+    }
+
+    /** the marks saved in a PDF by this app: page number (1..) -> marks */
+    private static JSONObject readMarks(PDDocument doc) throws Exception {
+        JSONObject m = new JSONObject();
+        int i = 0;
+        for (PDPage pg : doc.getPages()) {
+            i++;
+            try {
+                COSBase v = pg.getCOSObject().getDictionaryObject(MS_MARKS);
+                if (v instanceof COSString) m.put(String.valueOf(i), new JSONArray(((COSString) v).getString()));
+            } catch (Exception ignored) {
+            }
+        }
+        return m;
+    }
+
+    /* the same drawing the page does for pen / underline / highlighter / text */
+    private static void drawStrokes(PDDocument doc, PDPage page, PDPageContentStream cs, JSONArray strokes) throws Exception {
         PDRectangle cb = page.getCropBox();
         final int rot = ((page.getRotation() % 360) + 360) % 360;
         final float ox = cb.getLowerLeftX(), oy = cb.getLowerLeftY(), W0 = cb.getWidth(), H0 = cb.getHeight();
-        PDPageContentStream cs = new PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true);
-        try {
             for (int i = 0; i < strokes.length(); i++) {
                 JSONObject s = strokes.getJSONObject(i);
                 String t = s.optString("t");
@@ -1147,10 +1282,25 @@ public class MainActivity extends Activity {
                 PDExtendedGraphicsState gs = new PDExtendedGraphicsState();
                 gs.setStrokingAlphaConstant(a);
                 gs.setNonStrokingAlphaConstant(a);
-                gs.setBlendMode(BlendMode.MULTIPLY);
+                gs.setBlendMode("tx".equals(t) ? BlendMode.NORMAL : BlendMode.MULTIPLY);
+                gs.getCOSObject().setBoolean(MS_OWN, true);
                 cs.saveGraphicsState();
                 cs.setGraphicsStateParameters(gs);
-                if ("hl".equals(t)) {
+                if ("tx".equals(t)) {
+                    String im = s.optString("img", "");
+                    if (!im.isEmpty()) {
+                        byte[] bb = Base64.decode(im.substring(im.indexOf(',') + 1), Base64.DEFAULT);
+                        Bitmap bm = BitmapFactory.decodeByteArray(bb, 0, bb.length);
+                        if (bm != null) {
+                            PDImageXObject x = LosslessFactory.createFromImage(doc, bm);
+                            bm.recycle();
+                            x.getCOSObject().setBoolean(MS_OWN, true);
+                            double X = s.getDouble("x"), Y = s.getDouble("y"), W = s.getDouble("w"), H = s.getDouble("h");
+                            float[] O = map(rot, ox, oy, W0, H0, X, Y + H), U = map(rot, ox, oy, W0, H0, X + W, Y + H), V = map(rot, ox, oy, W0, H0, X, Y);
+                            cs.drawImage(x, new Matrix(U[0] - O[0], U[1] - O[1], V[0] - O[0], V[1] - O[1], O[0], O[1]));
+                        }
+                    }
+                } else if ("hl".equals(t)) {
                     cs.setNonStrokingColor(col);
                     JSONArray segs = s.getJSONArray("segs");
                     for (int k = 0; k < segs.length(); k++) {
@@ -1204,9 +1354,6 @@ public class MainActivity extends Activity {
                 }
                 cs.restoreGraphicsState();
             }
-        } finally {
-            cs.close();
-        }
     }
 
     private static float[] map(int rot, float ox, float oy, float W0, float H0, double xd, double yd) {
@@ -1236,6 +1383,10 @@ public class MainActivity extends Activity {
                 rd.setNeedToBeUpdated(true);
                 COSBase eg = rd.getDictionaryObject(COSName.EXT_G_STATE);
                 if (eg instanceof COSDictionary) ((COSDictionary) eg).setNeedToBeUpdated(true);
+                for (COSName kn : new COSName[]{COSName.XOBJECT, COSName.PROPERTIES}) {
+                    COSBase x = rd.getDictionaryObject(kn);
+                    if (x instanceof COSDictionary) ((COSDictionary) x).setNeedToBeUpdated(true);
+                }
             }
         } catch (Exception ignored) {
         }
@@ -1294,7 +1445,7 @@ public class MainActivity extends Activity {
 
     private String bookKey(Entry e, int partSize) {
         long size = e.file != null ? e.file.length() : e.size, mt = e.file != null ? e.file.lastModified() : 0;
-        return sha1((e.file != null ? e.file.getPath() : String.valueOf(e.uri)) + "|" + size + "|" + mt + "|" + partSize);
+        return sha1((e.file != null ? e.file.getPath() : String.valueOf(e.uri)) + "|" + size + "|" + mt + "|" + partSize + "|v2");
     }
 
     private static void deleteDir(File d) {
@@ -1397,6 +1548,7 @@ public class MainActivity extends Activity {
                         try { np = importPage(out, i < all.size() ? all.get(i) : src.getPage(i)); }
                         catch (Exception ex) { np = new PDPage(PDRectangle.A4); out.addPage(np); }
                     }
+                    try { COSBase ocp = src.getDocumentCatalog().getCOSObject().getDictionaryObject(OCP); if (ocp != null) out.getDocumentCatalog().getCOSObject().setItem(OCP, ocp); } catch (Exception ignored) { }
                     if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
                     File f = new File(dir, String.format(Locale.ROOT, "part-%03d.pdf", k + 1));
                     out.save(f);
@@ -1416,32 +1568,6 @@ public class MainActivity extends Activity {
             jobMsg(id, "done", j.put("ok", true));
         } finally {
             src.close();
-        }
-    }
-
-    /* after marks were saved into the original book, put them into the prepared parts too */
-    private void markParts(String bookDir, int ps, JSONObject marks) throws Exception {
-        java.util.Map<Integer, JSONObject> byPart = new HashMap<>();
-        for (java.util.Iterator<String> it = marks.keys(); it.hasNext(); ) {
-            String k = it.next(); int pn = Integer.parseInt(k), part = (pn - 1) / ps;
-            JSONObject m = byPart.get(part); if (m == null) { m = new JSONObject(); byPart.put(part, m); }
-            m.put(String.valueOf(pn - part * ps), marks.getJSONArray(k));
-        }
-        for (java.util.Map.Entry<Integer, JSONObject> en : byPart.entrySet()) {
-            File f = new File(bookDir, String.format(Locale.ROOT, "part-%03d.pdf", en.getKey() + 1));
-            if (!f.isFile()) continue;
-            PDDocument d = PDDocument.load(f, diskMemory());
-            File t = new File(f.getPath() + ".new");
-            try {
-                for (java.util.Iterator<String> it = en.getValue().keys(); it.hasNext(); ) {
-                    String k = it.next(); int lp = Integer.parseInt(k);
-                    if (lp >= 1 && lp <= d.getNumberOfPages()) drawMarks(d, d.getPage(lp - 1), en.getValue().getJSONArray(k));
-                }
-                d.save(t);
-            } finally {
-                d.close();
-            }
-            if (!t.renameTo(f)) { copyFile(t, f); t.delete(); }
         }
     }
 
@@ -1479,7 +1605,7 @@ public class MainActivity extends Activity {
                                 out.addPage(np);
                                 bad++;
                             }
-                            if (marks != null && marks.has(String.valueOf(pn))) drawMarks(out, np, marks.getJSONArray(String.valueOf(pn)));
+                            writeLayer(out, np, marks != null ? marks.optJSONArray(String.valueOf(pn)) : null);
                             done++;
                             if (done % 10 == 0) jobProgress(id, done, total, (parts > 1 ? "Part " + (part + 1) + " of " + parts + " · " : "") + "page " + done + " of " + total);
                         }
@@ -1495,6 +1621,12 @@ public class MainActivity extends Activity {
                     }
                 }
                 jobMsg(id, "done", new JSONObject().put("ok", true).put("files", outs).put("bad", bad));
+            } else if ("readmarks".equals(op)) {
+                Entry e = entries.get(o.getInt("src"));
+                if (e == null) throw new FileNotFoundException("The file is no longer open");
+                src = openPdf(e);
+                JSONObject m = readMarks(src);
+                jobMsg(id, "done", new JSONObject().put("ok", true).put("marks", m).put("n", src.getNumberOfPages()));
             } else if ("prepare".equals(op)) {
                 prepareBook(id, o);
             } else if ("merge".equals(op)) {
@@ -1533,7 +1665,7 @@ public class MainActivity extends Activity {
                 int n = 0, total = marks == null ? 0 : marks.length();
                 if (marks != null) for (java.util.Iterator<String> it = marks.keys(); it.hasNext(); ) {
                     String k = it.next(); int pn = Integer.parseInt(k);
-                    if (pn >= 1 && pn <= src.getNumberOfPages()) { PDPage pg = src.getPage(pn - 1); drawMarks(src, pg, marks.getJSONArray(k)); markChanged(src, pg); }
+                    if (pn >= 1 && pn <= src.getNumberOfPages()) { PDPage pg = src.getPage(pn - 1); writeLayer(src, pg, marks.getJSONArray(k)); markChanged(src, pg); }
                     n++;
                 }
                 if (src.isEncrypted()) src.setAllSecurityToBeRemoved(true);
@@ -1561,7 +1693,6 @@ public class MainActivity extends Activity {
                         File bd = new File(booksDir(), bk);
                         try {
                             int ps = o.optInt("partSize", 200);
-                            markParts(bd.getPath(), ps, marks);
                             File nd = new File(booksDir(), bookKey(e, ps));
                             if (!nd.equals(bd) && bd.renameTo(nd)) {
                                 File inf = new File(nd, "info.json");
@@ -1588,7 +1719,28 @@ public class MainActivity extends Activity {
                 if (e == null) throw new FileNotFoundException("The book is no longer open");
                 JSONArray order = o.getJSONArray("order");
                 jobProgress(id, 0, order.length(), "Opening the book…");
-                src = openPdf(e);
+                /* the original as it was when opened is kept (once) before it is first rewritten, so pages deleted
+                   and brought back with undo, or a copy made later, still come from the right pages */
+                File bk = backups.get(sid);
+                if (bk == null && "original".equals(o.optString("mode"))) {
+                    try {
+                        long need = e.file != null ? e.file.length() : e.size;
+                        if (workDir().getUsableSpace() > need * 1.2 + 50e6) {
+                            File b = new File(workDir(), "backup-" + sid + "-" + System.nanoTime() + ".pdf");
+                            InputStream in = e.file != null && e.file.canRead() ? new FileInputStream(e.file) : openStream(e);
+                            OutputStream os = new FileOutputStream(b);
+                            try { byte[] buf = new byte[1 << 16]; int k; while ((k = in.read(buf)) > 0) os.write(buf, 0, k); } finally { in.close(); os.close(); }
+                            backups.put(sid, b);
+                            bk = b;
+                        }
+                    } catch (Exception ex) {
+                        bk = null;
+                    }
+                }
+                if (bk != null) {
+                    if (!pdfboxReady) { PDFBoxResourceLoader.init(getApplicationContext()); pdfboxReady = true; }
+                    src = PDDocument.load(bk, diskMemory());
+                } else src = openPdf(e);
                 int nSrc = src.getNumberOfPages(), total = order.length();
                 PDDocument out = new PDDocument(diskMemory());
                 File t = new File(workDir(), "rebuild-" + System.nanoTime() + ".pdf");
@@ -1605,7 +1757,7 @@ public class MainActivity extends Activity {
                             try { if (pn < 1 || pn > nSrc) throw new IOException(); np = importPage(out, src.getPage(pn - 1)); }
                             catch (Exception ex) { np = new PDPage(PDRectangle.A4); out.addPage(np); }
                         }
-                        if (marks != null && marks.has(String.valueOf(i + 1))) drawMarks(out, np, marks.getJSONArray(String.valueOf(i + 1)));
+                        writeLayer(out, np, marks != null ? marks.optJSONArray(String.valueOf(i + 1)) : null);
                         if (i % 25 == 0) jobProgress(id, i, total, "Arranging page " + (i + 1) + " of " + total);
                     }
                     if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
@@ -1627,6 +1779,7 @@ public class MainActivity extends Activity {
                     }
                 }
                 if ("original".equals(r.optString("mode"))) e.size = e.file != null ? e.file.length() : t.length();
+                r.put("backup", bk != null);
                 t.delete();
                 jobMsg(id, "done", r);
             } else throw new IllegalArgumentException("unknown job " + op);
@@ -1651,6 +1804,7 @@ public class MainActivity extends Activity {
 
     /* the copy made by auto-save is written again each time (same file), not a new copy per save */
     private final Map<Integer, Object> copyTarget = new HashMap<>();
+    private final Map<Integer, File> backups = new ConcurrentHashMap<>();
     private Uri lastPublicUri = null;
 
     private String writeTarget(Object t) throws Exception {

@@ -55,6 +55,13 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
 #cm{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;display:flex;gap:10px;padding:10px 12px;background:var(--bar);border:1px solid var(--bd);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);z-index:6}#cm[hidden]{display:none}#cm .sw{width:28px;height:28px}body.grid #cm{display:none!important}
 .pt{display:flex;justify-content:space-between;align-items:center}
 .oc{mix-blend-mode:multiply;pointer-events:none}.t-hl .pg{cursor:text;touch-action:none}.t-scroll .pg{cursor:grab}.t-pen .pg{cursor:crosshair;touch-action:none}.t-line .pg{cursor:crosshair;touch-action:none}.t-erase .pg{cursor:cell;touch-action:none}
+@font-face{font-family:"MS Hind";src:url(fonts/Hind-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Hind";src:url(fonts/Hind-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Mukta";src:url(fonts/Mukta-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Mukta";src:url(fonts/Mukta-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Kalam";src:url(fonts/Kalam-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Kalam";src:url(fonts/Kalam-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Laila";src:url(fonts/Laila-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Laila";src:url(fonts/Laila-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Martel";src:url(fonts/Martel-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Martel";src:url(fonts/Martel-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Amita";src:url(fonts/Amita-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Amita";src:url(fonts/Amita-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Tiro";src:url(fonts/TiroDevanagariHindi-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Yatra";src:url(fonts/YatraOne-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Rozha";src:url(fonts/RozhaOne-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Caveat";src:url(fonts/Caveat-Var.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Dancing";src:url(fonts/DancingScript-Var.ttf);font-weight:100 900;font-display:swap}
+#txp{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;width:min(340px,94vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:8px;z-index:7}#txp[hidden]{display:none}
+#txp label{display:flex;gap:6px;align-items:center;font-size:13px}#txp select{flex:1;min-width:0;background:var(--bar);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:inherit;font-size:13px}#txp input[type=range]{flex:1;min-width:0}
+#txpv{padding:6px 8px;border:1px dashed var(--bd);border-radius:8px;background:#fff;color:#111;white-space:nowrap;overflow:hidden;min-height:28px}.txr{display:flex;flex-wrap:wrap;gap:6px}.txr button{flex:1}#txc .sw{flex:none;width:26px;height:26px;border:1px solid var(--bd)}#txc .sw.on{outline:3px solid var(--ac);outline-offset:1px}
+.txed{position:absolute;z-index:5;background:rgba(255,255,255,.35);border:1.5px dashed #2563eb;border-radius:3px;padding:0;margin:0;resize:none;overflow:hidden;white-space:pre;outline:none;min-width:40px;box-sizing:content-box;caret-color:#2563eb}
+.t-text .pg{cursor:text;touch-action:pan-x pan-y}
+#gend{display:none}body.gpick #gend{display:inline-block}body.gpick #tgrid .th:not(.sel){outline:1px dashed var(--ac)}
 </style></head>
 <body class="t-scroll">
 <div id="bar">
@@ -65,6 +72,7 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
   <button data-t="pen" title="Freehand pen">✎</button>
   <button data-t="line" title="Straight underline">⎯</button>
   <button data-t="hl" title="Highlighter">🖍</button>
+  <button data-t="text" id="ttx" title="Text (long-press: font, size, colour)" aria-label="Text" style="font-weight:700;font-family:serif">T</button>
   <button data-t="erase" title="Tap a mark to delete">⌫</button>
  </div>
  <div class="sep"></div>
@@ -80,7 +88,7 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
  <div id="tgrid"></div>
  <div id="gbar">
   <button id="gall">All</button><button id="gnone">None</button><div class="sep"></div>
-  <button id="gup">↑ Move up</button><button id="gdn">↓ Move down</button><div class="sep"></div>
+  <button id="gup">↑ Move up</button><button id="gdn">↓ Move down</button><button id="gmv">⇢ Move to…</button><button id="gend">⤓ To the end</button><div class="sep"></div>
   <button id="gdup">⧉ Copy</button><button id="gdel">🗑 Delete</button><button id="gadd">＋ Blank</button><button id="gfile">📎 Add file</button><div class="sep"></div>
   <button id="gexp">⬇ Export</button>
  </div></div>
@@ -90,6 +98,14 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
  <label>Opacity <input type="range" id="o" min="10" max="100" value="100"><span id="ov">100%</span></label>
  <div id="pv"><i></i></div>
  <label id="sn" style="justify-content:flex-start"><input type="checkbox" id="snap" checked> Snap to words</label>
+</div>
+<div id="txp" hidden>
+ <div class="pt"><b>Text</b><button id="txx">✕</button></div>
+ <div id="txpv">Aa अआ 123</div>
+ <label>Font <select id="txf"></select></label>
+ <label>Size <button id="txm" aria-label="Smaller">−</button><input type="range" id="txs" min="4" max="30" step="1"><b id="txsv">16</b><button id="txpl" aria-label="Bigger">+</button></label>
+ <div class="txr"><button id="txb" style="font-weight:700">B Bold</button><button id="txu" style="text-decoration:underline">U Underline</button></div>
+ <div class="txr" id="txc"></div>
 </div>
 <div id="exp" hidden>
  <div class="pt"><b>Export</b><button id="ex">✕</button></div>

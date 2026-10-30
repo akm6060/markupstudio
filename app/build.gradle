@@ -10,8 +10,8 @@ android {
         applicationId "com.markupstudio.reader"
         minSdk 21            // Android 5.0
         targetSdk 34         // runs on Android 5 … 16
-        versionCode 8
-        versionName "1.6"
+        versionCode 9
+        versionName "1.7"
     }
 
     buildTypes {

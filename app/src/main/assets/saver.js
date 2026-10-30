@@ -17,7 +17,20 @@ function mapper(page) {                       // view coords (scale 1, y down, r
   };
 }
 
-S.drawStrokes = function (L, doc, page, strokes) {
+/* a page saved earlier by the app carries its marks as an extra layer: drop it (the marks are drawn again from the list) */
+S.stripLayer = function (L, doc, page) {
+  try {
+    const N = L.PDFName.of, node = page.node, c = node.get(N('Contents'));
+    const arr = c && doc.context.lookup(c);
+    if (!arr || !arr.asArray) return;
+    const keep = arr.asArray().filter(r => { const o = doc.context.lookup(r); return !(o && o.dict && o.dict.get(N('MSLayer'))); });
+    if (keep.length !== arr.size()) node.set(N('Contents'), doc.context.obj(keep));
+    node.delete(N('MSMarks'));
+  } catch (e) {}
+};
+const b64 = s => { const t = atob(s.slice(s.indexOf(',') + 1)), u = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i); return u; };
+S.drawStrokes = async function (L, doc, page, strokes) {
+  S.stripLayer(L, doc, page);
   if (!strokes || !strokes.length) return;
   const P = mapper(page), cache = {};
   const gsFor = a => {
@@ -26,6 +39,13 @@ S.drawStrokes = function (L, doc, page, strokes) {
     return (cache[k] = page.node.newExtGState('MK', d));
   };
   for (const s of strokes) {
+    if (s.t === 'tx') {
+      const src = s.img || (root.__txImg && root.__txImg(s)); if (!src) continue;
+      const im = await doc.embedPng(b64(src)), nm = page.node.newXObject('MSt', im.ref);
+      const O = P(s.x, s.y + s.h), U = P(s.x + s.w, s.y + s.h), V = P(s.x, s.y);
+      page.pushOperators(L.pushGraphicsState(), L.concatTransformationMatrix(U[0] - O[0], U[1] - O[1], V[0] - O[0], V[1] - O[1], O[0], O[1]), L.drawObject(nm), L.popGraphicsState());
+      continue;
+    }
     const a = s.a == null ? 1 : s.a, [r, g, b] = rgb(s.c), ops = [L.pushGraphicsState(), L.setGraphicsState(gsFor(a))];
     if (s.t === 'hl') {
       ops.push(L.setFillingRgbColor(r, g, b));
@@ -79,7 +99,7 @@ S.buildDoc = async function (L, list, raster, refOf) {
     try {
       const d = await load(first.bytes);
       if (count(d) === list.length && (!first.doc || first.doc.numPages === list.length)) {
-        list.forEach((p, i) => S.drawStrokes(L, d, d.getPage(i), p.strokes));
+        for (let i = 0; i < list.length; i++) await S.drawStrokes(L, d, d.getPage(i), list[i].strokes);
         d.__bad = 0; return d;
       }
     } catch (e) {}
@@ -94,10 +114,10 @@ S.buildDoc = async function (L, list, raster, refOf) {
         const ref = refOf ? await refOf(p).catch(() => null) : null;
         if (ref) { const k = refIndex(sd).get(ref.num + '_' + ref.gen); if (k !== undefined) idx = k; }
         if (idx < 0 && (!p.doc || count(sd) === p.doc.numPages)) idx = p.pn - 1;
-        if (idx >= 0 && idx < count(sd)) { const [cp] = await out.copyPages(sd, [idx]); pg = out.addPage(cp); S.drawStrokes(L, out, pg, p.strokes); }
+        if (idx >= 0 && idx < count(sd)) { const [cp] = await out.copyPages(sd, [idx]); pg = out.addPage(cp); await S.drawStrokes(L, out, pg, p.strokes); }
       } catch (e) { pg = null; }
     }
-    if (!pg && p.kind === 'blank') { pg = out.addPage([p.w, p.h]); S.drawStrokes(L, out, pg, p.strokes); }
+    if (!pg && p.kind === 'blank') { pg = out.addPage([p.w, p.h]); await S.drawStrokes(L, out, pg, p.strokes); }
     if (!pg) {
       try { const im = await out.embedJpg(await raster(p)); pg = out.addPage([p.w, p.h]); pg.drawImage(im, { x: 0, y: 0, width: p.w, height: p.h }); }
       catch (e) { out.addPage([p.w || 595, p.h || 842]); bad++; }

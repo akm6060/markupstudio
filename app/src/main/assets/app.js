@@ -19,9 +19,9 @@ function syncS(){const t=S[tool];if(!t)return;$('#w').value=t.w;$('#wv').textCon
 function updPv(){const t=S[tool];if(!t)return;const i=$('#pv i');i.style.height=t.w+'px';i.style.background=color;i.style.opacity=t.a}
 $('#w').oninput=e=>{const v=+e.target.value;$('#wv').textContent=v;if(S[tool])S[tool].w=v;updPv()};
 $('#o').oninput=e=>{const v=+e.target.value;$('#ov').textContent=v+'%';if(S[tool])S[tool].a=v/100;updPv()};
-function setTool(t){tool=t;[...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);syncS();if(!S[t])$('#pop').hidden=true;pages.forEach(p=>p.cancel&&p.cancel())}
+function setTool(t){if(t!=='text'&&typeof txClose==='function')txClose();tool=t;[...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);syncS();if(!S[t])$('#pop').hidden=true;pages.forEach(p=>p.cancel&&p.cancel())}
 window.__setTool=setTool;
-$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b)return;const same=tool===b.dataset.t;setTool(b.dataset.t);if(S[tool]&&same)$('#pop').hidden=!$('#pop').hidden};
+$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b||b.id==='ttx')return;const same=tool===b.dataset.t;setTool(b.dataset.t);if(S[tool]&&same)$('#pop').hidden=!$('#pop').hidden};
 $('#cfg').onclick=()=>{const had=!!S[tool];if(!had)document.querySelector('[data-t=pen]').click();$('#pop').hidden=had?!$('#pop').hidden:false};
 $('#px').onclick=()=>$('#pop').hidden=true;
 selSlot();
@@ -46,7 +46,7 @@ async function ingest(f){
   let doc=null,ab=null,src=f._url?{url:f._url,size:f.size||0,bytes:null}:null;
   if(src&&f.size>BIGPDF){try{doc=await pdfjsLib.getDocument({url:f._url,disableAutoFetch:true,disableStream:true,rangeChunkSize:262144}).promise}catch(e){doc=null}}
   if(!doc){ab=new Uint8Array(await f.arrayBuffer());if(src)src.size=ab.length;doc=await pdfjsLib.getDocument({data:src?ab:ab.slice()}).promise;if(src)ab=null}
-  const p1=await doc.getPage(1),v=p1.getViewport({scale:1}),sz=ab?ab.length:src.size;
+  const p1=await doc.getPage(1);patchOC(p1);const v=p1.getViewport({scale:1}),sz=ab?ab.length:src.size;
   return Array.from({length:doc.numPages},(_,i)=>({kind:'pdf',doc,bytes:ab,src,pn:i+1,page:i?null:p1,w:v.width,h:v.height,osize:sz/doc.numPages}))}
  if(t.startsWith('image/'))return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,2400/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok([{kind:'cv',cv:c,w:612,h:Math.round(612*c.height/c.width)}])};im.onerror=no;im.src=r.result};r.onerror=no;r.readAsDataURL(f)});
  if(n.endsWith('.docx')){await lib('libs/mammoth.browser.min.js');const r=await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()});return textPages(r.value,f.name)}
@@ -105,7 +105,11 @@ const syncEmpty=()=>{$('#empty').style.display=pages.length?'none':''};
 /* frame size only; the pictures keep their pixels (stretched) until the page is drawn again */
 function size(p){const W=p.w*scale,H=p.h*scale;p.pr=Math.min(dpr,Math.sqrt(MEM.px/Math.max(1,W*H)));p.wrap.style.width=W+'px';p.wrap.style.height=H+'px';for(const c of [p.pc,p.oc])if(c){c.style.width=W+'px';c.style.height=H+'px'}}
 function canvasFor(p,cls){const c=document.createElement('canvas');if(cls)c.className=cls;c.style.position='absolute';c.style.left=c.style.top='0';c.style.width=p.w*scale+'px';c.style.height=p.h*scale+'px';c.width=Math.max(1,Math.round(p.w*scale*p.pr));c.height=Math.max(1,Math.round(p.h*scale*p.pr));return c}
-async function ensure(p){if(p.kind==='pdf'&&!p.page){if(!p.doc){if(BOOK&&p.part!=null)p.doc=await partDocFor(p.part);else throw new Error('page not loaded')}p.page=await p.doc.getPage(p.lpn||p.pn);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
+/* PDFs saved by this app keep the marks as an optional layer: hidden here, the marks are drawn from their list */
+let ocPatched=false;
+function patchOC(pg){if(ocPatched||!pg)return;const P=Object.getPrototypeOf(pg),R=P&&P.render;if(!R)return;ocPatched=true;
+ P.render=function(o){const t=this._transport;if(o&&!o.optionalContentConfigPromise&&t&&t.getOptionalContentConfig){if(!t.__msOC)t.__msOC=t.getOptionalContentConfig().then(cfg=>{try{const g=cfg.getGroups()||{};for(const id in g)if(g[id]&&g[id].name==='Markup Studio marks')cfg.setVisibility(id,false)}catch(e){}return cfg});o=Object.assign({},o,{optionalContentConfigPromise:t.__msOC})}return R.call(this,o)}}
+async function ensure(p){if(p.kind==='pdf'&&!p.page){if(!p.doc){if(BOOK&&p.part!=null)p.doc=await partDocFor(p.part);else throw new Error('page not loaded')}p.page=await p.doc.getPage(p.lpn||p.pn);patchOC(p.page);const v=p.page.getViewport({scale:1});p.w=v.width;p.h=v.height}}
 /* pdf.js object number of a page, so the saver can find it even in a damaged page tree */
 const refOf=async p=>{try{await ensure(p);return p.page&&p.page.ref||null}catch(e){return null}};
 window.__refOf=refOf;
@@ -131,6 +135,7 @@ async function render1(p){
  trimDrawn()}
 function drawS(ctx,s){
  const k=scale*dpr;
+ if(s.t==='tx'){drawTx(ctx,s,k);return}
  if(s.t==='hl'){ctx.fillStyle=s.c;ctx.globalAlpha=s.a||.4;s.segs.forEach(g=>ctx.fillRect(g[0]*k,g[1]*k,(g[2]-g[0])*k,(g[3]-g[1])*k));ctx.globalAlpha=1;return}
  if(s.t==='wu'){ctx.globalAlpha=s.a||1;ctx.strokeStyle=s.c;ctx.lineWidth=s.w*k;ctx.lineCap='round';s.segs.forEach(g=>{ctx.beginPath();ctx.moveTo(g[0]*k,g[2]*k);ctx.lineTo(g[1]*k,g[2]*k);ctx.stroke()});ctx.globalAlpha=1;return}
  ctx.globalAlpha=s.a||1;drawP(ctx,s);ctx.globalAlpha=1}
@@ -145,9 +150,10 @@ function drawP(ctx,s){
 function redraw(p,extra){if(!extra)p.thumb=null;
  if(!p.strokes.length&&!extra){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove();p.oc=null}return}
  if(!p.oc||p.oc.width!==Math.max(1,Math.round(p.w*scale*p.pr))){if(p.oc){p.oc.width=p.oc.height=0;p.oc.remove()}p.oc=canvasFor(p,'oc');place(p,p.oc,3)}
- const c=p.oc.getContext('2d'),od=dpr;dpr=p.pr||dpr;try{c.clearRect(0,0,p.oc.width,p.oc.height);p.strokes.forEach(s=>drawS(c,s));if(extra)drawS(c,extra)}finally{dpr=od}}
+ const c=p.oc.getContext('2d'),od=dpr;dpr=p.pr||dpr;try{c.clearRect(0,0,p.oc.width,p.oc.height);p.strokes.forEach(s=>{if(!ED||ED.s!==s)drawS(c,s)});if(extra)drawS(c,extra)}finally{dpr=od}}
 function dist(pt,s){
  let m=1e9;
+ if(s.t==='tx')return Math.hypot(Math.max(s.x-pt[0],0,pt[0]-s.x-s.w),Math.max(s.y-pt[1],0,pt[1]-s.y-s.h));
  if(s.t==='hl'){for(const g of s.segs){m=Math.min(m,Math.hypot(Math.max(g[0]-pt[0],0,pt[0]-g[2]),Math.max(g[1]-pt[1],0,pt[1]-g[3])))}return m}
  if(s.t==='wu'){for(const g of s.segs){m=Math.min(m,Math.hypot(Math.max(g[0]-pt[0],0,pt[0]-g[1]),pt[1]-g[2]))}return m}
  const q=s.p;if(q.length===1)return Math.hypot(pt[0]-q[0][0],pt[1]-q[0][1]);
@@ -181,8 +187,9 @@ function build(c,p){
 function bind(p){
  const oc=p.wrap;let cur=null;p.cancel=()=>{if(cur&&cur!=='erase'){cur=null;redraw(p)}else cur=null};
  const pt=e=>{const r=oc.getBoundingClientRect();return[(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]};
- const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(dist(x,s)<=s.w/2+6/scale){if(s.inOrig){window.__toast&&window.__toast('This mark is already saved inside the original file');break}p.strokes.splice(i,1);undo.push({k:'del',p,s,i});setDirty();redraw(p);break}}};
+ const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(ED&&ED.s===s)continue;if(dist(x,s)<=(s.t==='tx'?0:s.w/2)+6/scale){p.strokes.splice(i,1);undo.push({k:'del',p,s,i});edited(p);redraw(p);break}}};
  oc.onpointerdown=e=>{
+  if(tool==='text'){if(e.isPrimary&&!(e.target&&e.target.classList&&e.target.classList.contains('txed')))txDown={p,x:e.clientX,y:e.clientY,pt:pt(e)};return}
   if(tool==='scroll'||PZ.on||!e.isPrimary)return;e.preventDefault();oc.setPointerCapture(e.pointerId);
   if(tool==='erase'){cur='erase';erase(e);return}
   if(!p.words)getWords(p);
@@ -193,19 +200,83 @@ function bind(p){
   const x=pt(e);if(cur.t==='line')cur.p[1]=x;else cur.p.push(x);
   redraw(p,build(cur,p));
  };
- const end=()=>{if(cur&&cur!=='erase'){const s=build(cur,p),ok=s.t!=='line'||Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1])>2;if(ok){p.strokes.push(s);undo.push({k:'add',p,s});setDirty()}redraw(p)}cur=null};
- oc.onpointerup=end;oc.onpointercancel=end;
+ const end=()=>{if(cur&&cur!=='erase'){const s=build(cur,p),ok=s.t!=='line'||Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1])>2;if(ok){p.strokes.push(s);undo.push({k:'add',p,s});edited(p)}redraw(p)}cur=null};
+ oc.onpointerup=e=>{if(tool==='text'){const d=txDown;txDown=null;if(d&&d.p===p&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<12)txTap(p,d.pt);return}end()};oc.onpointercancel=()=>{txDown=null;end()};
 }
 $('#undo').onclick=doUndo;
-function doUndo(){const a=undo.pop();if(!a)return;if(a.k==='add'&&a.s.inOrig){window.__toast&&window.__toast('This mark is already saved inside the original file');return}if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else a.p.strokes.splice(a.i,0,a.s);setDirty();redraw(a.p)}
+function doUndo(){txClose();const a=undo.pop();if(!a)return;
+ if(a.k==='pages'){const keep=new Set(a.before);for(const p of pages)if(!keep.has(p))rm(p);const had=new Set(pages);for(const p of a.before)if(!had.has(p))io.observe(p.wrap);pages=a.before;reorderDOM();syncEmpty();changed(true);if(inGrid())buildGrid();upd();settle(0);return}
+ if(!pages.includes(a.p)){doUndo();return}
+ if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else if(a.k==='tx'){Object.assign(a.s,a.before);if(a.p.strokes.indexOf(a.s)<0)a.p.strokes.push(a.s)}else a.p.strokes.splice(a.i,0,a.s);edited(a.p);redraw(a.p)}
+/* a page's marks changed: saved by itself a moment later */
+function edited(p){p.ver=(p.ver||0)+1;p.tstale=true;setDirty()}
+window.__edited=edited;
+/* ---------- text: tap T, touch the page where the text starts, type; long-press T for font, size, bold, underline, colour ---------- */
+const FONTS=[['hind','Hind · हिंदी','"MS Hind",sans-serif'],['mukta','Mukta · मुक्ता','"MS Mukta",sans-serif'],['kalam','Kalam (handwriting) · कलम','"MS Kalam",cursive'],['laila','Laila · लैला','"MS Laila",serif'],['martel','Martel · मार्टेल','"MS Martel",serif'],['tiro','Tiro Hindi · तिरो','"MS Tiro",serif'],['amita','Amita (calligraphy) · अमिता','"MS Amita",serif'],['yatra','Yatra (bold display) · यात्रा','"MS Yatra",sans-serif'],['rozha','Rozha (headline) · रोझा','"MS Rozha",serif'],['sans','Phone sans · फ़ोन','sans-serif'],['serif','Phone serif','serif'],['mono','Typewriter','monospace'],['caveat','Caveat (English handwriting)','"MS Caveat",cursive'],['dancing','Dancing Script (English)','"MS Dancing",cursive']];
+const FF={};FONTS.forEach(f=>FF[f[0]]=f[2]);
+const TXC=['#111827','#dc2626','#2563eb','#16a34a','#7c3aed','#ea580c','#db2777','#0891b2','#a16207','#6b7280','#000000','#ffffff'];
+let TX={f:'hind',sz:16,b:false,u:false,c:'#111827'};try{Object.assign(TX,JSON.parse(localStorage.getItem('ms.tx')||'{}'))}catch(e){}
+const saveTX=()=>{try{localStorage.setItem('ms.tx',JSON.stringify(TX))}catch(e){}};
+let ED=null,txDown=null;
+const txFont=(s,k)=>(s.b?'700 ':'400 ')+(s.sz*k).toFixed(2)+'px '+(FF[s.f]||'sans-serif');
+const mctx=document.createElement('canvas').getContext('2d');
+function txLayout(s){mctx.font=txFont(s,4);const L=String(s.text).split('\n');let w=0;for(const l of L)w=Math.max(w,mctx.measureText(l).width/4);s.w=Math.max(w,s.sz*.4)+s.sz*.15;s.h=L.length*s.sz*1.3+s.sz*.15}
+function drawTx(ctx,s,k){if(!s.text)return;ctx.save();ctx.globalAlpha=1;ctx.fillStyle=s.c;ctx.font=txFont(s,k);ctx.textBaseline='alphabetic';
+ String(s.text).split('\n').forEach((l,i)=>{const yb=(s.y+i*s.sz*1.3+s.sz*1.02)*k;ctx.fillText(l,s.x*k,yb);if(s.u&&l){const w=ctx.measureText(l).width;ctx.fillRect(s.x*k,yb+s.sz*.14*k,w,Math.max(1,s.sz*.07*k))}});ctx.restore()}
+const fontReady=s=>document.fonts&&document.fonts.load?document.fonts.load(txFont(s,10),s.text||'aअ').catch(()=>{}):Promise.resolve();
+window.__txFonts=list=>{const ps=new Set();for(const p of list)for(const s of p.strokes)if(s.t==='tx'){ps.add(p);fontReady(s).then(()=>{redraw(p);p.tstale=true})}};
+/* the text as a picture for the saved file (Hindi joins letters correctly, any font) */
+window.__txImg=s=>{if(!s.text)return null;const k=4;txLayout(s);const c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(s.w*k));c.height=Math.max(1,Math.ceil(s.h*k));const x=c.getContext('2d');x.translate(-s.x*k,-s.y*k);drawTx(x,s,k);const u=c.toDataURL('image/png');c.width=c.height=0;return u};
+function txStyle(){if(!ED)return;const s=ED.s,ta=ED.ta;ta.style.left=s.x*scale+'px';ta.style.top=(s.y*scale)+'px';ta.style.font=txFont(s,scale);ta.style.lineHeight=(s.sz*1.3*scale)+'px';ta.style.color=s.c;ta.style.textDecoration=s.u?'underline':'none';txSize()}
+function txSize(){if(!ED)return;const s=ED.s,ta=ED.ta;s.text=ta.value;txLayout(s);ta.style.width=Math.max(s.sz*3,s.w+s.sz)*scale+'px';ta.style.height=(s.h+s.sz*.4)*scale+'px'}
+let txT=0;
+function txOpen(p,s,isNew){
+ txClose();const ta=document.createElement('textarea');ta.className='txed';ta.value=s.text||'';ta.setAttribute('autocapitalize','sentences');ta._rk=8;p.wrap.appendChild(ta);
+ ED={p,s,ta,isNew,before:isNew?null:JSON.parse(JSON.stringify(s))};if(isNew)p.strokes.push(s);redraw(p);txStyle();
+ ta.addEventListener('input',()=>{txSize();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s===s&&s.text)edited(p)},500)});
+ ta.addEventListener('pointerdown',e=>e.stopPropagation());
+ fontReady(s).then(()=>{if(ED&&ED.s===s)txSize()});
+ ta.focus();try{const n=ta.value.length;ta.setSelectionRange(n,n)}catch(e){}}
+function txClose(){if(!ED)return;const{p,s,ta,isNew,before}=ED;ED=null;clearTimeout(txT);s.text=ta.value.replace(/\s+$/,'');ta.blur();ta.remove();
+ const i=p.strokes.indexOf(s);
+ if(!s.text){if(i>-1)p.strokes.splice(i,1);if(!isNew){Object.assign(s,before);undo.push({k:'del',p,s,i:Math.max(0,i)})}if(!isNew||before)edited(p)}
+ else{txLayout(s);if(isNew)undo.push({k:'add',p,s});else if(JSON.stringify(before)!==JSON.stringify(s))undo.push({k:'tx',p,s,before});edited(p)}
+ redraw(p)}
+window.__txClose=txClose;
+function txHit(p,pt){for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(s.t==='tx'&&pt[0]>=s.x-4&&pt[0]<=s.x+s.w+4&&pt[1]>=s.y-4&&pt[1]<=s.y+s.h+4)return s}return null}
+function txNew(x,y){return{t:'tx',x,y,text:'',f:TX.f,sz:TX.sz,b:TX.b,u:TX.u,c:TX.c,w:0,h:0}}
+function txTap(p,pt){const hit=txHit(p,pt);
+ if(hit){if(ED&&ED.s===hit){ED.ta.focus();return}txOpen(p,hit,false);return}
+ if(ED&&!ED.ta.value.trim()&&ED.p===p){ED.s.x=pt[0];ED.s.y=pt[1]-ED.s.sz*.75;txStyle();ED.ta.focus();return}   // empty box: just move it
+ txOpen(p,txNew(pt[0],pt[1]-TX.sz*.75),true)}
+/* T pressed: a text box opens on the page you are looking at (touch anywhere to start the text there instead) */
+function txStart(){const p=cur_page();if(!p)return;const vr=$('#view').getBoundingClientRect(),r=p.wrap.getBoundingClientRect();
+ const y=Math.max(10,Math.min(p.h-30,(vr.top+vr.height*.3-r.top)/scale)),x=Math.max(10,Math.min(p.w*.08,p.w-60));txOpen(p,txNew(x,y),true)}
+function txApply(){saveTX();if(ED){Object.assign(ED.s,{f:TX.f,sz:TX.sz,b:TX.b,u:TX.u,c:TX.c});txStyle();fontReady(ED.s).then(txSize)}txPanel()}
+function txPanel(){const P=$('#txp');if(!P)return;$('#txf').value=TX.f;$('#txs').value=TX.sz;$('#txsv').textContent=TX.sz;$('#txb').classList.toggle('on',!!TX.b);$('#txu').classList.toggle('on',!!TX.u);
+ [...$('#txc').children].forEach(b=>b.classList.toggle('on',b.dataset.c===TX.c));$('#txpv').style.font=txFont(TX,1.2);$('#txpv').style.color=TX.c;$('#txpv').style.textDecoration=TX.u?'underline':'none'}
+(function(){const sel=$('#txf');FONTS.forEach(f=>{const o=document.createElement('option');o.value=f[0];o.textContent=f[1];sel.appendChild(o)});
+ TXC.forEach(c=>{const b=document.createElement('button');b.className='sw';b.dataset.c=c;b.style.background=c;b.onclick=()=>{TX.c=c;txApply()};$('#txc').appendChild(b)});
+ sel.onchange=()=>{TX.f=sel.value;txApply()};
+ $('#txs').oninput=e=>{TX.sz=+e.target.value;txApply()};
+ $('#txm').onclick=()=>{TX.sz=Math.max(4,TX.sz-1);txApply()};$('#txpl').onclick=()=>{TX.sz=Math.min(30,TX.sz+1);txApply()};
+ $('#txb').onclick=()=>{TX.b=!TX.b;txApply()};$('#txu').onclick=()=>{TX.u=!TX.u;txApply()};
+ $('#txx').onclick=()=>{$('#txp').hidden=true;if(ED)ED.ta.focus()};
+ ['pointerdown','mousedown'].forEach(n=>$('#txp').addEventListener(n,e=>{if(e.target.tagName!=='SELECT'&&e.target.tagName!=='INPUT')e.preventDefault()}));  // keep the keyboard / text box
+ const tb=$('#ttx');let lt=0,lp=false;
+ tb.addEventListener('pointerdown',()=>{lp=false;clearTimeout(lt);lt=setTimeout(()=>{lp=true;$('#pop').hidden=true;txPanel();$('#txp').hidden=false;if(tool!=='text')setTool('text')},480)});
+ ['pointerup','pointercancel','pointerleave'].forEach(n=>tb.addEventListener(n,()=>clearTimeout(lt)));
+ tb.addEventListener('click',e=>{e.stopPropagation();tb.blur();if(lp){lp=false;return}if(tool==='text'){setTool('scroll');$('#txp').hidden=true}else{setTool('text');txStart()}});
+ txPanel()})();
+
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo()}});
-$('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+pageNo(p)+'?')){p.strokes.forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes.splice(0);setDirty();redraw(p)}};
+$('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+pageNo(p)+'?')){txClose();p.strokes.slice().reverse().forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes.splice(0);edited(p);redraw(p)}};
 function cur_page(){return pages[curIndex()]||null}
 function zoom(f){const r=$('#view').getBoundingClientRect();zoomAt(scale*f,r.left+r.width/2,r.top+r.height/2)}
 window.addEventListener('resize',()=>{if(pages.length&&!inGrid()){const z=scale/base;base=fitW(pages[0].w);setScale(base*z)}});
 /* while you scroll only the small previews show; when scrolling stops the pages on screen are drawn
    sharp at once, then 10 pages above and below, one by one; pages further away go back to previews */
-const RANGE=10;let SG=0,settleT=0;
+const RANGE=3;let SG=0,settleT=0;
 function renderNear(){settle(0)}
 function settle(ms){clearTimeout(settleT);settleT=setTimeout(runSettle,ms==null?150:ms)}
 window.__settle=settle;
@@ -289,7 +360,7 @@ function partDocFor(k){
  return e.p}
 /* a page for searching / previews; nothing is kept */
 async function bookPage(rec){
- if(BOOK&&rec.part!=null){if(rec.page)return{pg:rec.page,own:false};const d=await partDocFor(rec.part);return{pg:await d.getPage(rec.lpn),own:true}}
+ if(BOOK&&rec.part!=null){if(rec.page)return{pg:rec.page,own:false};const d=await partDocFor(rec.part),pg=await d.getPage(rec.lpn);patchOC(pg);return{pg,own:true}}
  await ensure(rec);return{pg:rec.page,own:false}}
 window.__bookPage=bookPage;window.__bookPageDone=async()=>{};
 function closeBook(){if(!BOOK)return;for(const e of BOOK.docs.values())e.p.then(d=>d.destroy()).catch(()=>{});BOOK=null}
@@ -329,7 +400,7 @@ async function thumbLoop(){if(TH.busy)return;TH.busy=true;
   if(performance.now()<TH.pause||PZ.on||window.__searchRunning||document.hidden){await sleep(500);continue}
   const p=nextThumb();if(!p){await sleep(2000);if(!nextThumb())break;continue}
   try{await makeThumb(p)}catch(e){p.tfail=(p.tfail||0)+1}
-  await sleep(inGrid()?15:(MEM.low?110:60))}}finally{TH.busy=false}}
+  await sleep(inGrid()?10:(MEM.low?35:15))}}finally{TH.busy=false}}
 window.__thumbLoop=thumbLoop;
 $('#view').addEventListener('scroll',()=>{upd();TH.pause=performance.now()+800;SG++;settle()},{passive:true});
 
@@ -340,7 +411,7 @@ function setCols(n){gcols=Math.max(2,Math.min(12,n));tg.style.setProperty('--col
 const firstTile=()=>{const gr=tg.getBoundingClientRect();let lo=0,hi=pages.length-1;while(lo<hi){const m=(lo+hi)>>1,t=pages[m].thEl;if(t&&t.offsetTop+t.offsetHeight<tg.scrollTop)lo=m+1;else hi=m}return pages[lo]};
 $('#gsize').oninput=e=>{const a=firstTile();setCols(14-(+e.target.value));if(a&&a.thEl)tg.scrollTop=a.thEl.offsetTop-8};
 $('#pgs').onclick=()=>{if(!pages.length)return;$('#pop').hidden=true;document.body.classList.add('grid');setCols(gcols);buildGrid(true)};
-function closeGrid(go){document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd();settle(0)})}
+function closeGrid(go){setPick(false);document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd();settle(0)})}
 $('#gdone').onclick=()=>closeGrid();
 function tileImg(p){const d=p.thEl;if(!d)return;const im=d.firstChild;if(p.timg&&im.getAttribute('src')!==p.timg)im.src=p.timg}
 function buildGrid(jump){
@@ -366,26 +437,35 @@ tg.addEventListener('pointermove',e=>{
  const r=tg.getBoundingClientRect();if(e.clientY>r.bottom-50)tg.scrollTop+=14;else if(e.clientY<r.top+50)tg.scrollTop-=14},{passive:false});
 const gend=e=>{if(!gs)return;const g=gs;gs=null;
  if(!g.mode&&e.type==='pointerup'){const now=performance.now();
+  if(gpick){setPick(false);if(moveTo(g.i)){buildGrid();const f=pages.find(p=>p.sel);if(f&&f.thEl)tg.scrollTop=f.thEl.offsetTop-tg.clientHeight/3}return}
   if(lastTap.i===g.i&&now-lastTap.t<320){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);return}
   lastTap={i:g.i,t:now};setSel(g.i,!pages[g.i].sel);lastSel=g.i;cnt()}};
 tg.addEventListener('pointerup',gend);tg.addEventListener('pointercancel',gend);
 $('#gall').onclick=()=>{pages.forEach((p,i)=>setSel(i,true));cnt()};
 $('#gnone').onclick=()=>{pages.forEach((p,i)=>setSel(i,false));cnt()};
-const changed=()=>{window.__structChanged&&window.__structChanged();setDirty()};
-function move(dir){const n=pages.length;if(!pages.some(p=>p.sel))return;
+const changed=noUndo=>{window.__structChanged&&window.__structChanged();setDirty()};
+const snapPages=()=>undo.push({k:'pages',before:pages.slice()});
+function move(dir){const n=pages.length;if(!pages.some(p=>p.sel))return;snapPages();
  if(dir<0){for(let i=1;i<n;i++)if(pages[i].sel&&!pages[i-1].sel)[pages[i-1],pages[i]]=[pages[i],pages[i-1]]}
  else{for(let i=n-2;i>=0;i--)if(pages[i].sel&&!pages[i+1].sel)[pages[i+1],pages[i]]=[pages[i],pages[i+1]]}
  reorderDOM();changed();buildGrid();const f=pages.find(p=>p.sel);if(f&&f.thEl){const r=f.thEl.getBoundingClientRect(),gr=tg.getBoundingClientRect();if(r.top<gr.top||r.bottom>gr.bottom)tg.scrollTop+=r.top-gr.top-gr.height/3}}
 $('#gup').onclick=()=>move(-1);$('#gdn').onclick=()=>move(1);
-function deletePages(del){if(!del.length)return false;if(del.length>=pages.length){alert('At least one page must stay.');return false}
- del.forEach(rm);pages=pages.filter(p=>!del.includes(p));undo=undo.filter(a=>pages.includes(a.p));changed();syncEmpty();upd();return true}
-$('#gdel').onclick=()=>{const del=pages.filter(p=>p.sel);if(!del.length||!confirm('Delete '+del.length+' page(s)?'))return;if(deletePages(del))buildGrid()};
-function blankAfter(i){const ref=pages[i]||pages[pages.length-1]||{w:A4[0],h:A4[1]};const b=addPages([{kind:'blank',w:ref.w,h:ref.h}],i+1)[0];changed();return b}
+function deletePages(del){if(!del.length)return false;if(del.length>=pages.length){window.__toast&&window.__toast('At least one page must stay');return false}
+ snapPages();txClose();del.forEach(p=>{p.sel=false;rm(p)});pages=pages.filter(p=>!del.includes(p));changed();syncEmpty();upd();settle(0);return true}
+$('#gdel').onclick=()=>{const del=pages.filter(p=>p.sel);if(!del.length)return;if(deletePages(del)){buildGrid();cnt();window.__toast&&window.__toast(del.length+' page'+(del.length>1?'s':'')+' deleted · ↶ undo brings them back')}};
+/* move the selected pages to any place: tap "Move to", then the page they should go before (or "To the end") */
+function moveTo(t){const sel=pages.filter(p=>p.sel);if(!sel.length)return false;const target=t==null?null:pages[t];if(target&&target.sel)return false;
+ snapPages();const rest=pages.filter(p=>!p.sel),i=target?rest.indexOf(target):rest.length;pages=rest.slice(0,i).concat(sel,rest.slice(i));reorderDOM();changed();settle(0);return true}
+let gpick=false;const setPick=v=>{gpick=v;document.body.classList.toggle('gpick',v);$('#gmv').textContent=v?'✕ Cancel':'⇢ Move to…';if(v)$('#gcnt').textContent='Tap the page to put them before';else cnt()};
+$('#gmv').onclick=()=>{if(gpick){setPick(false);return}if(!pages.some(p=>p.sel)){window.__toast&&window.__toast('Select pages first');return}setPick(true)};
+$('#gend').onclick=()=>{setPick(false);if(moveTo(null))buildGrid()};
+function blankAfter(i){snapPages();const ref=pages[i]||pages[pages.length-1]||{w:A4[0],h:A4[1]};const b=addPages([{kind:'blank',w:ref.w,h:ref.h}],i+1)[0];changed();return b}
 $('#gadd').onclick=()=>{blankAfter(insIdx()-1);buildGrid()};
-function copyOf(p){return{kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,part:p.part,lpn:p.lpn,page:null,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname,timg:null,strokes:JSON.parse(JSON.stringify(p.strokes)).map(s=>{delete s.inOrig;delete s.inCopy;return s})}}
-function duplicate(list){for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(list.includes(p))addPages([copyOf(p)],i+1)}changed()}
+function copyOf(p){return{opn:p.opn,og:p.og,fo:0,ver:1,vO:0,vC:0,kind:p.kind,doc:p.doc,bytes:p.bytes,src:p.src,osize:p.osize,pn:p.pn,part:p.part,lpn:p.lpn,page:null,cv:p.cv,lines:p.lines,w:p.w,h:p.h,nid:p.nid,sidx:p.sidx,fname:p.fname,timg:null,strokes:JSON.parse(JSON.stringify(p.strokes)).map(s=>{delete s.inOrig;delete s.inCopy;return s})}}
+function duplicate(list){snapPages();for(let i=pages.length-1;i>=0;i--){const p=pages[i];if(list.includes(p))addPages([copyOf(p)],i+1)}changed()}
 $('#gdup').onclick=()=>{const l=pages.filter(p=>p.sel);if(!l.length)return;duplicate(l);buildGrid()};
-window.__pageOps={move:(p,d)=>{pages.forEach(q=>q.sel=q===p);move(d);pages.forEach(q=>q.sel=false)},del:p=>deletePages([p]),dup:p=>duplicate([p]),blank:p=>blankAfter(pages.indexOf(p)),closeGrid};
+window.__pageOps={move:(p,d)=>{pages.forEach(q=>q.sel=q===p);move(d);pages.forEach(q=>q.sel=false)},
+ moveTo:(p,n)=>{pages.forEach(q=>q.sel=q===p);const rest=pages.filter(q=>q!==p),t=rest[Math.max(0,Math.min(rest.length,n))];moveTo(t?pages.indexOf(t):null);pages.forEach(q=>q.sel=false)},del:p=>deletePages([p]),dup:p=>duplicate([p]),blank:p=>blankAfter(pages.indexOf(p)),closeGrid};
 /* ---------- export ---------- */
 let docName='document',dls=null,docPrimary=0;
 const JSZIP='libs/jszip.min.js',PDFLIB='libs/pdf-lib.min.js',PPTX='libs/pptxgen.bundle.js';
@@ -434,7 +514,8 @@ $('#emode').onchange=()=>updSz();$('#epm').onclick=()=>{eparts=Math.max(2,eparts
 /* big books go through the phone's own PDF tools (they use storage instead of memory) */
 const JSBIG=MEM.low?60e6:120e6;
 const nativeBig=l=>!!(window.__pdfJob&&l.length&&l.every(p=>p.kind==='pdf'&&p.nid&&p.nid===l[0].nid)&&(BOOK||origOf(l)>JSBIG||l.length>400));
-const marksOf=l=>{const m={};for(const p of l)if(p.strokes&&p.strokes.length)m[p.pn]=p.strokes;return m};
+const fpn=p=>p.opn||p.pn;
+const marksOf=l=>{const m={};for(const p of l)if(p.strokes&&p.strokes.length)m[fpn(p)]=p.strokes.map(s=>s.t==='tx'?Object.assign({},s,{img:window.__txImg(s)}):s);return m};
 const origOf=l=>l.reduce((a,p)=>a+(p.osize||0),0);
 function updSz(){const fmt=$('#efmt').value,row=$('#eszrow'),info=$('#eszi');$('#esz').textContent=epct+'%';
  $('#espr').style.display=fmt==='txt'||epct>=100?'none':'';$('#erng').style.display=$('#escope').value==='range'?'':'none';
@@ -454,7 +535,7 @@ async function exportPartsJs(list,pct,say,E,n){
  say(`Saved ✓ ${n} parts (${out[0]} …) · ${((performance.now()-t0)/1000).toFixed(0)} s`+(bad?` · ${bad} damaged page(s) left blank`:''))}
 /* a big book: the phone's PDF tools cut it into pieces; each piece is compressed here if asked; pieces are joined again when one file is wanted */
 async function exportBig(list,pct,say,E,n){
- const t0=performance.now(),nid=list[0].nid,pn=list.map(p=>p.pn),marks=marksOf(list),base=docName+(pct<100?'-'+pct+'pc':'-marked');
+ const t0=performance.now(),nid=list[0].nid,pn=list.map(fpn),marks=marksOf(list),base=docName+(pct<100?'-'+pct+'pc':'-marked');
  const prog=pre=>(x=>say(pre+(x.msg||'')));
  if(pct>=100){const r=await window.__pdfJob({op:'export',src:nid,pages:pn,marks,parts:n,name:base},prog(''));
   say(`Saved ✓ ${r.files.length>1?r.files.length+' parts in '+r.files[0].replace(/[^/]*$/,''):r.files[0]} · ${((performance.now()-t0)/1000).toFixed(0)} s`+(r.bad?` · ${r.bad} damaged page(s) left blank`:''));return}
