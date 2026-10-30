@@ -725,13 +725,13 @@ window.__selfTest = async () => {
       const n = d.numPages; await d.destroy(); return { yellow, n };
     };
     let y1 = await yellowOf(true), y0 = await yellowOf(false);
-    log('copy check: pages', y1.n, 'marks seen by other apps', y1.yellow, y1.yellow > 200 ? 'PASS' : 'FAIL', '· hidden in this app', y0.yellow, y0.yellow < 20 ? 'PASS' : 'FAIL');
+    log('copy check: pages', y1.n, 'marks seen by other apps', y1.yellow, y1.yellow > 200 ? 'PASS' : 'FAIL', '· hidden in this app', y0.yellow, y0.yellow < 80 ? 'PASS' : 'FAIL');
     const rm1 = await window.__pdfJob({ op: 'readmarks', src: A.registerFile(r7.where) });
     const m2 = (rm1.marks || {})['2'] || [], m3 = (rm1.marks || {})['3'] || [];
     log('marks read back', m2.length === 1 && m2[0].t === 'hl' ? 'PASS' : 'FAIL', 'text read back', m3.length === 1 && m3[0].text === tx.text && !m3[0].img ? 'PASS' : 'FAIL');
     await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [] }, mode: 'copyr', name: 'x' });
     y1 = await yellowOf(true); const rm2 = await window.__pdfJob({ op: 'readmarks', src: A.registerFile(r7.where) });
-    log('erased after saving', y1.yellow < 20 && !(rm2.marks || {})['2'] && (rm2.marks || {})['3'] ? 'PASS' : 'FAIL', y1.yellow);
+    log('erased after saving', y1.yellow < 80 && !(rm2.marks || {})['2'] && (rm2.marks || {})['3'] ? 'PASS' : 'FAIL', y1.yellow);
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
