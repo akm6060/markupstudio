@@ -39,7 +39,7 @@ label{white-space:nowrap;font-size:12px;display:flex;gap:5px;align-items:center;
 #empty{margin:12vh auto;text-align:center;max-width:360px;padding:30px;border:2px dashed var(--bd);border-radius:16px;color:var(--mut)}
 #empty button{margin-top:12px;background:var(--ac);color:#fff;border:none;padding:10px 18px}
 #grid{display:none;flex:1;flex-direction:column;min-height:0}
-body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #sbar,body.grid #pop{display:none!important}
+body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid .mini,body.grid #pop{display:none!important}
 #gtop{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--bar);border-bottom:1px solid var(--bd)}#gtop b{font-size:15px}#gtop label{flex:1;justify-content:flex-end}#gtop input{width:42%;max-width:220px}
 #tgrid{position:relative;flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:var(--gap,10px);align-content:start;touch-action:pan-y;-webkit-user-select:none;user-select:none}
 .th{position:relative;border-radius:6px;border:2px solid transparent;cursor:pointer;background:transparent;padding:2px}
@@ -56,27 +56,36 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #sbar,body
 .pt{display:flex;justify-content:space-between;align-items:center}
 .oc{mix-blend-mode:multiply;pointer-events:none}.t-hl .pg{cursor:text;touch-action:none}.t-scroll .pg{cursor:grab}.t-pen .pg{cursor:crosshair;touch-action:none}.t-line .pg{cursor:crosshair;touch-action:none}.t-erase .pg{cursor:cell;touch-action:none}
 
-.txed{position:absolute;z-index:5;background:rgba(255,255,255,.35);border:1.5px dashed #2563eb;border-radius:3px;padding:0;margin:0;resize:none;overflow:hidden;white-space:pre;outline:none;min-width:40px;box-sizing:content-box;caret-color:#2563eb}
+.txed{position:absolute;z-index:5;background:rgba(255,255,255,.35);border:0;outline:1.5px dashed #2563eb;outline-offset:2px;border-radius:3px;padding:0;margin:0;overflow:visible;white-space:pre;min-height:1em;line-height:1.3;font-family:sans-serif;caret-color:#2563eb;-webkit-user-select:text;user-select:text}.txed div{min-height:1em}
 .t-text .pg{cursor:text;touch-action:pan-x pan-y}
 #gend{display:none}body.gpick #gend{display:inline-block}body.gpick #tgrid .th:not(.sel){outline:1px dashed var(--ac)}
 
-#sbar{order:2;display:flex;gap:4px;align-items:center;justify-content:space-between;margin:0 10px -8px;padding:3px 5px 11px;background:var(--bar);border:1px solid var(--bd);border-bottom:0;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.08);overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}#sbar[hidden]{display:none}#sbar::-webkit-scrollbar{display:none}#sbar>*{flex:none}
+.mini{order:2;display:flex;gap:4px;align-items:center;justify-content:space-between;margin:0 10px -8px;padding:3px 5px 11px;background:var(--bar);border:1px solid var(--bd);border-bottom:0;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.08);overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}.mini[hidden]{display:none}.mini::-webkit-scrollbar{display:none}.mini>*{flex:none}
 #sbar .seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}#sbar .seg button{border:0;border-radius:0;min-width:24px;min-height:26px;padding:0 6px;font-weight:700;font-size:13px}
-#sbar .grp{gap:3px}#sbar .sw{width:21px;height:21px}#sbar .st{display:flex;align-items:center;gap:1px}#sbar .st button{min-width:24px;min-height:26px;padding:0 4px;font-size:16px;line-height:1;border-radius:7px}
-#sbar .st span{display:flex;flex-direction:column;align-items:center;min-width:34px;line-height:1.05}#sbar .st b{font-size:12px}#sbar .st i{font-style:normal;font-size:8.5px;color:var(--mut)}
-#cm{bottom:118px}
+#sbar .grp{gap:3px}#sbar .sw{width:21px;height:21px}.mini .st{display:flex;align-items:center;gap:1px}.mini .st button{min-width:24px;min-height:26px;padding:0 4px;font-size:16px;line-height:1;border-radius:7px}
+.mini .st span{display:flex;flex-direction:column;align-items:center;min-width:34px;line-height:1.05}.mini .st b{font-size:12px}.mini .st i{font-style:normal;font-size:8.5px;color:var(--mut)}
+#ibar{justify-content:space-around}#ibar .st span{min-width:62px;cursor:pointer}
+#cm{bottom:118px;flex-direction:column;gap:8px;width:min(330px,94vw)}#cm .cmr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}#cm .cmr .sw{width:26px;height:26px}
+#cm .cms{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut)}#cm .cms span{width:52px}#cm .trk{flex:1;height:22px;border-radius:11px;position:relative;touch-action:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+#cm .trk i{position:absolute;top:-3px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none}#cm .cmpv{height:22px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.pg canvas:not(.oc),.pg img.pim,#tgrid .tp{filter:var(--pf,none)}
 #ttx.txon{box-shadow:inset 0 -3px 0 var(--ac)}
-body.kbon #bar,body.kbon #sbar{transform:translateY(calc(-1 * var(--kb,0px)))}body.kbon #cm,body.kbon .panel{margin-bottom:var(--kb,0px)}
+body.kbon #bar,body.kbon .mini{transform:translateY(calc(-1 * var(--kb,0px)))}body.kbon #cm,body.kbon .panel{margin-bottom:var(--kb,0px)}
 /* no text-selection pop-up menus when touching buttons, bars or labels */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,textarea,select,.txed,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 .th.sel{touch-action:none}.th.mv{opacity:.45}.th.dropb{box-shadow:-4px 0 0 var(--ac)}.th.dropa{box-shadow:4px 0 0 var(--ac)}
 </style></head>
 <body class="t-scroll">
-<div id="sbar" hidden>
+<div id="sbar" class="mini" hidden>
  <div class="seg"><button id="stp" aria-label="Settings for pens">P</button><button id="stt" aria-label="Settings for text">T</button></div>
  <div class="grp" id="sdots"></div>
  <div class="st"><button id="ssm" aria-label="Smaller">−</button><span><b id="ssv">3</b><i id="ssl">Width</i></span><button id="ssp" aria-label="Bigger">+</button></div>
  <div class="st"><button id="som" aria-label="Less opaque">−</button><span><b id="sov">100%</b><i>Opacity</i></span><button id="sop" aria-label="More opaque">+</button></div>
+</div>
+<div id="ibar" class="mini" hidden>
+ <div class="st"><button id="ibm" aria-label="Darker">−</button><span id="ibr"><b id="ibv">100%</b><i>Brightness</i></span><button id="ibp" aria-label="Brighter">+</button></div>
+ <div class="st"><button id="icm" aria-label="Less contrast">−</button><span id="icr"><b id="icv">100%</b><i>Contrast</i></span><button id="icp" aria-label="More contrast">+</button></div>
+ <div class="st"><button id="ism" aria-label="Less colour">−</button><span id="isr"><b id="isv">100%</b><i>Colour</i></span><button id="isp" aria-label="More colour">+</button></div>
 </div>
 <div id="bar">
  <button id="pgs" title="Pages: reorder, delete, add">▦</button><button id="exbtn" title="Export">⬇</button>
@@ -90,7 +99,7 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,
   <button data-t="erase" title="Tap a mark to delete">⌫</button>
  </div>
  <div class="sep"></div>
- <button id="cfg" aria-label="Pen and text settings">⚙</button>
+ <button id="cfg" aria-label="Pen and text settings">⚙</button><button id="pic" aria-label="Picture: brightness, contrast, colour">☀</button>
  <div class="sep"></div>
  <button id="undo" title="Undo">↶</button><button id="clr" title="Clear marks on page">🗑</button>
  <div id="info"></div>

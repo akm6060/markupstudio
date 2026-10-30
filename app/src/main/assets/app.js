@@ -25,21 +25,40 @@ function updBar(){const isT=target==='t',pt=S[penT()],col=isT?TX.c:color;
  [...sdots.children].forEach((b,i)=>{b.style.background=chosen[i];b.classList.toggle('on',chosen[i].toLowerCase()===String(col).toLowerCase())});
  $('#ssl').textContent=isT?'Size':'Width';$('#ssv').textContent=isT?TX.sz:pt.w;$('#sov').textContent=Math.round((isT?(TX.a==null?1:TX.a):pt.a)*100)+'%';
  $('#cfg').classList.toggle('on',!sbar.hidden)}
-function setColor(c){if(target==='t'){TX.c=c;txApply()}else{color=c;savePens()}updBar()}
-function shades(i){cm.innerHTML='';SL[i].concat([]).forEach(c=>{const x=document.createElement('button');x.className='sw'+(c===chosen[i]?' on':'');x.style.background=c;x.onclick=()=>{chosen[i]=c;lset('ms.dots',chosen);setColor(c);cm.hidden=true};cm.appendChild(x)});
- const any=document.createElement('input');any.type='color';any.value=/^#[0-9a-f]{6}$/i.test(chosen[i])?chosen[i]:'#000000';any.title='Any colour';any.oninput=()=>{chosen[i]=any.value;lset('ms.dots',chosen);setColor(any.value)};cm.appendChild(any);cm.hidden=false}
-chosen.forEach((c,i)=>{const b=document.createElement('button');b.className='sw';b.setAttribute('aria-label','Colour '+(i+1));b.onclick=()=>{const col=target==='t'?TX.c:color;if(chosen[i].toLowerCase()===String(col).toLowerCase()){if(cm.hidden)shades(i);else cm.hidden=true}else{cm.hidden=true;setColor(chosen[i])}};sdots.appendChild(b)});
+function setColor(c){if(target==='t'){TX.c=c;txApply('c')}else{color=c;savePens()}updBar()}
+/* colour mixer for one of the 4 dots: shades + Hue / Strength / Light sliders (works for pens and for text) */
+const hex2hsl=h=>{const f=String(h).replace('#','');let r=parseInt(f.slice(0,2),16)/255,g=parseInt(f.slice(2,4),16)/255,b=parseInt(f.slice(4,6),16)/255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2;let hh=0,ss=0;
+ if(mx!==mn){const d=mx-mn;ss=l>.5?d/(2-mx-mn):d/(mx+mn);hh=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;hh*=60}return[Math.round(hh),Math.round(ss*100),Math.round(l*100)]};
+const hsl2hex=(h,s,l)=>{s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return'#'+[f(0),f(8),f(4)].map(x=>('0'+Math.round(x*255).toString(16)).slice(-2)).join('')};
+function shades(i){cm.innerHTML='';const top=document.createElement('div');top.className='cmr';
+ SL[i].concat(['#000000','#ffffff']).forEach(c=>{const x=document.createElement('button');x.className='sw';x.style.background=c;x.onclick=()=>pick(c,true);top.appendChild(x)});cm.appendChild(top);
+ let hsl=hex2hsl(/^#[0-9a-f]{6}$/i.test(chosen[i])?chosen[i]:'#000000');
+ const pv=document.createElement('div');pv.className='cmpv';
+ const mkS=(name,max,bg,idx)=>{const row=document.createElement('div');row.className='cms';row.innerHTML='<span>'+name+'</span><div class="trk"><i></i></div>';const trk=row.querySelector('.trk'),knob=row.querySelector('i');
+  const show=()=>{knob.style.left=(hsl[idx]/max*100)+'%';trk.style.background=bg()};
+  const at=e=>{const r=trk.getBoundingClientRect();hsl[idx]=Math.round(Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*max);pick(hsl2hex(...hsl),false)};
+  trk.addEventListener('pointerdown',e=>{e.preventDefault();trk.setPointerCapture(e.pointerId);at(e)});trk.addEventListener('pointermove',e=>{if(trk.hasPointerCapture(e.pointerId))at(e)});
+  row._show=show;cm.appendChild(row);return row};
+ const rows=[mkS('Hue',360,()=>'linear-gradient(90deg,'+[0,60,120,180,240,300,360].map(h=>hsl2hex(h,Math.max(hsl[1],40),Math.min(Math.max(hsl[2],30),70))).join(',')+')',0),
+  mkS('Strength',100,()=>'linear-gradient(90deg,'+hsl2hex(hsl[0],0,hsl[2])+','+hsl2hex(hsl[0],100,hsl[2])+')',1),
+  mkS('Light',100,()=>'linear-gradient(90deg,#000,'+hsl2hex(hsl[0],hsl[1],50)+',#fff)',2)];
+ cm.appendChild(pv);
+ function pick(c,fromShade){chosen[i]=c;lset('ms.dots',chosen);setColor(c);if(fromShade)hsl=hex2hsl(c);pv.style.background=c;rows.forEach(r=>r._show())}
+ pv.style.background=chosen[i];rows.forEach(r=>r._show());cm.hidden=false}
+chosen.forEach((c,i)=>{const b=document.createElement('button');b.className='sw';b.setAttribute('aria-label','Colour '+(i+1));let lt=0,lp=false;
+ b.addEventListener('pointerdown',()=>{lp=false;clearTimeout(lt);lt=setTimeout(()=>{lp=true;setColor(chosen[i]);shades(i)},450)});['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,()=>clearTimeout(lt)));
+ b.onclick=()=>{if(lp){lp=false;return}const col=target==='t'?TX.c:color;if(chosen[i].toLowerCase()===String(col).toLowerCase()){if(cm.hidden)shades(i);else cm.hidden=true}else{cm.hidden=true;setColor(chosen[i])}};sdots.appendChild(b)});
 document.addEventListener('pointerdown',e=>{if(!cm.contains(e.target)&&!sdots.contains(e.target))cm.hidden=true});
 const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
-function sizeStep(d){if(target==='t'){TX.sz=clampN(TX.sz+d,4,30);txApply()}else{const pt=S[penT()];pt.w=clampN(pt.w+d*(pt.w+d<6?1:2),1,40);savePens()}updBar()}
-function opac(d){if(target==='t'){TX.a=clampN(Math.round(((TX.a==null?1:TX.a)+d*.1)*10)/10,.1,1);txApply()}else{const pt=S[penT()];pt.a=clampN(Math.round((pt.a+d*.1)*10)/10,.1,1);savePens()}updBar()}
+function sizeStep(d){if(target==='t'){TX.sz=clampN(TX.sz+(d*(TX.sz+d>=20?2:1)),4,50);txApply('sz')}else{const pt=S[penT()];pt.w=clampN(pt.w+d*(pt.w+d<6?1:2),1,40);savePens()}updBar()}
+function opac(d){if(target==='t'){TX.a=clampN(Math.round(((TX.a==null?1:TX.a)+d*.1)*10)/10,.1,1);txApply('a')}else{const pt=S[penT()];pt.a=clampN(Math.round((pt.a+d*.1)*10)/10,.1,1);savePens()}updBar()}
 $('#ssm').onclick=()=>sizeStep(-1);$('#ssp').onclick=()=>sizeStep(1);$('#som').onclick=()=>opac(-1);$('#sop').onclick=()=>opac(1);
 $('#stp').onclick=()=>{target='p';updBar()};$('#stt').onclick=()=>{target='t';updBar()};
-function openBar(t){sbar.hidden=false;target=t||((tool==='text'||(typeof ED!=='undefined'&&ED))?'t':'p');cm.hidden=true;updBar()}
+function openBar(t){sbar.hidden=false;const ib=$('#ibar');if(ib&&!ib.hidden){ib.hidden=true;$('#pic').classList.toggle('on',(document.body.style.getPropertyValue('--pf')||'none')!=='none')}target=t||((tool==='text'||(typeof ED!=='undefined'&&ED))?'t':'p');cm.hidden=true;updBar()}
 $('#cfg').onclick=()=>{if(sbar.hidden)openBar();else{sbar.hidden=true;cm.hidden=true;updBar()}};
 /* tapping the bars never takes the cursor out of a text box (the keyboard stays) */
 ['#bar','#sbar'].forEach(q=>$(q).addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED&&!(e.target.closest&&e.target.closest('input,select,textarea')))e.preventDefault()}));
-cm.addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED&&e.target.tagName!=='INPUT')e.preventDefault()});
+cm.addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED)e.preventDefault()});
 function setTool(t){if(t==='scroll'&&typeof txClose==='function')txClose();tool=t;if(S[t])ptool=t;if(!sbar.hidden)target=t==='text'?'t':S[t]?'p':target;
  [...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);pages.forEach(p=>p.cancel&&p.cancel());updBar();txMark()}
 function txMark(){const b=$('#ttx');if(b)b.classList.toggle('txon',typeof ED!=='undefined'&&!!ED&&tool!=='text')}
@@ -228,48 +247,102 @@ $('#undo').onclick=doUndo;
 function doUndo(){txClose();const a=undo.pop();if(!a)return;
  if(a.k==='pages'){const keep=new Set(a.before);for(const p of pages)if(!keep.has(p))rm(p);const had=new Set(pages);for(const p of a.before)if(!had.has(p))io.observe(p.wrap);pages=a.before;reorderDOM();syncEmpty();changed(true);if(inGrid())buildGrid();upd();settle(0);return}
  if(!pages.includes(a.p)){doUndo();return}
- if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else if(a.k==='tx'){Object.assign(a.s,a.before);if(a.p.strokes.indexOf(a.s)<0)a.p.strokes.push(a.s)}else a.p.strokes.splice(a.i,0,a.s);edited(a.p);redraw(a.p)}
+ if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else if(a.k==='tx'){restoreTx(a.s,a.before);if(a.p.strokes.indexOf(a.s)<0)a.p.strokes.push(a.s)}else a.p.strokes.splice(a.i,0,a.s);edited(a.p);redraw(a.p)}
 /* a page's marks changed: saved by itself a moment later */
 function edited(p){p.ver=(p.ver||0)+1;p.tstale=true;setDirty()}
 window.__edited=edited;
-/* ---------- text: tap T, touch the page where the text starts, type; long-press T for font, size, bold, underline, colour ---------- */
-const FF={sans:'sans-serif',serif:'serif',mono:'monospace',laila:'serif',martel:'serif',tiro:'serif',rozha:'serif',amita:'serif',kalam:'cursive',caveat:'cursive',dancing:'cursive'};
+/* ---------- text: tap T, touch the page where the text starts, type.
+   Each letter keeps its own size, colour and opacity: a change in the ⚙ bar applies to what is typed next
+   (or to the letters selected), never to the whole box. A text mark = lines of runs {t, sz, c, a}. ---------- */
 let ED=null,txDown=null;
-const txFont=(s,k)=>(s.b?'700 ':'400 ')+(s.sz*k).toFixed(2)+'px '+(FF[s.f]||'sans-serif');
+const txFont=(sz,k,b)=>(b?'700 ':'400 ')+(sz*k).toFixed(2)+'px sans-serif';
 const mctx=document.createElement('canvas').getContext('2d');
-function txLayout(s){mctx.font=txFont(s,4);const L=String(s.text).split('\n');let w=0;for(const l of L)w=Math.max(w,mctx.measureText(l).width/4);s.w=Math.max(w,s.sz*.4)+s.sz*.15;s.h=L.length*s.sz*1.3+s.sz*.15}
-function drawTx(ctx,s,k){if(!s.text)return;ctx.save();ctx.globalAlpha=s.a==null?1:s.a;ctx.fillStyle=s.c;ctx.font=txFont(s,k);ctx.textBaseline='alphabetic';
- String(s.text).split('\n').forEach((l,i)=>{const yb=(s.y+i*s.sz*1.3+s.sz*1.02)*k;ctx.fillText(l,s.x*k,yb);if(s.u&&l){const w=ctx.measureText(l).width;ctx.fillRect(s.x*k,yb+s.sz*.14*k,w,Math.max(1,s.sz*.07*k))}});ctx.restore()}
-const fontReady=s=>document.fonts&&document.fonts.load?document.fonts.load(txFont(s,10),s.text||'aअ').catch(()=>{}):Promise.resolve();
-window.__txFonts=list=>{const ps=new Set();for(const p of list)for(const s of p.strokes)if(s.t==='tx'){ps.add(p);fontReady(s).then(()=>{redraw(p);p.tstale=true})}};
-/* the text as a picture for the saved file (Hindi joins letters correctly, any font) */
-window.__txImg=s=>{if(!s.text)return null;const k=4;txLayout(s);const c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(s.w*k));c.height=Math.max(1,Math.ceil(s.h*k));const x=c.getContext('2d');x.translate(-s.x*k,-s.y*k);drawTx(x,s,k);const u=c.toDataURL('image/png');c.width=c.height=0;return u};
-function txStyle(){if(!ED)return;const s=ED.s,ta=ED.ta;ta.style.left=s.x*scale+'px';ta.style.top=(s.y*scale)+'px';ta.style.font=txFont(s,scale);ta.style.lineHeight=(s.sz*1.3*scale)+'px';ta.style.color=s.c;ta.style.opacity=s.a==null?1:s.a;ta.style.textDecoration=s.u?'underline':'none';txSize()}
-function txSize(){if(!ED)return;const s=ED.s,ta=ED.ta;s.text=ta.value;txLayout(s);ta.style.width=Math.max(s.sz*3,s.w+s.sz)*scale+'px';ta.style.height=(s.h+s.sz*.4)*scale+'px'}
+const rgbaOf=(c,a)=>{const h=String(c||'#000').replace('#',''),f=h.length===3?h.split('').map(x=>x+x).join(''):h;return`rgba(${parseInt(f.slice(0,2),16)},${parseInt(f.slice(2,4),16)},${parseInt(f.slice(4,6),16)},${a==null?1:a})`};
+const hexOf=css=>{const m=String(css).match(/[\d.]+/g)||[0,0,0];const h=n=>('0'+Math.round(+n).toString(16)).slice(-2);return{c:'#'+h(m[0])+h(m[1])+h(m[2]),a:m.length>3?Math.round(+m[3]*100)/100:1}};
+function runsOf(s){if(s.runs)return s.runs;return String(s.text||'').split('\n').map(l=>l?[{t:l,sz:s.sz||16,c:s.c||'#111827',a:s.a==null?1:s.a}]:[])}
+const lineSz=(L,s)=>L.length?Math.max(...L.map(r=>r.sz)):(s.sz||16);
+function txLayout(s){const R=runsOf(s);let w=0,h=0;for(const L of R){let lw=0;for(const r of L){mctx.font=txFont(r.sz,4,s.b);lw+=mctx.measureText(r.t).width/4}w=Math.max(w,lw);h+=lineSz(L,s)*1.3}
+ const m=R.length?lineSz(R[0],s):s.sz||16;s.w=Math.max(w,m*.4)+m*.15;s.h=Math.max(h,m*1.3)+m*.15;s.text=R.map(L=>L.map(r=>r.t).join('')).join('\n')}
+function drawTx(ctx,s,k){const R=runsOf(s);if(!R.some(L=>L.length))return;ctx.save();ctx.textBaseline='alphabetic';let y=s.y;
+ for(const L of R){const m=lineSz(L,s),yb=(y+m*1.02)*k;let x=s.x*k;
+  for(const r of L){ctx.font=txFont(r.sz,k,s.b);ctx.fillStyle=r.c;ctx.globalAlpha=r.a==null?1:r.a;ctx.fillText(r.t,x,yb);const w=ctx.measureText(r.t).width;if(s.u)ctx.fillRect(x,yb+r.sz*.14*k,w,Math.max(1,r.sz*.07*k));x+=w}
+  y+=m*1.3}
+ ctx.restore()}
+window.__txFonts=list=>{};
+/* the text as a picture for the saved file (Hindi joins letters correctly) */
+window.__txImg=s=>{txLayout(s);if(!s.text)return null;const k=4;const c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(s.w*k));c.height=Math.max(1,Math.ceil(s.h*k));const x=c.getContext('2d');x.translate(-s.x*k,-s.y*k);drawTx(x,s,k);const u=c.toDataURL('image/png');c.width=c.height=0;return u};
+/* the editing box: spans with their own size / colour */
+const spanCss=(sz,c,a)=>'font-size:'+(sz*scale).toFixed(2)+'px;color:'+rgbaOf(c,a);
+function txBuild(s){const d=ED.ta;d.innerHTML='';const R=runsOf(s);
+ R.forEach((L,i)=>{const line=i?document.createElement('div'):d;if(i)d.appendChild(line);
+  if(!L.length&&i){line.appendChild(document.createElement('br'));return}
+  for(const r of L){const sp=document.createElement('span');sp.style.cssText=spanCss(r.sz,r.c,r.a);sp.textContent=r.t;line.appendChild(sp)}})}
+function txToks(){const d=ED.ta,toks=[];
+ (function walk(n){for(const ch of n.childNodes){if(ch.nodeType===3){const t=ch.nodeValue.replace(/​/g,'');if(t){const cs=getComputedStyle(ch.parentElement),o=hexOf(cs.color);toks.push({t,sz:Math.round(parseFloat(cs.fontSize)/scale*10)/10,c:o.c,a:o.a,n:ch})}}
+  else if(ch.nodeName==='BR')toks.push('BR');else if(ch.nodeType===1){const bl=/^(DIV|P)$/.test(ch.nodeName);if(bl)toks.push('BS');walk(ch);if(bl)toks.push('BE')}}})(d);
+ return toks}
+/* (line, column) of a point of the editing box */
+function txPos(node,off){const toks=txToks();let line=0,col=0;const pt=document.createRange();pt.setStart(node,off);
+ for(const k of toks){if(k==='BR'){line++;col=0;continue}if(k==='BS'||k==='BE'){if(col){line++;col=0}continue}
+  const v=k.n.nodeValue;let before;if(k.n===node)before=v.slice(0,off).replace(/​/g,'').length;else before=pt.comparePoint(k.n,0)<0?k.t.length:0;
+  if(before<k.t.length)return{l:line,c:col+before};col+=k.t.length}
+ return{l:line,c:col}}
+function txRead(){const toks=txToks(),lines=[[]];const cur=()=>lines[lines.length-1];
+ for(const k of toks){if(k==='BR')lines.push([]);else if(k==='BS'||k==='BE'){if(cur().length)lines.push([])}
+  else{const L=cur(),l=L[L.length-1];if(l&&l.sz===k.sz&&l.c===k.c&&l.a===k.a)l.t+=k.t;else L.push({t:k.t,sz:k.sz,c:k.c,a:k.a})}}
+ while(lines.length>1&&!lines[lines.length-1].length)lines.pop();
+ return lines}
+/* change one property (size, colour or opacity) of the letters from a to b, nothing else */
+function txRestyle(R,a,b,prop,val){for(let l=a.l;l<=b.l&&l<R.length;l++){const c0=l===a.l?a.c:0,c1=l===b.l?b.c:1e9,out=[];let c=0;
+  for(const r of R[l]){const s0=c,s1=c+r.t.length;c=s1;const x0=Math.max(s0,c0),x1=Math.min(s1,c1);
+   if(x1<=x0){out.push(r);continue}
+   if(x0>s0)out.push(Object.assign({},r,{t:r.t.slice(0,x0-s0)}));out.push(Object.assign({},r,{t:r.t.slice(x0-s0,x1-s0),[prop]:val}));if(s1>x1)out.push(Object.assign({},r,{t:r.t.slice(x1-s0)}))}
+  const m=[];for(const r of out){const p=m[m.length-1];if(p&&p.sz===r.sz&&p.c===r.c&&p.a===r.a)p.t+=r.t;else m.push(r)}R[l]=m}}
+/* DOM point for (line, column) after the box was built again */
+function txPoint(pos){const d=ED.ta,lines=[[...d.childNodes].filter(n=>n.nodeName==='SPAN')].concat([...d.children].filter(n=>n.nodeName==='DIV').map(x=>[...x.querySelectorAll('span')]));
+ const L=lines[Math.min(pos.l,lines.length-1)]||[];let c=pos.c;for(const sp of L){const t=sp.firstChild;if(!t)continue;if(c<=t.nodeValue.length)return[t,c];c-=t.nodeValue.length}
+ const last=L[L.length-1];return last&&last.firstChild?[last.firstChild,last.firstChild.nodeValue.length]:[d,0]}
+function txSync(){if(!ED)return;const s=ED.s;s.runs=txRead();txLayout(s)}
+function txStyle(){if(!ED)return;const s=ED.s,d=ED.ta;d.style.left=s.x*scale+'px';d.style.top=(s.y*scale)+'px';d.style.cssText+=';'+spanCss(TX.sz,TX.c,TX.a)+';min-width:'+(TX.sz*2*scale)+'px';d.style.fontWeight=s.b?'700':'400'}
 let txT=0;
+const plainOf=d=>(d.innerText||'').replace(/​/g,'');
 function txOpen(p,s,isNew){
- txClose();const ta=document.createElement('textarea');ta.className='txed';ta.value=s.text||'';ta.setAttribute('autocapitalize','sentences');ta._rk=8;p.wrap.appendChild(ta);
- ED={p,s,ta,isNew,before:isNew?null:JSON.parse(JSON.stringify(s))};txMark();if(isNew)p.strokes.push(s);redraw(p);txStyle();
- ta.addEventListener('input',()=>{txSize();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s===s&&s.text)edited(p)},500)});
- ta.addEventListener('pointerdown',e=>e.stopPropagation());
- fontReady(s).then(()=>{if(ED&&ED.s===s)txSize()});
- ta.focus();try{const n=ta.value.length;ta.setSelectionRange(n,n)}catch(e){}}
-function txClose(){if(!ED)return;const{p,s,ta,isNew,before}=ED;ED=null;txMark();clearTimeout(txT);s.text=ta.value.replace(/\s+$/,'');ta.blur();ta.remove();
+ txClose();const d=document.createElement('div');d.className='txed';d.contentEditable='true';d.setAttribute('autocapitalize','sentences');d.setAttribute('spellcheck','false');d._rk=8;p.wrap.appendChild(d);
+ ED={p,s,ta:d,isNew,before:isNew?null:JSON.parse(JSON.stringify(s)),range:null,pend:null};txMark();if(isNew)p.strokes.push(s);txStyle();txBuild(s);redraw(p);
+ d.addEventListener('input',()=>{txSync();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s===s&&s.text)edited(p)},500)});
+ d.addEventListener('paste',e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData('text');document.execCommand('insertText',false,t)});
+ d.addEventListener('pointerdown',e=>e.stopPropagation());
+ d.focus();try{const r=document.createRange();r.selectNodeContents(d);r.collapse(false);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);ED.range=r.cloneRange()}catch(e){}}
+document.addEventListener('selectionchange',()=>{if(!ED)return;const sel=getSelection();if(sel.rangeCount&&ED.ta.contains(sel.getRangeAt(0).commonAncestorContainer))ED.range=sel.getRangeAt(0).cloneRange()});
+/* a size / colour / opacity change while typing: only for the letters selected, or for what is typed next */
+function txStyleAt(kind){if(!ED)return;const d=ED.ta,sel=getSelection();let r=sel.rangeCount&&d.contains(sel.getRangeAt(0).commonAncestorContainer)?sel.getRangeAt(0):ED.range;
+ if(!r||!d.contains(r.commonAncestorContainer)){r=document.createRange();r.selectNodeContents(d);r.collapse(false)}
+ const full=spanCss(TX.sz,TX.c,TX.a);
+ if(!r.collapsed){const a=txPos(r.startContainer,r.startOffset),b=txPos(r.endContainer,r.endOffset),R=txRead();
+  txRestyle(R,a,b,kind,kind==='sz'?TX.sz:kind==='c'?TX.c:TX.a);ED.s.runs=R;txBuild(ED.s);
+  const p0=txPoint(a),p1=txPoint(b),nr=document.createRange();try{nr.setStart(p0[0],p0[1]);nr.setEnd(p1[0],p1[1])}catch(e){nr.selectNodeContents(d);nr.collapse(false)}sel.removeAllRanges();sel.addRange(nr);ED.range=nr.cloneRange();ED.pend=null}
+ else{let sp=ED.pend;
+  if(!(sp&&sp.isConnected&&sp.textContent==='​')){sp=document.createElement('span');sp.textContent='​';r.insertNode(sp);ED.pend=sp}
+  sp.style.cssText=full;const nr=document.createRange();nr.setStart(sp.firstChild,1);nr.collapse(true);sel.removeAllRanges();sel.addRange(nr);ED.range=nr.cloneRange()}
+ txSync();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s.text)edited(ED.p)},500)}
+const restoreTx=(s,b)=>{for(const k of Object.keys(s))if(!(k in b))delete s[k];Object.assign(s,b)};
+function txClose(){if(!ED)return;txSync();const{p,s,ta,isNew,before}=ED;ED=null;txMark();clearTimeout(txT);ta.blur();ta.remove();
+ if(s.runs){const L=s.runs[s.runs.length-1];if(L&&L.length){L[L.length-1].t=L[L.length-1].t.replace(/\s+$/,'');if(!L[L.length-1].t)L.pop()}while(s.runs.length&&!s.runs[s.runs.length-1].length)s.runs.pop();txLayout(s)}
  const i=p.strokes.indexOf(s);
- if(!s.text){if(i>-1)p.strokes.splice(i,1);if(!isNew){Object.assign(s,before);undo.push({k:'del',p,s,i:Math.max(0,i)})}if(!isNew||before)edited(p)}
- else{txLayout(s);if(isNew)undo.push({k:'add',p,s});else if(JSON.stringify(before)!==JSON.stringify(s))undo.push({k:'tx',p,s,before});edited(p)}
+ if(!s.text.trim()){if(i>-1)p.strokes.splice(i,1);if(!isNew){restoreTx(s,before);undo.push({k:'del',p,s,i:Math.max(0,i)})}if(!isNew||before)edited(p)}
+ else{if(isNew)undo.push({k:'add',p,s});else if(JSON.stringify(before)!==JSON.stringify(s))undo.push({k:'tx',p,s,before});edited(p)}
  redraw(p)}
 window.__txClose=txClose;
 function txHit(p,pt){for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(s.t==='tx'&&pt[0]>=s.x-4&&pt[0]<=s.x+s.w+4&&pt[1]>=s.y-4&&pt[1]<=s.y+s.h+4)return s}return null}
-function txNew(x,y){return{t:'tx',x,y,text:'',f:'sans',sz:TX.sz,b:false,u:false,c:TX.c,a:TX.a==null?1:TX.a,w:0,h:0}}
+function txNew(x,y){return{t:'tx',x,y,runs:[[]],text:'',f:'sans',sz:TX.sz,b:false,u:false,c:TX.c,a:TX.a==null?1:TX.a,w:0,h:0}}
 function txTap(p,pt){const hit=txHit(p,pt);
  if(hit){if(ED&&ED.s===hit){ED.ta.focus();return}txOpen(p,hit,false);return}
- if(ED&&!ED.ta.value.trim()&&ED.p===p){ED.s.x=pt[0];ED.s.y=pt[1]-ED.s.sz*.75;txStyle();ED.ta.focus();return}   // empty box: just move it
+ if(ED&&!plainOf(ED.ta).trim()&&ED.p===p){ED.s.x=pt[0];ED.s.y=pt[1]-TX.sz*.75;txStyle();ED.ta.focus();return}   // empty box: just move it
  txOpen(p,txNew(pt[0],pt[1]-TX.sz*.75),true)}
 /* T pressed: a text box opens on the page you are looking at (touch anywhere to start the text there instead) */
 function txStart(){const p=cur_page();if(!p)return;const vr=$('#view').getBoundingClientRect(),r=p.wrap.getBoundingClientRect();
  const y=Math.max(10,Math.min(p.h-30,(vr.top+vr.height*.3-r.top)/scale)),x=Math.max(10,Math.min(p.w*.08,p.w-60));txOpen(p,txNew(x,y),true)}
-function txApply(){saveTX();if(ED){Object.assign(ED.s,{sz:TX.sz,c:TX.c,a:TX.a==null?1:TX.a});txStyle();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s.text)edited(ED.p)},500)}}
+function txApply(kind){saveTX();if(ED)txStyleAt(kind||'c')}
 /* T: once = a text box with the keyboard (touch anywhere to start there instead); again = done.
    Pens, highlighter and eraser stay usable while the text box is open; long-press T = settings for text */
 (function(){const tb=$('#ttx');let lt=0,lp=false;
@@ -682,3 +755,16 @@ $('#ego').onclick=async()=>{
 
 /* no long-press menus (copy / select all…) on buttons, bars or pages */
 document.addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea,select,.txed')))e.preventDefault()});
+
+/* ---------- picture: brightness, contrast and colour of the pages (faint old books); ☀ shows / hides the bar ---------- */
+(function(){let P=Object.assign({b:100,c:100,s:100},ls('ms.pic',{}));const ib=$('#ibar');
+ const apply=()=>{const none=P.b===100&&P.c===100&&P.s===100;document.body.style.setProperty('--pf',none?'none':`brightness(${P.b/100}) contrast(${P.c/100}) saturate(${P.s/100})`);
+  $('#ibv').textContent=P.b+'%';$('#icv').textContent=P.c+'%';$('#isv').textContent=P.s+'%';$('#pic').classList.toggle('on',!ib.hidden||!none);lset('ms.pic',P)};
+ const step=(k,d,lo,hi)=>{P[k]=clampN(P[k]+d,lo,hi);apply()};
+ $('#ibm').onclick=()=>step('b',-10,30,200);$('#ibp').onclick=()=>step('b',10,30,200);
+ $('#icm').onclick=()=>step('c',-10,50,300);$('#icp').onclick=()=>step('c',10,50,300);
+ $('#ism').onclick=()=>step('s',-10,0,300);$('#isp').onclick=()=>step('s',10,0,300);
+ [['#ibr','b'],['#icr','c'],['#isr','s']].forEach(([q,k])=>$(q).onclick=()=>{P[k]=100;apply()});     // tap the number: back to 100%
+ $('#pic').onclick=()=>{ib.hidden=!ib.hidden;if(!ib.hidden){sbar.hidden=true;cm.hidden=true;updBar()}apply()};
+ const oc=$('#cfg').onclick;$('#cfg').onclick=()=>{ib.hidden=true;oc();apply()};
+ apply()})();
