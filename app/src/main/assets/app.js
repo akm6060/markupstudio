@@ -9,22 +9,43 @@ window.__MEM=MEM;
 let dirty=false;function setDirty(v){dirty=v!==false;window.__dirtyChanged&&window.__dirtyChanged(dirty)}
 let pages=[],scale=1.3,base=1.3,zoomed=false,tool='scroll',color='#e11d48',undo=[],lastSel=-1;
 const host=$('#pages'),inGrid=()=>document.body.classList.contains('grid');
-const SL=[['#e11d48','#dc2626','#f97316','#be123c','#fb7185','#831843'],['#facc15','#fde047','#f59e0b','#eab308','#fb923c','#a3e635'],['#16a34a','#22c55e','#84cc16','#15803d','#14b8a6','#065f46'],['#111827','#2563eb','#7c3aed','#0ea5e9','#6b7280','#92400e']],sws=$('#sws'),chosen=SL.map(o=>o[0]);let act=0;
+const SL=[['#e11d48','#dc2626','#f97316','#be123c','#fb7185','#831843'],['#facc15','#fde047','#f59e0b','#eab308','#fb923c','#a3e635'],['#16a34a','#22c55e','#84cc16','#15803d','#14b8a6','#065f46'],['#111827','#2563eb','#7c3aed','#0ea5e9','#6b7280','#92400e']];
+const ls=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v}catch(e){return d}},lset=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+/* settings for pens and for text: one slim bar above the toolbar (⚙): 4 colour dots, size / width, opacity, P|T */
+let TX=Object.assign({f:'sans',sz:16,b:false,u:false,c:'#111827',a:1},ls('ms.tx',{}));TX.f='sans';
+const saveTX=()=>lset('ms.tx',TX);
+let chosen=ls('ms.dots',null);if(!Array.isArray(chosen)||chosen.length!==4)chosen=SL.map(o=>o[0]);
+const S={pen:{w:3,a:1},line:{w:3,a:1},hl:{w:14,a:.4}};{const v=ls('ms.pens',null);if(v)for(const k in S)Object.assign(S[k],v[k]||{});color=ls('ms.pcol',color)}
+const savePens=()=>{lset('ms.pens',S);lset('ms.pcol',color)};
+let ptool='pen',target='p';
+const sbar=$('#sbar'),sdots=$('#sdots'),penT=()=>S[tool]?tool:ptool;
 const cm=document.createElement('div');cm.id='cm';cm.hidden=true;document.body.appendChild(cm);
-function selSlot(){color=chosen[act];[...sws.children].forEach((b,i)=>{b.style.background=chosen[i];b.classList.toggle('on',i===act)});updPv()}
-SL.forEach((o,i)=>{const b=document.createElement('button');b.className='sw';b.title='Tap again for more shades';b.onclick=()=>{if(act===i){if(cm.hidden){cm.innerHTML='';SL[i].forEach(c=>{const x=document.createElement('button');x.className='sw'+(c===chosen[i]?' on':'');x.style.background=c;x.onclick=()=>{chosen[i]=c;selSlot();cm.hidden=true};cm.appendChild(x)});cm.hidden=false}else cm.hidden=true}else{act=i;cm.hidden=true;selSlot()}};sws.appendChild(b)});
-document.addEventListener('pointerdown',e=>{if(!cm.contains(e.target)&&!sws.contains(e.target))cm.hidden=true});
-const S={pen:{w:3,a:1},line:{w:3,a:1},hl:{w:14,a:.4}};
-function syncS(){const t=S[tool];if(!t)return;$('#w').value=t.w;$('#wv').textContent=t.w;$('#o').value=Math.round(t.a*100);$('#ov').textContent=Math.round(t.a*100)+'%';$('#pn').textContent={pen:'Pen',line:'Underline',hl:'Highlighter'}[tool];$('#sn').style.display=tool==='pen'?'none':'flex';updPv()}
-function updPv(){const t=S[tool];if(!t)return;const i=$('#pv i');i.style.height=t.w+'px';i.style.background=color;i.style.opacity=t.a}
-$('#w').oninput=e=>{const v=+e.target.value;$('#wv').textContent=v;if(S[tool])S[tool].w=v;updPv()};
-$('#o').oninput=e=>{const v=+e.target.value;$('#ov').textContent=v+'%';if(S[tool])S[tool].a=v/100;updPv()};
-function setTool(t){if(t!=='text'&&typeof txClose==='function')txClose();tool=t;[...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);syncS();if(!S[t])$('#pop').hidden=true;pages.forEach(p=>p.cancel&&p.cancel())}
+function updBar(){const isT=target==='t',pt=S[penT()],col=isT?TX.c:color;
+ $('#stp').classList.toggle('on',!isT);$('#stt').classList.toggle('on',isT);
+ [...sdots.children].forEach((b,i)=>{b.style.background=chosen[i];b.classList.toggle('on',chosen[i].toLowerCase()===String(col).toLowerCase())});
+ $('#ssl').textContent=isT?'Size':'Width';$('#ssv').textContent=isT?TX.sz:pt.w;$('#sov').textContent=Math.round((isT?(TX.a==null?1:TX.a):pt.a)*100)+'%';
+ $('#cfg').classList.toggle('on',!sbar.hidden)}
+function setColor(c){if(target==='t'){TX.c=c;txApply()}else{color=c;savePens()}updBar()}
+function shades(i){cm.innerHTML='';SL[i].concat([]).forEach(c=>{const x=document.createElement('button');x.className='sw'+(c===chosen[i]?' on':'');x.style.background=c;x.onclick=()=>{chosen[i]=c;lset('ms.dots',chosen);setColor(c);cm.hidden=true};cm.appendChild(x)});
+ const any=document.createElement('input');any.type='color';any.value=/^#[0-9a-f]{6}$/i.test(chosen[i])?chosen[i]:'#000000';any.title='Any colour';any.oninput=()=>{chosen[i]=any.value;lset('ms.dots',chosen);setColor(any.value)};cm.appendChild(any);cm.hidden=false}
+chosen.forEach((c,i)=>{const b=document.createElement('button');b.className='sw';b.setAttribute('aria-label','Colour '+(i+1));b.onclick=()=>{const col=target==='t'?TX.c:color;if(chosen[i].toLowerCase()===String(col).toLowerCase()){if(cm.hidden)shades(i);else cm.hidden=true}else{cm.hidden=true;setColor(chosen[i])}};sdots.appendChild(b)});
+document.addEventListener('pointerdown',e=>{if(!cm.contains(e.target)&&!sdots.contains(e.target))cm.hidden=true});
+const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
+function sizeStep(d){if(target==='t'){TX.sz=clampN(TX.sz+d,4,30);txApply()}else{const pt=S[penT()];pt.w=clampN(pt.w+d*(pt.w+d<6?1:2),1,40);savePens()}updBar()}
+function opac(d){if(target==='t'){TX.a=clampN(Math.round(((TX.a==null?1:TX.a)+d*.1)*10)/10,.1,1);txApply()}else{const pt=S[penT()];pt.a=clampN(Math.round((pt.a+d*.1)*10)/10,.1,1);savePens()}updBar()}
+$('#ssm').onclick=()=>sizeStep(-1);$('#ssp').onclick=()=>sizeStep(1);$('#som').onclick=()=>opac(-1);$('#sop').onclick=()=>opac(1);
+$('#stp').onclick=()=>{target='p';updBar()};$('#stt').onclick=()=>{target='t';updBar()};
+function openBar(t){sbar.hidden=false;target=t||((tool==='text'||(typeof ED!=='undefined'&&ED))?'t':'p');cm.hidden=true;updBar()}
+$('#cfg').onclick=()=>{if(sbar.hidden)openBar();else{sbar.hidden=true;cm.hidden=true;updBar()}};
+/* tapping the bars never takes the cursor out of a text box (the keyboard stays) */
+['#bar','#sbar'].forEach(q=>$(q).addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED&&!(e.target.closest&&e.target.closest('input,select,textarea')))e.preventDefault()}));
+cm.addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED&&e.target.tagName!=='INPUT')e.preventDefault()});
+function setTool(t){if(t==='scroll'&&typeof txClose==='function')txClose();tool=t;if(S[t])ptool=t;if(!sbar.hidden)target=t==='text'?'t':S[t]?'p':target;
+ [...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);pages.forEach(p=>p.cancel&&p.cancel());updBar();txMark()}
+function txMark(){const b=$('#ttx');if(b)b.classList.toggle('txon',typeof ED!=='undefined'&&!!ED&&tool!=='text')}
 window.__setTool=setTool;
-$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b||b.id==='ttx')return;const same=tool===b.dataset.t;setTool(b.dataset.t);if(S[tool]&&same)$('#pop').hidden=!$('#pop').hidden};
-$('#cfg').onclick=()=>{const had=!!S[tool];if(!had)document.querySelector('[data-t=pen]').click();$('#pop').hidden=had?!$('#pop').hidden:false};
-$('#px').onclick=()=>$('#pop').hidden=true;
-selSlot();
+$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b||b.id==='ttx')return;setTool(b.dataset.t)};
+updBar();
 
 /* ---------- file ingestion ---------- */
 const libs={};const lib=u=>libs[u]||(libs[u]=new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=no;document.head.appendChild(s)}));
@@ -212,39 +233,35 @@ function doUndo(){txClose();const a=undo.pop();if(!a)return;
 function edited(p){p.ver=(p.ver||0)+1;p.tstale=true;setDirty()}
 window.__edited=edited;
 /* ---------- text: tap T, touch the page where the text starts, type; long-press T for font, size, bold, underline, colour ---------- */
-const FONTS=[['hind','Hind · हिंदी','"MS Hind",sans-serif'],['mukta','Mukta · मुक्ता','"MS Mukta",sans-serif'],['kalam','Kalam (handwriting) · कलम','"MS Kalam",cursive'],['laila','Laila · लैला','"MS Laila",serif'],['martel','Martel · मार्टेल','"MS Martel",serif'],['tiro','Tiro Hindi · तिरो','"MS Tiro",serif'],['amita','Amita (calligraphy) · अमिता','"MS Amita",serif'],['yatra','Yatra (bold display) · यात्रा','"MS Yatra",sans-serif'],['rozha','Rozha (headline) · रोझा','"MS Rozha",serif'],['sans','Phone sans · फ़ोन','sans-serif'],['serif','Phone serif','serif'],['mono','Typewriter','monospace'],['caveat','Caveat (English handwriting)','"MS Caveat",cursive'],['dancing','Dancing Script (English)','"MS Dancing",cursive']];
-const FF={};FONTS.forEach(f=>FF[f[0]]=f[2]);
-const TXC=['#111827','#dc2626','#2563eb','#16a34a','#7c3aed','#ea580c','#db2777','#0891b2','#a16207','#6b7280','#000000','#ffffff'];
-let TX={f:'hind',sz:16,b:false,u:false,c:'#111827'};try{Object.assign(TX,JSON.parse(localStorage.getItem('ms.tx')||'{}'))}catch(e){}
-const saveTX=()=>{try{localStorage.setItem('ms.tx',JSON.stringify(TX))}catch(e){}};
+const FF={sans:'sans-serif',serif:'serif',mono:'monospace',laila:'serif',martel:'serif',tiro:'serif',rozha:'serif',amita:'serif',kalam:'cursive',caveat:'cursive',dancing:'cursive'};
 let ED=null,txDown=null;
 const txFont=(s,k)=>(s.b?'700 ':'400 ')+(s.sz*k).toFixed(2)+'px '+(FF[s.f]||'sans-serif');
 const mctx=document.createElement('canvas').getContext('2d');
 function txLayout(s){mctx.font=txFont(s,4);const L=String(s.text).split('\n');let w=0;for(const l of L)w=Math.max(w,mctx.measureText(l).width/4);s.w=Math.max(w,s.sz*.4)+s.sz*.15;s.h=L.length*s.sz*1.3+s.sz*.15}
-function drawTx(ctx,s,k){if(!s.text)return;ctx.save();ctx.globalAlpha=1;ctx.fillStyle=s.c;ctx.font=txFont(s,k);ctx.textBaseline='alphabetic';
+function drawTx(ctx,s,k){if(!s.text)return;ctx.save();ctx.globalAlpha=s.a==null?1:s.a;ctx.fillStyle=s.c;ctx.font=txFont(s,k);ctx.textBaseline='alphabetic';
  String(s.text).split('\n').forEach((l,i)=>{const yb=(s.y+i*s.sz*1.3+s.sz*1.02)*k;ctx.fillText(l,s.x*k,yb);if(s.u&&l){const w=ctx.measureText(l).width;ctx.fillRect(s.x*k,yb+s.sz*.14*k,w,Math.max(1,s.sz*.07*k))}});ctx.restore()}
 const fontReady=s=>document.fonts&&document.fonts.load?document.fonts.load(txFont(s,10),s.text||'aअ').catch(()=>{}):Promise.resolve();
 window.__txFonts=list=>{const ps=new Set();for(const p of list)for(const s of p.strokes)if(s.t==='tx'){ps.add(p);fontReady(s).then(()=>{redraw(p);p.tstale=true})}};
 /* the text as a picture for the saved file (Hindi joins letters correctly, any font) */
 window.__txImg=s=>{if(!s.text)return null;const k=4;txLayout(s);const c=document.createElement('canvas');c.width=Math.max(1,Math.ceil(s.w*k));c.height=Math.max(1,Math.ceil(s.h*k));const x=c.getContext('2d');x.translate(-s.x*k,-s.y*k);drawTx(x,s,k);const u=c.toDataURL('image/png');c.width=c.height=0;return u};
-function txStyle(){if(!ED)return;const s=ED.s,ta=ED.ta;ta.style.left=s.x*scale+'px';ta.style.top=(s.y*scale)+'px';ta.style.font=txFont(s,scale);ta.style.lineHeight=(s.sz*1.3*scale)+'px';ta.style.color=s.c;ta.style.textDecoration=s.u?'underline':'none';txSize()}
+function txStyle(){if(!ED)return;const s=ED.s,ta=ED.ta;ta.style.left=s.x*scale+'px';ta.style.top=(s.y*scale)+'px';ta.style.font=txFont(s,scale);ta.style.lineHeight=(s.sz*1.3*scale)+'px';ta.style.color=s.c;ta.style.opacity=s.a==null?1:s.a;ta.style.textDecoration=s.u?'underline':'none';txSize()}
 function txSize(){if(!ED)return;const s=ED.s,ta=ED.ta;s.text=ta.value;txLayout(s);ta.style.width=Math.max(s.sz*3,s.w+s.sz)*scale+'px';ta.style.height=(s.h+s.sz*.4)*scale+'px'}
 let txT=0;
 function txOpen(p,s,isNew){
  txClose();const ta=document.createElement('textarea');ta.className='txed';ta.value=s.text||'';ta.setAttribute('autocapitalize','sentences');ta._rk=8;p.wrap.appendChild(ta);
- ED={p,s,ta,isNew,before:isNew?null:JSON.parse(JSON.stringify(s))};if(isNew)p.strokes.push(s);redraw(p);txStyle();
+ ED={p,s,ta,isNew,before:isNew?null:JSON.parse(JSON.stringify(s))};txMark();if(isNew)p.strokes.push(s);redraw(p);txStyle();
  ta.addEventListener('input',()=>{txSize();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s===s&&s.text)edited(p)},500)});
  ta.addEventListener('pointerdown',e=>e.stopPropagation());
  fontReady(s).then(()=>{if(ED&&ED.s===s)txSize()});
  ta.focus();try{const n=ta.value.length;ta.setSelectionRange(n,n)}catch(e){}}
-function txClose(){if(!ED)return;const{p,s,ta,isNew,before}=ED;ED=null;clearTimeout(txT);s.text=ta.value.replace(/\s+$/,'');ta.blur();ta.remove();
+function txClose(){if(!ED)return;const{p,s,ta,isNew,before}=ED;ED=null;txMark();clearTimeout(txT);s.text=ta.value.replace(/\s+$/,'');ta.blur();ta.remove();
  const i=p.strokes.indexOf(s);
  if(!s.text){if(i>-1)p.strokes.splice(i,1);if(!isNew){Object.assign(s,before);undo.push({k:'del',p,s,i:Math.max(0,i)})}if(!isNew||before)edited(p)}
  else{txLayout(s);if(isNew)undo.push({k:'add',p,s});else if(JSON.stringify(before)!==JSON.stringify(s))undo.push({k:'tx',p,s,before});edited(p)}
  redraw(p)}
 window.__txClose=txClose;
 function txHit(p,pt){for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(s.t==='tx'&&pt[0]>=s.x-4&&pt[0]<=s.x+s.w+4&&pt[1]>=s.y-4&&pt[1]<=s.y+s.h+4)return s}return null}
-function txNew(x,y){return{t:'tx',x,y,text:'',f:TX.f,sz:TX.sz,b:TX.b,u:TX.u,c:TX.c,w:0,h:0}}
+function txNew(x,y){return{t:'tx',x,y,text:'',f:'sans',sz:TX.sz,b:false,u:false,c:TX.c,a:TX.a==null?1:TX.a,w:0,h:0}}
 function txTap(p,pt){const hit=txHit(p,pt);
  if(hit){if(ED&&ED.s===hit){ED.ta.focus();return}txOpen(p,hit,false);return}
  if(ED&&!ED.ta.value.trim()&&ED.p===p){ED.s.x=pt[0];ED.s.y=pt[1]-ED.s.sz*.75;txStyle();ED.ta.focus();return}   // empty box: just move it
@@ -252,22 +269,15 @@ function txTap(p,pt){const hit=txHit(p,pt);
 /* T pressed: a text box opens on the page you are looking at (touch anywhere to start the text there instead) */
 function txStart(){const p=cur_page();if(!p)return;const vr=$('#view').getBoundingClientRect(),r=p.wrap.getBoundingClientRect();
  const y=Math.max(10,Math.min(p.h-30,(vr.top+vr.height*.3-r.top)/scale)),x=Math.max(10,Math.min(p.w*.08,p.w-60));txOpen(p,txNew(x,y),true)}
-function txApply(){saveTX();if(ED){Object.assign(ED.s,{f:TX.f,sz:TX.sz,b:TX.b,u:TX.u,c:TX.c});txStyle();fontReady(ED.s).then(txSize)}txPanel()}
-function txPanel(){const P=$('#txp');if(!P)return;$('#txf').value=TX.f;$('#txs').value=TX.sz;$('#txsv').textContent=TX.sz;$('#txb').classList.toggle('on',!!TX.b);$('#txu').classList.toggle('on',!!TX.u);
- [...$('#txc').children].forEach(b=>b.classList.toggle('on',b.dataset.c===TX.c));$('#txpv').style.font=txFont(TX,1.2);$('#txpv').style.color=TX.c;$('#txpv').style.textDecoration=TX.u?'underline':'none'}
-(function(){const sel=$('#txf');FONTS.forEach(f=>{const o=document.createElement('option');o.value=f[0];o.textContent=f[1];sel.appendChild(o)});
- TXC.forEach(c=>{const b=document.createElement('button');b.className='sw';b.dataset.c=c;b.style.background=c;b.onclick=()=>{TX.c=c;txApply()};$('#txc').appendChild(b)});
- sel.onchange=()=>{TX.f=sel.value;txApply()};
- $('#txs').oninput=e=>{TX.sz=+e.target.value;txApply()};
- $('#txm').onclick=()=>{TX.sz=Math.max(4,TX.sz-1);txApply()};$('#txpl').onclick=()=>{TX.sz=Math.min(30,TX.sz+1);txApply()};
- $('#txb').onclick=()=>{TX.b=!TX.b;txApply()};$('#txu').onclick=()=>{TX.u=!TX.u;txApply()};
- $('#txx').onclick=()=>{$('#txp').hidden=true;if(ED)ED.ta.focus()};
- ['pointerdown','mousedown'].forEach(n=>$('#txp').addEventListener(n,e=>{if(e.target.tagName!=='SELECT'&&e.target.tagName!=='INPUT')e.preventDefault()}));  // keep the keyboard / text box
- const tb=$('#ttx');let lt=0,lp=false;
- tb.addEventListener('pointerdown',()=>{lp=false;clearTimeout(lt);lt=setTimeout(()=>{lp=true;$('#pop').hidden=true;txPanel();$('#txp').hidden=false;if(tool!=='text')setTool('text')},480)});
+function txApply(){saveTX();if(ED){Object.assign(ED.s,{sz:TX.sz,c:TX.c,a:TX.a==null?1:TX.a});txStyle();clearTimeout(txT);txT=setTimeout(()=>{if(ED&&ED.s.text)edited(ED.p)},500)}}
+/* T: once = a text box with the keyboard (touch anywhere to start there instead); again = done.
+   Pens, highlighter and eraser stay usable while the text box is open; long-press T = settings for text */
+(function(){const tb=$('#ttx');let lt=0,lp=false;
+ tb.addEventListener('pointerdown',()=>{lp=false;clearTimeout(lt);lt=setTimeout(()=>{lp=true;if(tool!=='text')setTool('text');openBar('t')},480)});
  ['pointerup','pointercancel','pointerleave'].forEach(n=>tb.addEventListener(n,()=>clearTimeout(lt)));
- tb.addEventListener('click',e=>{e.stopPropagation();tb.blur();if(lp){lp=false;return}if(tool==='text'){setTool('scroll');$('#txp').hidden=true}else{setTool('text');txStart()}});
- txPanel()})();
+ tb.addEventListener('click',e=>{e.stopPropagation();if(lp){lp=false;return}
+  if(tool==='text'){setTool('scroll');return}
+  setTool('text');if(ED){ED.ta.focus()}else txStart()})})();
 
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();doUndo()}});
 $('#clr').onclick=()=>{const p=cur_page();if(p&&p.strokes.length&&confirm('Clear all marks on page '+pageNo(p)+'?')){txClose();p.strokes.slice().reverse().forEach(s=>undo.push({k:'del',p,s,i:0}));p.strokes.splice(0);edited(p);redraw(p)}};
@@ -307,7 +317,7 @@ $('#view').addEventListener('touchstart',e=>{if(e.touches.length!==2||!pages.len
 $('#view').addEventListener('touchmove',e=>{if(!PZ.on||e.touches.length<2)return;e.preventDefault();const[a,b]=e.touches,d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);PZ.f=Math.max(.25/scale,Math.min(6/scale,d/PZ.d0));host.style.transform='scale('+PZ.f+')';window.__pinchAt=performance.now()},{passive:false});
 const pinchEnd=e=>{if(!PZ.on||e.touches.length>=2)return;PZ.on=false;host.style.transform='';window.__pinchAt=performance.now();if(Math.abs(PZ.f-1)>.02)zoomAt(scale*PZ.f,PZ.cx,PZ.cy)};
 $('#view').addEventListener('touchend',pinchEnd);$('#view').addEventListener('touchcancel',pinchEnd);
-$('#view').addEventListener('dblclick',e=>{if(tool!=='scroll'||!pages.length||(window.__isReading&&window.__isReading())||(window.__dblStop&&performance.now()-window.__dblStop<600))return;const z=scale/base;zoomAt(z>1.05?base:base*2,e.clientX,e.clientY)});
+$('#view').addEventListener('dblclick',e=>{if(window.Android||tool!=='scroll'||!pages.length)return;$('#pgs').click()});
 
 function upd(){const p=inGrid()?null:cur_page();$('#info').textContent=pages.length?`Page ${p?pageNo(p):1} / ${pages.length} · ${Math.round(scale/base*100)}%`+(saveNote?' · '+saveNote:''):''}
 let saveNote='';window.__saveNote=t=>{saveNote=t;upd()};
@@ -426,19 +436,26 @@ function setSel(i,v){const p=pages[i];if(!p||p.sel===v)return;p.sel=v;p.thEl&&p.
 /* gestures: tap toggles one page; a sideways swipe starts "select by swiping" (then move freely, the list scrolls at the edges);
    an up/down swipe just scrolls; double tap opens that page */
 let gs=null,lastTap={i:-1,t:0};
-tg.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('.th');if(!t)return;gs={x:e.clientX,y:e.clientY,i:t._i,mode:null,cur:t._i,snap:null,val:false,id:e.pointerId}});
+tg.addEventListener('pointerdown',e=>{const t=e.target.closest&&e.target.closest('.th');if(!t)return;gs={x:e.clientX,y:e.clientY,i:t._i,mode:null,cur:t._i,snap:null,val:false,id:e.pointerId,onSel:!!pages[t._i].sel}});
+/* selected pages: swipe up / down starting on one of them to move them; a line shows where they will go */
+let dropT=null;const clearDrop=()=>{if(dropT){dropT.el.classList.remove('dropb','dropa');dropT=null}};
+function dropAt(x,y){const el=document.elementFromPoint(x,y),t=el&&el.closest&&el.closest('.th');clearDrop();if(!t)return;const r=t.getBoundingClientRect(),after=x>r.left+r.width/2;t.classList.add(after?'dropa':'dropb');dropT={el:t,i:t._i,after}}
 tg.addEventListener('pointermove',e=>{
  if(!gs)return;const dx=e.clientX-gs.x,dy=e.clientY-gs.y;
- if(!gs.mode){if(Math.abs(dx)>9&&Math.abs(dx)>Math.abs(dy)*0.8){gs.mode='drag';gs.snap=pages.map(p=>p.sel);gs.val=!pages[gs.i].sel;try{tg.setPointerCapture(gs.id)}catch(x){}setSel(gs.i,gs.val)}else if(Math.abs(dy)>9){gs.mode='scroll';return}else return}
+ if(!gs.mode){if(gs.onSel&&Math.abs(dy)>9&&Math.abs(dy)>Math.abs(dx)){gs.mode='move';try{tg.setPointerCapture(gs.id)}catch(x){}pages.forEach(p=>p.sel&&p.thEl&&p.thEl.classList.add('mv'))}
+  else if(Math.abs(dx)>9&&Math.abs(dx)>Math.abs(dy)*0.8){gs.mode='drag';gs.snap=pages.map(p=>p.sel);gs.val=!pages[gs.i].sel;try{tg.setPointerCapture(gs.id)}catch(x){}setSel(gs.i,gs.val)}else if(Math.abs(dy)>9){gs.mode='scroll';return}else return}
+ if(gs.mode==='move'){e.preventDefault();dropAt(e.clientX,e.clientY);const r=tg.getBoundingClientRect();if(e.clientY>r.bottom-60)tg.scrollTop+=16;else if(e.clientY<r.top+60)tg.scrollTop-=16;return}
  if(gs.mode!=='drag')return;e.preventDefault();
  const el=document.elementFromPoint(e.clientX,e.clientY),t=el&&el.closest&&el.closest('.th');
  if(t&&t._i!==gs.cur){const a0=Math.min(gs.i,gs.cur),b0=Math.max(gs.i,gs.cur),a1=Math.min(gs.i,t._i),b1=Math.max(gs.i,t._i);
   for(let k=a0;k<=b0;k++)if(k<a1||k>b1)setSel(k,gs.snap[k]);for(let k=a1;k<=b1;k++)setSel(k,gs.val);gs.cur=t._i;cnt()}
  const r=tg.getBoundingClientRect();if(e.clientY>r.bottom-50)tg.scrollTop+=14;else if(e.clientY<r.top+50)tg.scrollTop-=14},{passive:false});
 const gend=e=>{if(!gs)return;const g=gs;gs=null;
+ if(g.mode==='move'){const d=dropT;clearDrop();pages.forEach(p=>p.thEl&&p.thEl.classList.remove('mv'));
+  if(d&&e.type==='pointerup'){let t=d.i+(d.after?1:0);while(t<pages.length&&pages[t].sel)t++;const st=tg.scrollTop;if(moveTo(t<pages.length?t:null)){buildGrid();tg.scrollTop=st;cnt()}}return}
  if(!g.mode&&e.type==='pointerup'){const now=performance.now();
   if(gpick){setPick(false);if(moveTo(g.i)){buildGrid();const f=pages.find(p=>p.sel);if(f&&f.thEl)tg.scrollTop=f.thEl.offsetTop-tg.clientHeight/3}return}
-  if(lastTap.i===g.i&&now-lastTap.t<320){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);return}
+  if(lastTap.i===g.i&&now-lastTap.t<420){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);return}
   lastTap={i:g.i,t:now};setSel(g.i,!pages[g.i].sel);lastSel=g.i;cnt()}};
 tg.addEventListener('pointerup',gend);tg.addEventListener('pointercancel',gend);
 $('#gall').onclick=()=>{pages.forEach((p,i)=>setSel(i,true));cnt()};
@@ -662,3 +679,6 @@ $('#ego').onclick=async()=>{
   await dls.save({filename:name,data:out});say('Saved ✓ '+name+(size?' · '+fmtB(size)+(orig?' (original '+fmtB(orig)+')':''):'')+(how?' · '+how:'')+' · '+((performance.now()-t0)/1000).toFixed(1)+' s'+(bad?' · '+bad+' damaged page'+(bad>1?'s':'')+' could not be read and '+(bad>1?'were':'was')+' '+(fmt==='pdf'?'left blank':'left out'):''));
  }catch(e){say(e&&e.code==='declined'?'Cancelled.':'Export failed: '+((e&&(e.message||e.code))||'unknown error'))}
  $('#ego').disabled=false};
+
+/* no long-press menus (copy / select all…) on buttons, bars or pages */
+document.addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea,select,.txed')))e.preventDefault()});

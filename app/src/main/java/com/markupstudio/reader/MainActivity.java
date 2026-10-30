@@ -269,6 +269,33 @@ public class MainActivity extends Activity {
         applyTheme(prefs.getString("p_theme", "light"));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
         setContentView(web);
+        /* the keyboard covers the bottom of the page (full screen mode cannot resize): tell the page how much,
+           so the toolbars sit just above the keyboard */
+        try {
+            final View root = getWindow().getDecorView();
+            root.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                int last = -1;
+                @Override
+                public void onGlobalLayout() {
+                    try {
+                        if (web == null) return;
+                        android.graphics.Rect r = new android.graphics.Rect();
+                        root.getWindowVisibleDisplayFrame(r);
+                        int[] loc = new int[2];
+                        web.getLocationOnScreen(loc);
+                        float d = getResources().getDisplayMetrics().density;
+                        int over = loc[1] + web.getHeight() - r.bottom;
+                        if (over < 80 * d) over = 0;
+                        if (over != last) {
+                            last = over;
+                            if (jsReady) web.evaluateJavascript("window.__kb&&window.__kb(" + Math.round(over / d) + ")", null);
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
+            });
+        } catch (Throwable ignored) {
+        }
         try {
             applyFullscreen(prefs.getBoolean("fullscreen", true));
         } catch (Throwable ignored) {

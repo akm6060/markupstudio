@@ -39,7 +39,7 @@ label{white-space:nowrap;font-size:12px;display:flex;gap:5px;align-items:center;
 #empty{margin:12vh auto;text-align:center;max-width:360px;padding:30px;border:2px dashed var(--bd);border-radius:16px;color:var(--mut)}
 #empty button{margin-top:12px;background:var(--ac);color:#fff;border:none;padding:10px 18px}
 #grid{display:none;flex:1;flex-direction:column;min-height:0}
-body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{display:none!important}
+body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #sbar,body.grid #pop{display:none!important}
 #gtop{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--bar);border-bottom:1px solid var(--bd)}#gtop b{font-size:15px}#gtop label{flex:1;justify-content:flex-end}#gtop input{width:42%;max-width:220px}
 #tgrid{position:relative;flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:var(--gap,10px);align-content:start;touch-action:pan-y;-webkit-user-select:none;user-select:none}
 .th{position:relative;border-radius:6px;border:2px solid transparent;cursor:pointer;background:transparent;padding:2px}
@@ -55,15 +55,29 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
 #cm{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;display:flex;gap:10px;padding:10px 12px;background:var(--bar);border:1px solid var(--bd);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);z-index:6}#cm[hidden]{display:none}#cm .sw{width:28px;height:28px}body.grid #cm{display:none!important}
 .pt{display:flex;justify-content:space-between;align-items:center}
 .oc{mix-blend-mode:multiply;pointer-events:none}.t-hl .pg{cursor:text;touch-action:none}.t-scroll .pg{cursor:grab}.t-pen .pg{cursor:crosshair;touch-action:none}.t-line .pg{cursor:crosshair;touch-action:none}.t-erase .pg{cursor:cell;touch-action:none}
-@font-face{font-family:"MS Hind";src:url(fonts/Hind-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Hind";src:url(fonts/Hind-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Mukta";src:url(fonts/Mukta-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Mukta";src:url(fonts/Mukta-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Kalam";src:url(fonts/Kalam-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Kalam";src:url(fonts/Kalam-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Laila";src:url(fonts/Laila-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Laila";src:url(fonts/Laila-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Martel";src:url(fonts/Martel-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Martel";src:url(fonts/Martel-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Amita";src:url(fonts/Amita-Regular.ttf);font-weight:400;font-display:swap}@font-face{font-family:"MS Amita";src:url(fonts/Amita-Bold.ttf);font-weight:700;font-display:swap}@font-face{font-family:"MS Tiro";src:url(fonts/TiroDevanagariHindi-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Yatra";src:url(fonts/YatraOne-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Rozha";src:url(fonts/RozhaOne-Regular.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Caveat";src:url(fonts/Caveat-Var.ttf);font-weight:100 900;font-display:swap}@font-face{font-family:"MS Dancing";src:url(fonts/DancingScript-Var.ttf);font-weight:100 900;font-display:swap}
-#txp{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;width:min(340px,94vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:8px;z-index:7}#txp[hidden]{display:none}
-#txp label{display:flex;gap:6px;align-items:center;font-size:13px}#txp select{flex:1;min-width:0;background:var(--bar);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:inherit;font-size:13px}#txp input[type=range]{flex:1;min-width:0}
-#txpv{padding:6px 8px;border:1px dashed var(--bd);border-radius:8px;background:#fff;color:#111;white-space:nowrap;overflow:hidden;min-height:28px}.txr{display:flex;flex-wrap:wrap;gap:6px}.txr button{flex:1}#txc .sw{flex:none;width:26px;height:26px;border:1px solid var(--bd)}#txc .sw.on{outline:3px solid var(--ac);outline-offset:1px}
+
 .txed{position:absolute;z-index:5;background:rgba(255,255,255,.35);border:1.5px dashed #2563eb;border-radius:3px;padding:0;margin:0;resize:none;overflow:hidden;white-space:pre;outline:none;min-width:40px;box-sizing:content-box;caret-color:#2563eb}
 .t-text .pg{cursor:text;touch-action:pan-x pan-y}
 #gend{display:none}body.gpick #gend{display:inline-block}body.gpick #tgrid .th:not(.sel){outline:1px dashed var(--ac)}
+
+#sbar{order:2;display:flex;gap:4px;align-items:center;justify-content:space-between;margin:0 10px -8px;padding:3px 5px 11px;background:var(--bar);border:1px solid var(--bd);border-bottom:0;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.08);overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}#sbar[hidden]{display:none}#sbar::-webkit-scrollbar{display:none}#sbar>*{flex:none}
+#sbar .seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}#sbar .seg button{border:0;border-radius:0;min-width:24px;min-height:26px;padding:0 6px;font-weight:700;font-size:13px}
+#sbar .grp{gap:3px}#sbar .sw{width:21px;height:21px}#sbar .st{display:flex;align-items:center;gap:1px}#sbar .st button{min-width:24px;min-height:26px;padding:0 4px;font-size:16px;line-height:1;border-radius:7px}
+#sbar .st span{display:flex;flex-direction:column;align-items:center;min-width:34px;line-height:1.05}#sbar .st b{font-size:12px}#sbar .st i{font-style:normal;font-size:8.5px;color:var(--mut)}
+#cm{bottom:118px}
+#ttx.txon{box-shadow:inset 0 -3px 0 var(--ac)}
+body.kbon #bar,body.kbon #sbar{transform:translateY(calc(-1 * var(--kb,0px)))}body.kbon #cm,body.kbon .panel{margin-bottom:var(--kb,0px)}
+/* no text-selection pop-up menus when touching buttons, bars or labels */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,textarea,select,.txed,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.th.sel{touch-action:none}.th.mv{opacity:.45}.th.dropb{box-shadow:-4px 0 0 var(--ac)}.th.dropa{box-shadow:4px 0 0 var(--ac)}
 </style></head>
 <body class="t-scroll">
+<div id="sbar" hidden>
+ <div class="seg"><button id="stp" aria-label="Settings for pens">P</button><button id="stt" aria-label="Settings for text">T</button></div>
+ <div class="grp" id="sdots"></div>
+ <div class="st"><button id="ssm" aria-label="Smaller">−</button><span><b id="ssv">3</b><i id="ssl">Width</i></span><button id="ssp" aria-label="Bigger">+</button></div>
+ <div class="st"><button id="som" aria-label="Less opaque">−</button><span><b id="sov">100%</b><i>Opacity</i></span><button id="sop" aria-label="More opaque">+</button></div>
+</div>
 <div id="bar">
  <button id="pgs" title="Pages: reorder, delete, add">▦</button><button id="exbtn" title="Export">⬇</button>
  <div class="sep"></div>
@@ -76,8 +90,7 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
   <button data-t="erase" title="Tap a mark to delete">⌫</button>
  </div>
  <div class="sep"></div>
- <div class="grp" id="sws"></div>
- <button id="cfg" title="Width & opacity">⚙</button>
+ <button id="cfg" aria-label="Pen and text settings">⚙</button>
  <div class="sep"></div>
  <button id="undo" title="Undo">↶</button><button id="clr" title="Clear marks on page">🗑</button>
  <div id="info"></div>
@@ -98,14 +111,6 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid #pop{displ
  <label>Opacity <input type="range" id="o" min="10" max="100" value="100"><span id="ov">100%</span></label>
  <div id="pv"><i></i></div>
  <label id="sn" style="justify-content:flex-start"><input type="checkbox" id="snap" checked> Snap to words</label>
-</div>
-<div id="txp" hidden>
- <div class="pt"><b>Text</b><button id="txx">✕</button></div>
- <div id="txpv">Aa अआ 123</div>
- <label>Font <select id="txf"></select></label>
- <label>Size <button id="txm" aria-label="Smaller">−</button><input type="range" id="txs" min="4" max="30" step="1"><b id="txsv">16</b><button id="txpl" aria-label="Bigger">+</button></label>
- <div class="txr"><button id="txb" style="font-weight:700">B Bold</button><button id="txu" style="text-decoration:underline">U Underline</button></div>
- <div class="txr" id="txc"></div>
 </div>
 <div id="exp" hidden>
  <div class="pt"><b>Export</b><button id="ex">✕</button></div>

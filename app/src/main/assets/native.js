@@ -571,7 +571,12 @@ view.addEventListener('pointerup', e => {
   if (window.__pinchAt && performance.now() - window.__pinchAt < 600) return;
   const now = performance.now(), dbl = now - lastUp.t < 330 && Math.hypot(e.clientX - lastUp.x, e.clientY - lastUp.y) < 40;
   lastUp = { t: now, x: e.clientX, y: e.clientY };
-  if (dbl) { clearTimeout(tapTimer); lastUp.t = 0; if (R.on) { R.resumeAt = null; stopAll(); window.__dblStop = performance.now(); toast('Reading stopped', 1500); } return; }
+  if (dbl) {
+    clearTimeout(tapTimer); lastUp.t = 0;
+    if (R.on) { R.resumeAt = null; stopAll(); window.__dblStop = performance.now(); toast('Reading stopped', 1500); }
+    else if (e.target.closest && e.target.closest('.pg')) $('#pgs').click();          // double tap a page: back to the page thumbnails
+    return;
+  }
   if (!RS.tap) return;
   const wrap = e.target.closest && e.target.closest('.pg'); if (!wrap || !wrap._p) return;
   const p = wrap._p, r = p.wrap.getBoundingClientRect(), x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
@@ -735,6 +740,17 @@ window.__selfTest = async () => {
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
+
+/* ---------- keyboard: the toolbars move up to sit just above it ---------- */
+let kbPx = 0, hMax = window.innerHeight, wPrev = window.innerWidth;
+function kbApply() {
+  if (window.innerWidth !== wPrev) { wPrev = window.innerWidth; hMax = window.innerHeight; } else hMax = Math.max(hMax, window.innerHeight);
+  const vv = window.visualViewport, vvKb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+  const shrunk = Math.max(0, hMax - window.innerHeight), need = Math.max(kbPx - shrunk, vvKb > 80 ? vvKb : 0, 0);
+  document.body.style.setProperty('--kb', need + 'px'); document.body.classList.toggle('kbon', need > 0);
+}
+window.__kb = h => { kbPx = Math.max(0, +h || 0); kbApply(); };
+window.addEventListener('resize', kbApply); if (window.visualViewport) window.visualViewport.addEventListener('resize', kbApply);
 
 /* ---------- lifecycle ---------- */
 window.__saveNow = () => { saveStateNow(); saveMarks(); };
