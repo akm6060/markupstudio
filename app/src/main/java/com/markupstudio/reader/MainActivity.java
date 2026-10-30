@@ -70,6 +70,11 @@ import com.tom_roush.pdfbox.util.Matrix;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.webkit.WebChromeClient;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions;
 import com.tom_roush.pdfbox.pdmodel.PDResources;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
@@ -1830,6 +1835,12 @@ public class MainActivity extends Activity {
     }
 
     /* the copy made by auto-save is written again each time (same file), not a new copy per save */
+    private TextRecognizer textRec;
+    private synchronized TextRecognizer recognizer() {
+        if (textRec == null) textRec = TextRecognition.getClient(new DevanagariTextRecognizerOptions.Builder().build());
+        return textRec;
+    }
+
     private final Map<Integer, Object> copyTarget = new HashMap<>();
     private final Map<Integer, File> backups = new ConcurrentHashMap<>();
     private Uri lastPublicUri = null;
@@ -2499,6 +2510,54 @@ public class MainActivity extends Activity {
             } catch (InterruptedException ignored) {
             }
             return rc[0];
+        }
+
+        /* text recognition of a scanned page (picture as a data: URL); the words with their boxes go back to
+           window.__ocrDone(id, result). Hindi and English, on the phone, no internet needed. */
+        @JavascriptInterface
+        public void ocr(final String id, final String dataUrl) {
+            new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        byte[] b = Base64.decode(dataUrl.substring(dataUrl.indexOf(',') + 1), Base64.DEFAULT);
+                        final Bitmap bm = BitmapFactory.decodeByteArray(b, 0, b.length);
+                        if (bm == null) throw new IOException("no picture");
+                        final int w = bm.getWidth(), h = bm.getHeight();
+                        recognizer().process(InputImage.fromBitmap(bm, 0))
+                                .addOnSuccessListener(new com.google.android.gms.tasks.OnSuccessListener<Text>() {
+                                    public void onSuccess(Text t) {
+                                        try {
+                                            JSONArray lines = new JSONArray();
+                                            for (Text.TextBlock bl : t.getTextBlocks()) for (Text.Line ln : bl.getLines()) {
+                                                android.graphics.Rect lr = ln.getBoundingBox();
+                                                if (lr == null) continue;
+                                                JSONArray ws = new JSONArray();
+                                                for (Text.Element el : ln.getElements()) {
+                                                    android.graphics.Rect r = el.getBoundingBox();
+                                                    if (r == null) continue;
+                                                    ws.put(new JSONObject().put("t", el.getText()).put("x0", r.left).put("y0", r.top).put("x1", r.right).put("y1", r.bottom));
+                                                }
+                                                lines.put(new JSONObject().put("t", ln.getText()).put("x0", lr.left).put("y0", lr.top).put("x1", lr.right).put("y1", lr.bottom).put("words", ws));
+                                            }
+                                            js("window.__ocrDone&&window.__ocrDone(" + JSONObject.quote(id) + "," + new JSONObject().put("ok", true).put("w", w).put("h", h).put("lines", lines) + ")");
+                                        } catch (Exception ex) {
+                                            js("window.__ocrDone&&window.__ocrDone(" + JSONObject.quote(id) + ",{ok:false})");
+                                        } finally {
+                                            bm.recycle();
+                                        }
+                                    }
+                                })
+                                .addOnFailureListener(new com.google.android.gms.tasks.OnFailureListener() {
+                                    public void onFailure(Exception e) {
+                                        bm.recycle();
+                                        js("window.__ocrDone&&window.__ocrDone(" + JSONObject.quote(id) + ",{ok:false,err:" + JSONObject.quote(String.valueOf(e.getMessage())) + "})");
+                                    }
+                                });
+                    } catch (Throwable e) {
+                        js("window.__ocrDone&&window.__ocrDone(" + JSONObject.quote(id) + ",{ok:false,err:" + JSONObject.quote(String.valueOf(e.getMessage())) + "})");
+                    }
+                }
+            }).start();
         }
 
         @JavascriptInterface

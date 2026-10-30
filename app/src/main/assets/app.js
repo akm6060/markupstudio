@@ -103,7 +103,7 @@ async function openFiles(files,replace){
  if(bad.length)alert('Unsupported or unreadable: '+bad.join(', '));
  if(!all.length)return;
  if(replace||BOOK){window.__beforeReplace&&window.__beforeReplace();pages.forEach(rm);pages=[];undo=[];setDirty(false);closeBook()}
- const fresh=!pages.length;if(fresh){docPrimary=all[0].nid||0;docName=(files[0].name||'document').replace(/\.[^.]+$/,'');base=scale=fitW(all[0].w);const zr=savedZoom();zoomed=zr!==1;scale=base*zr;$('#view').scrollTop=0;$('#view').scrollLeft=0;setTool('scroll')}
+ const fresh=!pages.length;if(fresh){window.__fromGrid=false;docPrimary=all[0].nid||0;docName=(files[0].name||'document').replace(/\.[^.]+$/,'');base=scale=fitW(all[0].w);const zr=savedZoom();zoomed=zr!==1;scale=base*zr;$('#view').scrollTop=0;$('#view').scrollLeft=0;setTool('scroll')}
  const added=addPages(all,inGrid()?insIdx():pages.length);
  if(!fresh)setDirty();
  if(inGrid())buildGrid();
@@ -390,7 +390,7 @@ $('#view').addEventListener('touchstart',e=>{if(e.touches.length!==2||!pages.len
 $('#view').addEventListener('touchmove',e=>{if(!PZ.on||e.touches.length<2)return;e.preventDefault();const[a,b]=e.touches,d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);PZ.f=Math.max(.25/scale,Math.min(6/scale,d/PZ.d0));host.style.transform='scale('+PZ.f+')';window.__pinchAt=performance.now()},{passive:false});
 const pinchEnd=e=>{if(!PZ.on||e.touches.length>=2)return;PZ.on=false;host.style.transform='';window.__pinchAt=performance.now();if(Math.abs(PZ.f-1)>.02)zoomAt(scale*PZ.f,PZ.cx,PZ.cy)};
 $('#view').addEventListener('touchend',pinchEnd);$('#view').addEventListener('touchcancel',pinchEnd);
-$('#view').addEventListener('dblclick',e=>{if(window.Android||tool!=='scroll'||!pages.length)return;$('#pgs').click()});
+$('#view').addEventListener('dblclick',e=>{if(window.Android||tool!=='scroll'||!pages.length||!window.__fromGrid)return;$('#pgs').click()});
 
 function upd(){const p=inGrid()?null:cur_page();$('#info').textContent=pages.length?`Page ${p?pageNo(p):1} / ${pages.length} · ${Math.round(scale/base*100)}%`+(saveNote?' · '+saveNote:''):''}
 let saveNote='';window.__saveNote=t=>{saveNote=t;upd()};
@@ -493,7 +493,7 @@ const gio=new IntersectionObserver(es=>es.forEach(en=>{const p=en.target._p;if(e
 function setCols(n){gcols=Math.max(2,Math.min(12,n));tg.style.setProperty('--cols',gcols);tg.style.setProperty('--gap',gcols>8?'2px':gcols>5?'5px':'10px');tg.classList.toggle('tiny',gcols>8);$('#gsize').value=14-gcols;try{localStorage.setItem('ms.gcols',gcols)}catch(e){}}
 const firstTile=()=>{const gr=tg.getBoundingClientRect();let lo=0,hi=pages.length-1;while(lo<hi){const m=(lo+hi)>>1,t=pages[m].thEl;if(t&&t.offsetTop+t.offsetHeight<tg.scrollTop)lo=m+1;else hi=m}return pages[lo]};
 $('#gsize').oninput=e=>{const a=firstTile();setCols(14-(+e.target.value));if(a&&a.thEl)tg.scrollTop=a.thEl.offsetTop-8};
-$('#pgs').onclick=()=>{if(!pages.length)return;$('#pop').hidden=true;document.body.classList.add('grid');setCols(gcols);buildGrid(true)};
+$('#pgs').onclick=()=>{if(!pages.length)return;window.__fromGrid=false;$('#pop').hidden=true;document.body.classList.add('grid');setCols(gcols);buildGrid(true)};
 function closeGrid(go){setPick(false);document.body.classList.remove('grid');gq++;gio.disconnect();const t=go||pages.find(p=>p.sel);requestAnimationFrame(()=>{if(t&&pages.includes(t))gotoGlobal(pages.indexOf(t),0);upd();settle(0)})}
 $('#gdone').onclick=()=>closeGrid();
 function tileImg(p){const d=p.thEl;if(!d)return;const im=d.firstChild;if(p.timg&&im.getAttribute('src')!==p.timg)im.src=p.timg}
@@ -528,7 +528,7 @@ const gend=e=>{if(!gs)return;const g=gs;gs=null;
   if(d&&e.type==='pointerup'){let t=d.i+(d.after?1:0);while(t<pages.length&&pages[t].sel)t++;const st=tg.scrollTop;if(moveTo(t<pages.length?t:null)){buildGrid();tg.scrollTop=st;cnt()}}return}
  if(!g.mode&&e.type==='pointerup'){const now=performance.now();
   if(gpick){setPick(false);if(moveTo(g.i)){buildGrid();const f=pages.find(p=>p.sel);if(f&&f.thEl)tg.scrollTop=f.thEl.offsetTop-tg.clientHeight/3}return}
-  if(lastTap.i===g.i&&now-lastTap.t<420){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);return}
+  if(lastTap.i===g.i&&now-lastTap.t<420){setSel(g.i,!pages[g.i].sel);lastTap.i=-1;closeGrid(pages[g.i]);window.__fromGrid=true;return}
   lastTap={i:g.i,t:now};setSel(g.i,!pages[g.i].sel);lastSel=g.i;cnt()}};
 tg.addEventListener('pointerup',gend);tg.addEventListener('pointercancel',gend);
 $('#gall').onclick=()=>{pages.forEach((p,i)=>setSel(i,true));cnt()};

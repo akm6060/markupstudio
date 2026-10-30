@@ -10,8 +10,8 @@ android {
         applicationId "com.markupstudio.reader"
         minSdk 21            // Android 5.0
         targetSdk 34         // runs on Android 5 … 16
-        versionCode 12
-        versionName "1.10"
+        versionCode 13
+        versionName "1.11"
     }
 
     buildTypes {
@@ -41,6 +41,8 @@ android {
 dependencies {
     implementation 'androidx.webkit:webkit:1.10.0'
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+    // reading scanned pages: Hindi (Devanagari) + English text recognition, model inside the app (works offline)
+    implementation 'com.google.mlkit:text-recognition-devanagari:16.0.1'
 }
 
 // fail early with a clear message when the offline libraries were not fetched

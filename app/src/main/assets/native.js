@@ -376,7 +376,7 @@ function refreshReader() {
   pq(rp, '#rlang').value = RS.lang; pq(rp, '#rvf').value = RS.filter; pq(rp, '#rfollow').checked = RS.follow; pq(rp, '#rtap').checked = RS.tap; pq(rp, '#rawake').checked = RS.awake;
   pq(rp, '#asr').value = RS.speed; pq(rp, '#asv').textContent = RS.speed; if (ttsReady) fillVoices(); updUI();
   pq(rp, '#rcols').value = RS.cols; pq(rp, '#rhead').checked = RS.head; pq(rp, '#rtab').checked = RS.tab; pq(rp, '#rpic').checked = RS.pic; pq(rp, '#rside').checked = RS.side; pq(rp, '#rshow').checked = RS.show; pq(rp, '#rmain').checked = RS.main; pq(rp, '#rheads').checked = RS.heads;
-  pq(rp, '#rnote').textContent = 'Scanned pages (photos of text) have no text inside and cannot be read aloud.';
+  pq(rp, '#rnote').textContent = 'Scanned pages and photos of text are read with the phone\'s own text recognition (Hindi and English, any font, no internet). The next page is recognised while the current one is read.';
 }
 function updUI() { pq(rp, '#rplay').textContent = R.on ? '⏸ Pause' : '▶ Read'; pq(rp, '#asbtn').textContent = AS.on ? '⏸ Stop' : '▶ Start'; rd.classList.toggle('on', R.on || AS.on); }
 let rst; const restartSoon = () => { clearTimeout(rst); if (R.on) rst = setTimeout(() => readFrom(R.page, R.wi), 450); };
@@ -403,9 +403,42 @@ pq(rp, '#rtest').onclick = () => {
 };
 const awake = on => A.keepAwake(!!on && RS.awake);
 
+/* ---------- scanned pages (photos of text): the phone's own text recognition, Hindi + English, no internet ---------- */
+const ocrWait = {}; let ocrSeq = 0, ocrTold = false;
+window.__ocrDone = (id, r) => { const f = ocrWait[id]; if (f) { delete ocrWait[id]; f(r); } };
+const ocrCall = url => new Promise(res => {
+  const id = 'o' + (++ocrSeq); ocrWait[id] = res;
+  try { A.ocr(id, url); } catch (e) { delete ocrWait[id]; res({ ok: false }); return; }
+  setTimeout(() => { if (ocrWait[id]) { delete ocrWait[id]; res({ ok: false, err: 'timeout' }); } }, 90000);
+});
+/* the page drawn as a picture -> words with their places on the page, as if the PDF had text */
+async function ocrItems(p) {
+  if (!A.ocr) return null;
+  if (!ocrTold) { ocrTold = true; toast('Scanned page: recognising the text…', 2500); }
+  const k = Math.min(3.5, Math.max(1.2, 1800 / Math.max(1, p.w))), c = document.createElement('canvas');
+  c.width = Math.round(p.w * k); c.height = Math.round(p.h * k);
+  await paint(p, c.getContext('2d'), k, null);
+  const url = c.toDataURL('image/jpeg', 0.92); c.width = c.height = 0;
+  const r = await ocrCall(url); if (!r || !r.ok || !r.w) return null;
+  const f = p.w / r.w, items = [];
+  for (const L of r.lines || []) {
+    const lh = (L.y1 - L.y0) * f, fs = Math.max(3, lh * 0.78), base = L.y1 * f - lh * 0.2;
+    for (const w of (L.words && L.words.length ? L.words : [L])) if (w.t) items.push({ str: w.t, transform: [fs, 0, 0, fs, w.x0 * f, base], width: (w.x1 - w.x0) * f, height: fs, fontName: 'ocr' });
+  }
+  return items;
+}
+window.__ocrItems = ocrItems;
+const fewWords = W => W.reduce((n, w) => n + w.w.length, 0) < 25;
+
 /* ---------- text of a page in reading order ---------- */
-async function pageReadable(p) {
-  if (p.read) return p.read;
+const readP = new WeakMap();
+function pageReadable(p) {
+  if (p.read) return Promise.resolve(p.read);
+  let pr = readP.get(p);
+  if (!pr) { pr = pageReadable0(p); readP.set(p, pr); pr.then(() => readP.delete(p), () => readP.delete(p)); }
+  return pr;
+}
+async function pageReadable0(p) {
   let words = [], scanned = false, extra = {};
   if (p.kind === 'pdf') {
     await ensure(p);
@@ -417,6 +450,13 @@ async function pageReadable(p) {
     const r = await RC.analyzePage(p.page, pdfjsLib, { cols: RS.cols, head: RS.head, tables: RS.tab, pics: RS.pic, side: RS.side, main: RS.main, heads: RS.heads }, repeat);
     words = r.words; scanned = r.scanned; extra = { blocks: r.blocks, skipped: r.skipped, sgroups: r.sgroups || [] };
   } else if (p.kind === 'txt') words = RC.textWords(p.lines);
+  if ((p.kind === 'pdf' || p.kind === 'cv') && fewWords(words)) {          // a scan or a photo: recognise the text
+    let items = null; try { items = await ocrItems(p); } catch (e) { items = null; }
+    if (items && items.length) {
+      const r = RC.analyze({ items, vpT: [1, 0, 0, 1, 0, 0], W: p.w, H: p.h, opt: { cols: RS.cols, head: RS.head, tables: false, pics: false, side: RS.side, main: false, heads: true } });
+      if (r.words.length) { words = r.words; scanned = false; extra = { blocks: r.blocks, skipped: r.skipped, sgroups: r.sgroups || [], ocr: true }; }
+    }
+  }
   const lines = {};
   for (const w of words) { const L = lines[w.si]; if (!L) lines[w.si] = { x0: w.x0, x1: w.x1, top: w.top, bottom: w.bottom }; else { L.x0 = Math.min(L.x0, w.x0); L.x1 = Math.max(L.x1, w.x1); L.top = Math.min(L.top, w.top); L.bottom = Math.max(L.bottom, w.bottom); } }
   return (p.read = Object.assign({ words, scanned, lines }, extra));
@@ -510,6 +550,7 @@ async function readFrom(p, wi, ov) {
     if (gen !== R.gen) return;
     if (!first && RS.follow) scrollToPage(page);
     if (RS.show && !page.wrap.querySelector('.lay')) drawLayout(page);
+    { const nx = pages[pages.indexOf(page) + 1]; if (nx && !nx.read) pageReadable(nx).catch(() => {}); }   // next page ready in time (scans take a moment)
     if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start, 0, RS.lang === 'auto' ? 'mix' : 'single'); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
     first = false; start = 0;
     let i = pages.indexOf(page);
@@ -574,7 +615,7 @@ view.addEventListener('pointerup', e => {
   if (dbl) {
     clearTimeout(tapTimer); lastUp.t = 0;
     if (R.on) { R.resumeAt = null; stopAll(); window.__dblStop = performance.now(); toast('Reading stopped', 1500); }
-    else if (e.target.closest && e.target.closest('.pg')) $('#pgs').click();          // double tap a page: back to the page thumbnails
+    else if (window.__fromGrid && e.target.closest && e.target.closest('.pg')) $('#pgs').click();   // opened from the thumbnails: double tap goes back there
     return;
   }
   if (!RS.tap) return;
@@ -737,6 +778,13 @@ window.__selfTest = async () => {
     await window.__pdfJob({ op: 'marks', src: nid, marks: { 2: [] }, mode: 'copyr', name: 'x' });
     y1 = await yellowOf(true); const rm2 = await window.__pdfJob({ op: 'readmarks', src: A.registerFile(r7.where) });
     log('erased after saving', y1.yellow < 80 && !(rm2.marks || {})['2'] && (rm2.marks || {})['3'] ? 'PASS' : 'FAIL', y1.yellow);
+    try {
+      const cv = document.createElement('canvas'); cv.width = 1400; cv.height = 420; const g = cv.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, 1400, 420); g.fillStyle = '#111'; g.font = '56px sans-serif';
+      g.fillText('भारत एक विशाल देश है', 60, 120); g.fillText('Health is wealth', 60, 240); g.fillText('डॉक्टर Doctor 25 mg', 60, 360);
+      const or = await ocrCall(cv.toDataURL('image/jpeg', 0.92)); const all = (or.lines || []).map(l => l.t).join(' | ');
+      log('text recognition', or.ok, all, /भारत/.test(all) && /Health/.test(all) ? 'PASS' : 'FAIL ' + (or.err || ''));
+    } catch (e) { log('text recognition FAILED', e.message); }
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
