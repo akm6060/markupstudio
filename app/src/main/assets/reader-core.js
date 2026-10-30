@@ -20,6 +20,71 @@ RC.wordLang = t => {
   return d > l ? 'hi' : l ? 'en' : d ? 'hi' : '';
 };
 
+/* ---- old Hindi fonts (Kruti Dev, DevLys…): the PDF holds English letters drawn as Hindi; turned into real Hindi ---- */
+const A = ["ñ","Q+Z","sas","aa",")Z","ZZ","‘","’","“","”",
+"å","ƒ","„","…","†","‡","ˆ","‰","Š","‹",
+"¶+","d+","[+k","[+","x+","T+","t+","M+","<+","Q+",";+","j+","u+",
+"Ùk","Ù","ä","–","—","é","™","=kk","f=k",
+"à","á","â","ã","ºz","º","í","{k","{","=","«",
+"Nî","Vî","Bî","Mî","<î","|","K","}",
+"J","Vª","Mª","<ªª","Nª","Ø","Ý","nzZ","æ","ç","Á","xz","#",":",
+"v‚","vks","vkS","vk","v","b±","Ã","bZ","b","m","Å",",s",",","_",
+"ô","d","Dk","D","[k","[","x","Xk","X","Ä","?k","?","³",
+"pkS","p","Pk","P","N","t","Tk","T",">","÷","¥",
+"ê","ë","V","B","ì","ï","M+","<+","M","<",".k",".",
+"r","Rk","R","Fk","F",")","n","/k","èk","/","Ë","è","u","Uk","U",
+"i","Ik","I","Q","¶","c","Ck","C","Hk","H","e","Ek","E",
+";","¸","j","y","Yk","Y","G","o","Ok","O",
+"'k","'","\"k","\"","l","Lk","L","g",
+"È","z",
+"Ì","Í","Î","Ï","Ñ","Ò","Ó","Ô","Ö","Ø","Ù","Ük","Ü",
+"‚","ks","kS","k","h","q","w","`","s","S",
+"a","¡","%","W","•","·","∙","·","~j","~","\\","+"," ः",
+"^","*","Þ","ß","(","¼","½","¿","À","¾","A","-","&","&","Œ","]","~ ","@"];
+const B = ["॰","QZ+","sa","a","र्द्ध","Z","\"","\"","'","'",
+"०","१","२","३","४","५","६","७","८","९",
+"फ़्","क़","ख़","ख़्","ग़","ज़्","ज़","ड़","ढ़","फ़","य़","ऱ","ऩ",
+"त्त","त्त्","क्त","दृ","कृ","न्न","न्न्","=k","f=",
+"ह्न","ह्य","हृ","ह्म","ह्र","ह्","द्द","क्ष","क्ष्","त्र","त्र्",
+"छ्य","ट्य","ठ्य","ड्य","ढ्य","द्य","ज्ञ","द्व",
+"श्र","ट्र","ड्र","ढ्र","छ्र","क्र","फ्र","र्द्र","द्र","प्र","प्र","ग्र","रु","रू",
+"ऑ","ओ","औ","आ","अ","ईं","ई","ई","इ","उ","ऊ","ऐ","ए","ऋ",
+"क्क","क","क","क्","ख","ख्","ग","ग","ग्","घ","घ","घ्","ङ",
+"चै","च","च","च्","छ","ज","ज","ज्","झ","झ्","ञ",
+"ट्ट","ट्ठ","ट","ठ","ड्ड","ड्ढ","ड़","ढ़","ड","ढ","ण","ण्",
+"त","त","त्","थ","थ्","द्ध","द","ध","ध","ध्","ध्","ध्","न","न","न्",
+"प","प","प्","फ","फ्","ब","ब","ब्","भ","भ्","म","म","म्",
+"य","य्","र","ल","ल","ल्","ळ","व","व","व्",
+"श","श्","ष","ष्","स","स","स्","ह",
+"ीं","्र",
+"द्द","ट्ट","ट्ठ","ड्ड","कृ","भ","्य","ड्ढ","झ्","क्र","त्त्","श","श्",
+"ॉ","ो","ौ","ा","ी","ु","ू","ृ","े","ै",
+"ं","ँ","ः","ॅ","ऽ","ऽ","ऽ","ऽ","्र","्","?","़",":",
+"‘","’","“","”",";","(",")","{","}","=","।",".","-","µ","॰",",","् ","/"];
+const MATRA = "ािीुूृेैोौंःँॅ";
+RC.kruti = function (t) {
+  if (!t) return t;
+  let s = t;
+  for (let i = 0; i < A.length; i++) if (A[i] && s.indexOf(A[i]) >= 0) s = s.split(A[i]).join(B[i]);
+  // ि ("f") is written before its consonant: put it after the consonant (and its half letters)
+  s = s.replace(/f((?:[क-हक़-य़]़?्)*[क-हक़-य़]़?)/g, '$1ि').replace(/f/g, 'ि');
+  // reph ("Z" = र्) is written after its syllable: put it before the syllable
+  s = s.replace(/((?:[क-हक़-य़]़?्)*[क-हक़-य़अ-औ]़?)([ा-ौँ-ःॅ]*)Z/g, 'र्$1$2');
+  s = s.replace(/Z/g, 'र्');
+  return s.replace(/\u093e\u0945/g, '\u0949');
+};
+RC.krutiFont = n => /kruti|devlys|dev ?lys|walkman|chanakya/i.test(n || '');
+const KDW = /^(gS|gSa|esa|dk|ds|dh|vkSj|;g|fd|us|Hkh|rFkk|dks|ls|ij|Fkk|Fks|tks|og|bl|mu|;s|vkfn|djuk|gksrk|gksrh|gksus)[,.A]?$/;
+/* items of a page with legacy-font text converted; nameOf(fontName) gives the font's real name when known */
+RC.fixItems = function (items, nameOf) {
+  const per = {};
+  for (const it of items) { if (!it || !it.str) continue; const f = per[it.fontName] || (per[it.fontName] = { w: 0, m: 0, d: 0 }); for (const w of it.str.split(/\s+/)) { if (!w) continue; f.w++; if (KDW.test(w)) f.m++; } if (/[\u0900-\u097f]/.test(it.str)) f.d++; }
+  const leg = new Set();
+  for (const fn in per) { const f = per[fn]; let nm = ''; try { nm = nameOf ? nameOf(fn) : ''; } catch (e) {} if ((RC.krutiFont(nm) && !f.d) || (!f.d && f.m >= 2 && f.m >= 0.08 * f.w)) leg.add(fn); }
+  if (!leg.size) return items;
+  return items.map(it => it && leg.has(it.fontName) && it.str ? Object.assign({}, it, { str: RC.kruti(it.str) }) : it);
+};
+
 /* ---- images from the operator list (view coordinates, y down) ---- */
 function walk(fn, args, OPS, cb) {
   let ctm = [1,0,0,1,0,0]; const st = [];
@@ -115,8 +180,13 @@ RC.buildParts = function (items, vpT) {
     const t = mul(vpT, it.transform), fs = Math.hypot(t[2], t[3]) || it.height || 10, hx = Math.hypot(t[0], t[1]);
     if (Math.abs(t[1]) > 0.25 * hx || t[0] < 0) continue;      // not horizontal on screen
     if (fs < 2.5) continue;
-    const w = it.width || 0, s = it.str;
-    if (!s.trim()) { parts.push({ s: ' ', x0: t[4], x1: t[4] + w, base: t[5], fs, sp: true }); continue; }
+    const w = it.width || 0;
+    /* Hindi: letters with no code (\0) are dropped; an ि stored before its consonant is put after it;
+       the "space" a PDF puts after a half letter (ending in ्) is not a space between words */
+    let s = it.str.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffd]/g, '');
+    if (/[\u0900-\u097f]/.test(s)) s = s.replace(/^(\s*)\u093f((?:[\u0915-\u0939\u0958-\u095f]\u093c?\u094d)*[\u0915-\u0939\u0958-\u095f]\u093c?)/, '$1$2\u093f');
+    if (!s) continue;
+    if (!s.trim()) { const prev = parts[parts.length - 1]; if (prev && !prev.sp && /\u094d$/.test(prev.s) && Math.abs(prev.base - t[5]) < 0.3 * fs) continue; parts.push({ s: ' ', x0: t[4], x1: t[4] + w, base: t[5], fs, sp: true }); continue; }
     if (s.length > 6 && /\S\s{3,}\S/.test(s)) {                  // one item holding two columns: split at wide spaces
       const cw = w / s.length, re = /\S+(?:\s{1,2}\S+)*/g; let m;
       while ((m = re.exec(s))) parts.push({ s: m[0], x0: t[4] + m.index * cw, x1: t[4] + (m.index + m[0].length) * cw, base: t[5], fs, fn: it.fontName });
@@ -137,7 +207,8 @@ RC.mergeParts = function (parts, cuts) {
     if (cur) {
       let li = cur.parts.length - 1; while (li > 0 && cur.parts[li].sp) li--;
       const last = cur.parts[cur.parts.length-1], solid = cur.parts[li], gap = p.x0 - last.x1, mf = Math.max(cur.size, p.fs);
-      if (Math.abs(p.base - cur.base) < 0.35 * mf && gap > -0.6 * mf && gap < 0.9 * mf && p.x0 - solid.x1 < 1.2 * mf && !crosses(solid.x1 - 0.5, p.x0 + 0.5)) { cur.parts.push(p); cur.size = Math.max(cur.size, p.fs); continue; }
+      const hal = /\u094d$/.test(last.s) ? 1.0 * mf : 0;            // after a Hindi half letter the next glyph sits up to a letter further
+      if (Math.abs(p.base - cur.base) < 0.35 * mf && gap > -0.6 * mf && gap < 0.9 * mf + hal && p.x0 - solid.x1 < 1.2 * mf + hal && !crosses(solid.x1 - 0.5, p.x0 + 0.5)) { cur.parts.push(p); cur.size = Math.max(cur.size, p.fs); continue; }
       fin();
     }
     if (p.sp) continue;
@@ -456,7 +527,7 @@ function segWords(seg) {
       if (!tok) tx0 = x; tok += ch; tx1 = x + cw;
     }
     const nx = seg.parts[pi + 1];
-    if (nx && nx.x0 - p.x1 > 0.15 * seg.size) end();
+    if (nx && nx.x0 - p.x1 > (/\u094d$/.test(p.s) ? 1.1 : 0.15) * seg.size) end();   // a Hindi half letter is followed by a gap inside the word
   });
   end(); return W;
 }
@@ -543,7 +614,7 @@ RC.analyzePage = async function (page, pdfjs, opt, repeat) {
     let n = fn; try { const f = page.commonObjs.get(fn); n = (f && (f.name || f.loadedName)) || fn; } catch (e) {}
     return (names[fn] = String(n).replace(/^[A-Z]{6}\+/, '').toLowerCase());
   };
-  return RC.analyze({ items: tc.items, fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjs.OPS, vpT: vp.transform, W: vp.width, H: vp.height, opt, px, fontKey, repeat });
+  return RC.analyze({ items: RC.fixItems(tc.items, fontKey), fnArray: ol && ol.fnArray, argsArray: ol && ol.argsArray, OPS: pdfjs.OPS, vpT: vp.transform, W: vp.width, H: vp.height, opt, px, fontKey, repeat });
 };
 /* short lines at the very top / bottom of a page, for spotting the book name or chapter repeated on every page */
 RC.bandKeys = async function (page) {

@@ -56,9 +56,12 @@ async function pageText(p) {
     const { pg, own } = await pdfPageFor(p);
     const tc = await pg.getTextContent(), vp = pg.getViewport({ scale: 1 });
     if (own) try { pg.cleanup(); } catch (e) {}
-    for (const it of tc.items) {
+    let prevHal = false;
+    for (const it of (RC && RC.fixItems ? RC.fixItems(tc.items) : tc.items)) {
       if (typeof it.str !== 'string') continue;
-      const t = pdfjsLib.Util.transform(vp.transform, it.transform), fs = Math.hypot(t[2], t[3]) || 10, s = (RC ? RC.fixDeva(it.str) : it.str).normalize('NFC');
+      if (prevHal && !it.str.trim()) { prevHal = false; continue; }       // Hindi: the "space" after a half letter is not a space
+      prevHal = /\u094d$/.test(it.str);
+      const t = pdfjsLib.Util.transform(vp.transform, it.transform), fs = Math.hypot(t[2], t[3]) || 10, s = (RC ? RC.fixDeva(it.str.replace(/[\u0000-\u001f\ufffd]/g, '').replace(/^(\s*)\u093f((?:[\u0915-\u0939\u0958-\u095f]\u093c?\u094d)*[\u0915-\u0939\u0958-\u095f]\u093c?)/, '$1$2\u093f')) : it.str).normalize('NFC');
       G.push({ x: t[4], y: t[5], fs, cw: (it.width || 0) / Math.max(1, s.length) });
       push(s, G.length - 1);
       if (it.hasEOL) push(' ', -1);
