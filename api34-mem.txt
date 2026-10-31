@@ -1,0 +1,57 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 329476 Realtime: 329476
+
+** MEMINFO in pid 3643 [com.markupstudio.reader] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    43807    43780        0       20    44988    72352    47680    20151
+  Dalvik Heap    60680    60628       36       83    61532    20140    10086    10054
+ Dalvik Other     3328     2932        0        2     4012                           
+        Stack     1740     1740        0        0     1744                           
+       Ashmem     3135      164        0        0     6684                           
+    Other dev      258      240       12        0      520                           
+     .so mmap    13969     1132    11020        2    50800                           
+    .jar mmap     1435        0      100        0    35332                           
+    .apk mmap    24775      428     7204        0    58856                           
+    .ttf mmap       50        0        0        0      416                           
+    .dex mmap     8061        8     8020        0     9000                           
+    .oat mmap      453        0        0        0    14496                           
+    .art mmap     1180      652       80      106    19060                           
+   Other mmap     1337        8      308        0     4300                           
+      Unknown    42718    42712        4        0    43036                           
+        TOTAL   207139   154424    26784      213   354776    92492    57766    30205
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    61360                          80592
+         Native Heap:    43780                          44988
+                Code:    27912                         169708
+               Stack:     1740                           1744
+            Graphics:        0                              0
+       Private Other:    46416
+              System:    25931
+             Unknown:                                   57744
+ 
+           TOTAL PSS:   207139            TOTAL RSS:   354776       TOTAL SWAP PSS:      213
+ 
+ Objects
+               Views:        5         ViewRootImpl:        1
+         AppContexts:        7           Activities:        1
+              Assets:       22        AssetManagers:        0
+       Local Binders:       56        Proxy Binders:       47
+       Parcel memory:       14         Parcel count:       58
+    Death Recipients:        3             WebViews:        1
+ 
+ SQL
+         MEMORY_USED:      129
+  PAGECACHE_OVERFLOW:       50          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b) cache hits cache misses cache size  Dbname
+PER CONNECTION STATS
+         4       40            116   184   101    15  /data/user/0/com.markupstudio.reader/databases/com.google.android.datatransport.events
+POOL STATS
+     cache hits  cache misses    cache size  Dbname
+            184           102           286  /data/user/0/com.markupstudio.reader/databases/com.google.android.datatransport.events

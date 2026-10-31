@@ -1,0 +1,30 @@
+total 3228
+-rwxrwx--- 1 u0_a185 media_rw  482778 2026-10-31 01:19 book-40pc.pdf
+-rwxrwx--- 1 u0_a185 media_rw  330128 2026-10-31 01:19 selftest-merged.pdf
+-rwxrwx--- 1 u0_a185 media_rw 1234639 2026-10-31 01:19 selftest-part01-of-02.pdf
+-rwxrwx--- 1 u0_a185 media_rw 1233792 2026-10-31 01:19 selftest-part02-of-02.pdf
+/sdcard/Android/data/com.markupstudio.reader/cache/books:
+total 24
+drwxrws--- 3 u0_a192 ext_data_rw 4096 2026-10-31 01:18 .
+drwxrws--- 3 u0_a192 ext_data_rw 4096 2026-10-31 01:18 ..
+drwxrws--- 2 u0_a192 ext_data_rw 4096 2026-10-31 01:18 054213d89ad0aa0d980b
+
+/sdcard/Android/data/com.markupstudio.reader/cache/books/054213d89ad0aa0d980b:
+total 80448
+drwxrws--- 2 u0_a192 ext_data_rw    4096 2026-10-31 01:18 .
+drwxrws--- 3 u0_a192 ext_data_rw    4096 2026-10-31 01:18 ..
+-rw-rw---- 1 u0_a192 ext_data_rw   21724 2026-10-31 01:18 info.json
+-rw-rw---- 1 u0_a192 ext_data_rw 6168179 2026-10-31 01:18 part-001.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168271 2026-10-31 01:18 part-002.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168346 2026-10-31 01:18 part-003.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168323 2026-10-31 01:18 part-004.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168378 2026-10-31 01:18 part-005.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168327 2026-10-31 01:18 part-006.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168507 2026-10-31 01:18 part-007.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168623 2026-10-31 01:18 part-008.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168698 2026-10-31 01:18 part-009.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168806 2026-10-31 01:18 part-010.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168717 2026-10-31 01:18 part-011.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168719 2026-10-31 01:18 part-012.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 6168711 2026-10-31 01:18 part-013.pdf
+-rw-rw---- 1 u0_a192 ext_data_rw 2056309 2026-10-31 01:18 part-014.pdf
