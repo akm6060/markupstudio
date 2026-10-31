@@ -65,6 +65,7 @@ window.__selfTest = async () => {
     log('text recognition', or.ok, all, /भारत/.test(all) && /Health/.test(all) ? 'PASS' : 'FAIL ' + (or.err || ''));
     /* scanned book -> searchable copy: invisible words on the original pages */
     const textIn = async (path, pn) => {
+      if (path[0] !== '/') path = '/storage/emulated/0/' + path;
       const ab = new Uint8Array(await (await fetchOk('/__file/' + A.registerFile(path))).arrayBuffer()), d = await pdfjsLib.getDocument({ data: ab }).promise;
       const pg = await d.getPage(pn), tc = await pg.getTextContent(), s = tc.items.map(i => i.str).join(' '), n = d.numPages, vp = pg.getViewport({ scale: .5 }), c = el('canvas');
       c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
@@ -86,7 +87,7 @@ window.__selfTest = async () => {
     A.typedBegin(); const tr = A.typedPage(JSON.stringify(tp)), te = JP(A.typedEnd(false), {});
     const r9 = await pdfJob({ op: 'merge', files: te.files || [], name: 'selftest-typed', deleteSources: true });
     const s9 = await textIn(r9.files[0], 1);
-    log('typed page', tr, 'pictures', tp.imgs.length, 'lines', tp.lines.length, /Health/.test(s9.s) ? 'PASS' : 'FAIL', 'picture kept', s9.blue > 2000 ? 'PASS' : 'FAIL', s9.blue, 'text:', s9.s.slice(0, 120));
+    log('typed page', tr, 'pictures', tp.imgs.length, 'lines', tp.lines.length, /Health/.test(s9.s) ? 'PASS' : 'FAIL', 'picture kept', s9.blue > 2000 ? 'PASS' : 'FAIL', s9.blue, 'text:', s9.s.slice(0, 160));
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };
