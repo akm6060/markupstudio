@@ -1,0 +1,6 @@
+total 3220
+-rwx------ 1 u0_a166 u0_a166  473579 2026-10-31 01:20 book-40pc.pdf
+-rwx------ 1 u0_a166 u0_a166  330128 2026-10-31 01:20 selftest-merged.pdf
+-rwx------ 1 u0_a166 u0_a166 1234639 2026-10-31 01:20 selftest-part01-of-02.pdf
+-rwx------ 1 u0_a166 u0_a166 1233792 2026-10-31 01:20 selftest-part02-of-02.pdf
+ls: /sdcard/Android/data/com.markupstudio.reader/cache/books/: Permission denied
