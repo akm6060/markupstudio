@@ -1,81 +1,16 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Markup Studio</title>
-<script src="native-pre.js"></script>
+<title>Markup Studio Fresh</title>
+<link rel="stylesheet" href="style.css">
+<script src="js/polyfills.js"></script>
 <script src="libs/pdf.min.js"></script>
-<script src="reader-core.js"></script>
-<script src="saver.js"></script>
-<style>
-:root{--bg:#ffffff;--bar:#fff;--fg:#1c1f24;--mut:#6b7280;--bd:#d9dde3;--ac:#2563eb;--ac2:#dbe7ff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--bar:#22252a;--fg:#e8eaed;--mut:#9aa1ab;--bd:#363a41;--ac:#6ea0ff;--ac2:#27374f}}
-:root[data-theme="dark"]{--bg:#15171a;--bar:#22252a;--fg:#e8eaed;--mut:#9aa1ab;--bd:#363a41;--ac:#6ea0ff;--ac2:#27374f}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font:14px system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;overflow:hidden}
-#bar,#gbar{background:var(--bar);border:1px solid var(--bd);border-radius:14px;margin:6px 8px 14px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:4px 8px;display:flex;flex-wrap:nowrap;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none}
-#bar{order:2}#bar::-webkit-scrollbar,#gbar::-webkit-scrollbar{display:none}#bar>*,#gbar>*{flex:none}
-.grp{display:flex;gap:4px;align-items:center}
-.sep{width:1px;height:20px;background:var(--bd)}
-button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--bd);border-radius:8px;padding:3px 8px;cursor:pointer;min-height:30px;white-space:nowrap}
-button:hover{background:var(--ac2)}
-button.on{background:var(--ac2);border-color:var(--ac);color:var(--ac);font-weight:600}
-.sw{width:20px;height:20px;border-radius:50%;padding:0;min-height:0;border:2px solid var(--bar);box-shadow:0 0 0 1px var(--bd)}
-.sw.on{box-shadow:0 0 0 2px var(--ac)}
-input[type=color]{width:26px;height:26px;padding:0;border:none;background:none;cursor:pointer}
-label{white-space:nowrap;font-size:12px;display:flex;gap:5px;align-items:center;color:var(--mut)}
-#info,#gcnt{color:var(--mut);font-size:12px;white-space:nowrap}
-#view{flex:1;overflow:auto;padding:14px 0 30px;-webkit-overflow-scrolling:touch}
-#pages{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:min-content}
-.pg{position:relative;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.28);outline:1px solid rgba(0,0,0,.08);flex:none}
-#pages{transform-origin:0 0;will-change:auto}
-#pbar{position:sticky;top:0;left:0;z-index:4;display:flex;gap:6px;align-items:center;margin:-14px 0 10px;padding:5px 8px;background:var(--bar);border-bottom:1px solid var(--bd);font-size:12px;color:var(--mut)}#pbar[hidden]{display:none}#pbar span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#pbar input{width:92px;font:inherit;padding:4px 6px;border:1px solid var(--bd);border-radius:7px;background:var(--bar);color:var(--fg)}
-.pg .pim{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}.pg::after{content:attr(data-n);position:absolute;right:6px;bottom:4px;font-size:11px;color:#9aa1ab;pointer-events:none}
-#pmsg{margin:12vh auto;max-width:340px;text-align:center;padding:26px;border:2px dashed var(--bd);border-radius:16px;color:var(--fg);line-height:1.5}#pmsg small,#pmsgp{color:var(--mut);font-size:13px}#pmsgp{margin-top:10px}
-.pnav{display:block;margin:6px auto;padding:12px 18px;font-size:14px;background:var(--ac2);border:1px solid var(--ac);color:var(--ac);border-radius:12px}
-#view{touch-action:pan-x pan-y}
-.szr{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--mut)}.szr .grp b{min-width:52px;text-align:center;color:var(--fg);font-size:15px}.szr button{min-width:40px;font-size:18px;padding:2px 10px}#eszi{font-size:12px;color:var(--mut);min-height:16px}
-.pg canvas{position:absolute;left:0;top:0}
-#empty{margin:12vh auto;text-align:center;max-width:360px;padding:30px;border:2px dashed var(--bd);border-radius:16px;color:var(--mut)}
-#empty button{margin-top:12px;background:var(--ac);color:#fff;border:none;padding:10px 18px}
-#grid{display:none;flex:1;flex-direction:column;min-height:0}
-body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid .mini,body.grid #pop{display:none!important}
-#gtop{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--bar);border-bottom:1px solid var(--bd)}#gtop b{font-size:15px}#gtop label{flex:1;justify-content:flex-end}#gtop input{width:42%;max-width:220px}
-#tgrid{position:relative;flex:1;overflow:auto;padding:8px;display:grid;grid-template-columns:repeat(var(--cols,4),minmax(0,1fr));gap:var(--gap,10px);align-content:start;touch-action:pan-y;-webkit-user-select:none;user-select:none}
-.th{position:relative;border-radius:6px;border:2px solid transparent;cursor:pointer;background:transparent;padding:2px}
-.th .tp{width:100%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);display:block;pointer-events:none}.th .tp:not([src]){background:#f1f3f5}
-.th.sel{border-color:var(--ac);background:var(--ac2)}
-.th.sel::after{content:"✓";position:absolute;top:2px;right:2px;background:var(--ac);color:#fff;border-radius:50%;width:16px;height:16px;font-size:11px;text-align:center;line-height:16px}
-.th span{display:block;text-align:center;font-size:11px;color:var(--mut);line-height:1.3;pointer-events:none}
-#tgrid.tiny .th span{display:none}#tgrid.tiny .th.sel::after{width:10px;height:10px;font-size:8px;line-height:10px}#tgrid.tiny .th{padding:0;border-width:1px}
-#pop{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;width:min(320px,92vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:8px;z-index:5}#pop[hidden]{display:none}
-#pop label{font-size:13px;justify-content:space-between}#pop input[type=range]{flex:1;width:auto}
-#pv{height:46px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;border:1px solid var(--bd)}#pv i{display:block;width:80%;border-radius:2px}
-#exp{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,92vw);background:var(--bar);border:1px solid var(--bd);border-radius:14px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:10px;z-index:9}#exp[hidden]{display:none}#exp label{font-size:13px;justify-content:space-between}#exp select{background:var(--bar);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:6px;font:inherit;min-width:55%}#est{font-size:12px;color:var(--mut);min-height:16px}
-#cm{position:fixed;left:50%;transform:translateX(-50%);bottom:72px;display:flex;gap:10px;padding:10px 12px;background:var(--bar);border:1px solid var(--bd);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.3);z-index:6}#cm[hidden]{display:none}#cm .sw{width:28px;height:28px}body.grid #cm{display:none!important}
-.pt{display:flex;justify-content:space-between;align-items:center}
-.oc{mix-blend-mode:multiply;pointer-events:none}.t-hl .pg{cursor:text;touch-action:none}.t-scroll .pg{cursor:grab}.t-pen .pg{cursor:crosshair;touch-action:none}.t-line .pg{cursor:crosshair;touch-action:none}.t-erase .pg{cursor:cell;touch-action:none}
-
-.txed{position:absolute;z-index:5;background:rgba(255,255,255,.35);border:0;outline:1.5px dashed #2563eb;outline-offset:2px;border-radius:3px;padding:0;margin:0;overflow:visible;white-space:pre;min-height:1em;line-height:1.3;font-family:sans-serif;caret-color:#2563eb;-webkit-user-select:text;user-select:text}.txed div{min-height:1em}
-.t-text .pg{cursor:text;touch-action:pan-x pan-y}
-#gend{display:none}body.gpick #gend{display:inline-block}body.gpick #tgrid .th:not(.sel){outline:1px dashed var(--ac)}
-
-.mini{order:2;display:flex;gap:4px;align-items:center;justify-content:space-between;margin:0 10px -8px;padding:3px 5px 11px;background:var(--bar);border:1px solid var(--bd);border-bottom:0;border-radius:12px 12px 0 0;box-shadow:0 -2px 10px rgba(0,0,0,.08);overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}.mini[hidden]{display:none}.mini::-webkit-scrollbar{display:none}.mini>*{flex:none}
-#sbar .seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}#sbar .seg button{border:0;border-radius:0;min-width:24px;min-height:26px;padding:0 6px;font-weight:700;font-size:13px}
-#sbar .grp{gap:3px}#sbar .sw{width:21px;height:21px}.mini .st{display:flex;align-items:center;gap:1px}.mini .st button{min-width:24px;min-height:26px;padding:0 4px;font-size:16px;line-height:1;border-radius:7px}
-.mini .st span{display:flex;flex-direction:column;align-items:center;min-width:34px;line-height:1.05}.mini .st b{font-size:12px}.mini .st i{font-style:normal;font-size:8.5px;color:var(--mut)}
-#ibar{justify-content:space-around}#ebar{justify-content:space-around}#ebar .seg button{font-weight:600;font-size:12px;padding:0 9px}#ercur{position:fixed;display:none;border:2px solid rgba(220,38,38,.85);border-radius:50%;background:rgba(220,38,38,.08);pointer-events:none;z-index:40}#ibar .st span{min-width:62px;cursor:pointer}
-#cm{bottom:118px;flex-direction:column;gap:8px;width:min(330px,94vw)}#cm .cmr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}#cm .cmr .sw{width:26px;height:26px}
-#cm .cms{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut)}#cm .cms span{width:52px}#cm .trk{flex:1;height:22px;border-radius:11px;position:relative;touch-action:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
-#cm .trk i{position:absolute;top:-3px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none}#cm .cmpv{height:22px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
-.pg canvas:not(.oc),.pg img.pim,#tgrid .tp{filter:var(--pf,none)}
-#ttx.txon{box-shadow:inset 0 -3px 0 var(--ac)}
-body.kbon #bar,body.kbon .mini{transform:translateY(calc(-1 * var(--kb,0px)))}body.kbon #cm,body.kbon .panel{margin-bottom:var(--kb,0px)}
-/* no text-selection pop-up menus when touching buttons, bars or labels */
-body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,textarea,select,.txed,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
-.th.sel{touch-action:none}.th.mv{opacity:.45}.th.dropb{box-shadow:-4px 0 0 var(--ac)}.th.dropa{box-shadow:4px 0 0 var(--ac)}
-</style></head>
+<script src="js/reader-core.js"></script>
+<script src="js/saver.js"></script>
+</head>
 <body class="t-scroll">
+
+<!-- slim bars above the toolbar -->
 <div id="sbar" class="mini" hidden>
  <div class="seg"><button id="stp" aria-label="Settings for pens">P</button><button id="stt" aria-label="Settings for text">T</button></div>
  <div class="grp" id="sdots"></div>
@@ -91,24 +26,43 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,
  <div class="st"><button id="icm" aria-label="Less contrast">−</button><span id="icr"><b id="icv">100%</b><i>Contrast</i></span><button id="icp" aria-label="More contrast">+</button></div>
  <div class="st"><button id="ism" aria-label="Less colour">−</button><span id="isr"><b id="isv">100%</b><i>Colour</i></span><button id="isp" aria-label="More colour">+</button></div>
 </div>
+
+<!-- main toolbar -->
 <div id="bar">
- <button id="pgs" title="Pages: reorder, delete, add">▦</button><button id="exbtn" title="Export">⬇</button>
+ <button id="ob" aria-label="Open a file">📂</button>
+ <button id="pgs" aria-label="Pages">▦</button>
+ <button id="exbtn" aria-label="Export">⬇</button>
+ <button id="pm" aria-label="This page">📄</button>
+ <button id="rd" aria-label="Read aloud">🔊</button>
+ <button id="sb" aria-label="Search">🔍</button>
  <div class="sep"></div>
  <div class="grp" id="tools">
-  <button data-t="scroll" class="on" title="Scroll / no drawing">✋</button>
-  <button data-t="pen" title="Freehand pen">✎</button>
-  <button data-t="line" title="Straight underline">⎯</button>
-  <button data-t="hl" title="Highlighter">🖍</button>
-  <button data-t="text" id="ttx" title="Text (long-press: font, size, colour)" aria-label="Text" style="font-weight:700;font-family:serif">T</button>
-  <button data-t="erase" title="Tap a mark to delete">⌫</button>
+  <button data-t="scroll" class="on" aria-label="Scroll">✋</button>
+  <button data-t="pen" aria-label="Pen">✎</button>
+  <button data-t="line" aria-label="Underline">⎯</button>
+  <button data-t="hl" aria-label="Highlighter">🖍</button>
+  <button data-t="text" id="ttx" aria-label="Text">T</button>
+  <button data-t="erase" aria-label="Eraser">⌫</button>
  </div>
  <div class="sep"></div>
- <button id="cfg" aria-label="Pen and text settings">⚙</button><button id="pic" aria-label="Picture: brightness, contrast, colour">☀</button>
+ <button id="cfg" aria-label="Pen and text settings">⚙</button>
+ <button id="pic" aria-label="Picture: brightness, contrast, colour">☀</button>
  <div class="sep"></div>
- <button id="undo" title="Undo">↶</button><button id="clr" title="Clear marks on page">🗑</button>
+ <button id="undo" aria-label="Undo">↶</button>
+ <button id="clr" aria-label="Clear marks on page">🗑</button>
+ <button id="mn" aria-label="Settings">⋮</button>
  <div id="info"></div>
 </div>
-<div id="view"><div id="empty"><div style="font-size:34px">📄</div><p>Open a file here, or use <b>Open with</b> / <b>Share</b> from any file manager. PDF, images, text, Word and Excel are supported. Files stay on your device.</p><button id="open2">Choose files</button></div><div id="pages"></div></div>
+
+<!-- the document -->
+<div id="view">
+ <div id="empty"><div style="font-size:34px">📄</div>
+  <p>Open a file here, or use <b>Open with</b> / <b>Share</b> from any file manager. PDF, scanned books, pictures, text, Word and Excel are supported. Files stay on your phone.</p>
+  <button id="open2">Choose files</button></div>
+ <div id="pages"></div>
+</div>
+
+<!-- page arranger -->
 <div id="grid">
  <div id="gtop"><b>Pages</b><span id="gcnt"></span><label>Size <input type="range" id="gsize" min="2" max="12" step="1"></label><button id="gdone" class="on">✓ Done</button></div>
  <div id="tgrid"></div>
@@ -117,34 +71,136 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,
   <button id="gup">↑ Move up</button><button id="gdn">↓ Move down</button><button id="gmv">⇢ Move to…</button><button id="gend">⤓ To the end</button><div class="sep"></div>
   <button id="gdup">⧉ Copy</button><button id="gdel">🗑 Delete</button><button id="gadd">＋ Blank</button><button id="gfile">📎 Add file</button><div class="sep"></div>
   <button id="gexp">⬇ Export</button>
- </div></div>
-<div id="pop" hidden>
- <div class="pt"><b id="pn">Pen</b><button id="px">✕</button></div>
- <label>Width <input type="range" id="w" min="1" max="40" value="3"><span id="wv">3</span></label>
- <label>Opacity <input type="range" id="o" min="10" max="100" value="100"><span id="ov">100%</span></label>
- <div id="pv"><i></i></div>
- <label id="sn" style="justify-content:flex-start"><input type="checkbox" id="snap" checked> Snap to words</label>
+ </div>
 </div>
-<div id="exp" hidden>
- <div class="pt"><b>Export</b><button id="ex">✕</button></div>
- <label>Pages <select id="escope"><option value="cur">Current page</option><option value="sel">Selected pages</option><option value="all">All pages</option><option value="range">Pages from … to …</option></select></label>
- <div class="szr" id="erng" style="display:none"><span>Pages</span><div class="grp"><input type="number" id="efrom" min="1" style="width:74px"> to <input type="number" id="eto" min="1" style="width:74px"></div></div>
- <label>Format <select id="efmt"><option value="pdf">PDF</option><option value="png">PNG image(s)</option><option value="jpg">JPG image(s)</option><option value="webp">WebP image(s)</option><option value="docx">Word (.docx)</option><option value="pptx">PowerPoint (.pptx)</option><option value="html">HTML page</option><option value="txt">Plain text (.txt)</option></select></label>
- <div class="szr" id="eszrow"><span>File size</span><div class="grp"><button id="esm" title="Smaller file">−</button><b id="esz">100%</b><button id="esp" title="Bigger file">+</button></div></div>
+
+<!-- 📄 this page -->
+<div id="pmp" class="panel" hidden>
+ <div class="row"><b id="pmt">Page</b><button id="pmx">✕</button></div>
+ <div class="row"><button class="big" id="pmup">↑ Move up</button><button class="big" id="pmdn">↓ Move down</button></div>
+ <div class="row"><button class="big" id="pmdup">⧉ Duplicate</button><button class="big" id="pmbl">＋ Blank page after</button></div>
+ <div class="row"><button class="big" id="pmdel">🗑 Delete page</button><button class="big" id="pmexp">⬇ Export page</button></div>
+ <div class="row"><button class="big" id="pmbm">🔖 Bookmark this page</button><button class="big" id="pmarr">▦ All pages</button></div>
+ <div class="row"><span>Move this page to</span><input type="number" id="pmmv" min="1" inputmode="numeric" enterkeyhint="done" placeholder="page no."></div>
+ <div class="row"><span>Go to page</span><input type="number" id="pmgo" min="1" inputmode="numeric" enterkeyhint="go"></div>
+ <h4>Bookmarks</h4><div id="pmbl2"></div>
+</div>
+
+<!-- 🔍 search -->
+<div id="sp" class="panel" hidden>
+ <div class="row"><b>Search</b><button id="spx">✕</button></div>
+ <div class="row"><span>Go to page</span><input type="number" id="sgp" min="1" inputmode="numeric" enterkeyhint="go" placeholder="number"></div>
+ <div class="row"><input type="search" id="sq" aria-label="Search words" placeholder="Word or phrase (Hindi or English)" enterkeyhint="search"><button id="sgo" class="on">Search</button></div>
+ <div class="row"><span>Where</span><select id="ssc"><option value="all">All pages</option><option value="chapter">This chapter</option><option value="topic">This topic</option><option value="range">Pages from … to …</option></select></div>
+ <div class="row" id="srng"><span>Pages</span><input type="number" id="sfrom" min="1"><span>to</span><input type="number" id="sto" min="1"></div>
+ <label><input type="checkbox" id="sww"> Whole word only</label>
+ <div id="sst"></div>
+ <div id="sres"></div>
+ <div class="nav"><button id="sprev" aria-label="Previous match">◀</button><span id="scnt"></span><button id="snext" aria-label="Next match">▶</button><button id="slist">☰ List</button></div>
+</div>
+
+<!-- 🔊 read aloud -->
+<div id="rp" class="panel" hidden>
+ <div class="row"><b>Read aloud</b><button id="rpx">✕</button></div>
+ <div class="row"><button class="big" id="rprev" aria-label="Previous page">⏮</button><button class="big on" id="rplay">▶ Read</button><button class="big" id="rnext" aria-label="Next page">⏭</button><button class="big" id="rstop" aria-label="Stop">⏹</button></div>
+ <div class="row"><span>Speed <b id="rrv">1.0×</b></span><input type="range" id="rrate" min="50" max="300" step="5"></div>
+ <div class="row"><span>Pitch <b id="rpv">1.0</b></span><input type="range" id="rpitch" min="50" max="200" step="5"></div>
+ <div class="row"><span>Language</span><select id="rlang"><option value="auto">Hindi + English mixed (both voices)</option><option value="en">English only</option><option value="hi">Hindi only</option></select></div>
+ <div class="row"><span>Speech engine</span><select id="reng"><option value="">Phone default</option></select></div>
+ <div class="row"><span>English voice</span><select id="rven"></select></div>
+ <div class="row"><span>Hindi voice</span><select id="rvhi"></select></div>
+ <div class="row"><span>Voices shown</span><select id="rvf"><option value="all">Online + offline</option><option value="off">Offline only</option><option value="on">Online only</option></select></div>
+ <div class="row"><button id="rtest">Test</button><button id="rinst">Voice data</button><button id="rtts">TTS settings</button></div>
+ <label><input type="checkbox" id="rmed"> Say short forms in full (mg → milligram, b.d. → twice daily, i.v. → intravenous, e.g. → for example…)</label>
+ <h4>My pronunciations <small>one per line: word = how to say it</small></h4>
+ <textarea id="rpron" rows="3" placeholder="HbA1c = H B A one C&#10;CKD = chronic kidney disease"></textarea>
+ <label><input type="checkbox" id="rfollow"> Scroll along while reading</label>
+ <label><input type="checkbox" id="rtap"> Tap a word or line to read from there</label>
+ <label><input type="checkbox" id="rawake"> Keep screen on</label>
+ <hr>
+ <h4>Page layout</h4>
+ <div class="row"><span>Columns</span><select id="rcols"><option value="auto">Find automatically</option><option value="1">1 column</option><option value="2">2 columns</option><option value="3">3 columns</option></select></div>
+ <label><input type="checkbox" id="rmain"> Read only the main story — skip boxes, coloured backgrounds, different fonts and colours</label>
+ <label><input type="checkbox" id="rheads"> Also read headings</label>
+ <label><input type="checkbox" id="rhead"> Skip book name, headers and page numbers</label>
+ <label><input type="checkbox" id="rtab"> Skip tables (also tables with only divider lines)</label>
+ <label><input type="checkbox" id="rpic"> Skip picture labels and notes below pictures</label>
+ <label><input type="checkbox" id="rside"> Skip side notes in the margins</label>
+ <label><input type="checkbox" id="rshow"> Show reading order on the page</label>
+ <small>Column 1 is read to its end, then column 2. Scanned pages and photos of text are read with the phone's own text recognition (Hindi and English, any font, no internet).</small>
+ <hr>
+ <div class="row"><b>Auto-scroll</b><button id="asbtn">▶ Start</button></div>
+ <div class="row"><span>Speed <b id="asv">40</b> px/s</span><input type="range" id="asr" min="5" max="300" step="5"></div>
+</div>
+
+<!-- ⋮ settings -->
+<div id="mp" class="panel" hidden>
+ <div class="row"><b>Settings</b><button id="mpx">✕</button></div>
+ <h4>Saving</h4>
+ <label><input type="radio" name="sm" value="original"> Save every change into the original file</label>
+ <label><input type="radio" name="sm" value="copy"> Keep the original unchanged — save into a copy (name + “-edited”)</label>
+ <small>Every mark, text and page change is saved by itself at once, also when the app is closed. Saved marks and text can still be erased later. Pictures, Word and text files are saved as a PDF copy.</small>
+ <hr>
+ <h4>Folders</h4>
+ <div class="row"><span>Edited copy goes to</span><select id="mcw"><option value="orig">Folder of the original</option><option value="dir">Folder I choose</option></select></div>
+ <div class="row" id="mcdr"><small id="mcdv"></small><button id="mcd">Choose</button></div>
+ <div class="row"><span>Exports go to</span><button id="med">Change</button></div><small id="medv"></small>
+ <hr>
+ <h4>Big books</h4>
+ <small id="mmem"></small>
+ <div class="row"><button class="big" id="mmerge">Join PDF files into one…</button></div>
+ <hr>
+ <div class="row"><span>Theme</span><select id="mth"><option value="light">White</option><option value="dark">Dark</option><option value="auto">Same as phone</option></select></div>
+ <label><input type="checkbox" id="mfs"> Full screen (hide status and navigation bars)</label>
+ <label><input type="checkbox" id="mres"> Reopen the last document on start</label>
+ <hr>
+ <h4>Storage access</h4>
+ <small id="mstore"></small>
+ <div class="row"><button class="big" id="mperm">Allow access to all files</button></div>
+ <div class="row"><button class="big" id="mbrowse">Browse all files</button></div>
+ <div class="row"><button class="big" id="mtree">Allow writing to SD card / USB</button></div>
+ <small>Android 11 and newer block the Android/data and Android/obb system folders for every app. Markup Studio appears in “Open with” and “Share” menus of file managers.</small>
+</div>
+
+<!-- ⬇ export -->
+<div id="exp" class="panel" hidden>
+ <div class="row"><b>Export</b><button id="ex">✕</button></div>
+ <div class="row"><span>Pages</span><select id="escope"><option value="cur">Current page</option><option value="sel">Selected pages</option><option value="all">All pages</option><option value="range">Pages from … to …</option></select></div>
+ <div class="row" id="erng"><span>Pages</span><input type="number" id="efrom" min="1"><span>to</span><input type="number" id="eto" min="1"></div>
+ <div class="row"><span>Format</span><select id="efmt"><option value="pdf">PDF</option><option value="png">PNG image(s)</option><option value="jpg">JPG image(s)</option><option value="webp">WebP image(s)</option><option value="docx">Word (.docx)</option><option value="pptx">PowerPoint (.pptx)</option><option value="html">HTML page</option><option value="txt">Plain text (.txt)</option></select></div>
+ <div class="szr" id="eszrow"><span>File size</span><div class="grp"><button id="esm" aria-label="Smaller file">−</button><b id="esz">100%</b><button id="esp" aria-label="Bigger file">+</button></div></div>
  <div id="eszi"></div>
  <div class="szr" id="eparts"><span>Save as</span><div class="grp"><select id="emode"><option value="1">One file</option><option value="n">Parts</option></select><button id="epm">−</button><b id="epn">10</b><button id="epp">+</button></div></div>
- <label id="espr">Speed <select id="espd"><option value="instant">Instant</option><option value="quickest">Quickest</option><option value="quick">Quick</option><option value="normal">Normal (best quality)</option></select></label>
+ <div class="row" id="espr"><span>Speed</span><select id="espd"><option value="instant">Instant</option><option value="quickest">Quickest</option><option value="quick">Quick</option><option value="normal">Normal (best quality)</option></select></div>
  <div id="est"></div><button id="ego" class="on">Export</button>
 </div>
-<input id="file" type="file" multiple hidden><input id="file2" type="file" multiple hidden>
+
+<!-- 📂 file browser -->
+<div id="fb" hidden>
+ <div id="fbh"><button id="fbx" aria-label="Close">✕</button><div id="fbt">Open a file</div><button id="fbu" aria-label="Up one folder">⬆</button><button id="fbs" aria-label="Sort">A–Z</button></div>
+ <div id="fbr"></div><div id="fbp"></div><div id="fbl"></div>
+ <div id="fbf"><button id="fball">Show all files</button><button id="fbsys">Other apps…</button><span style="flex:1"></span><button id="fbjoin" class="on" hidden>Join</button><button id="fbdef" hidden>Use default</button><button id="fbuse" class="on" hidden>✓ Use this folder</button></div>
+</div>
+
 <script>
 /* plain old JavaScript on purpose: tells the user what to do when the phone's WebView is too old */
 if (typeof pdfjsLib === 'undefined') {
-  document.body.innerHTML = '<div style="padding:28px 22px;font:17px/1.5 sans-serif;color:#222;background:#fff;height:100%">' +
-    '<b>Markup Studio needs an update of “Android System WebView”.</b><br><br>' +
+  document.body.innerHTML = '<div id="oldwv"><b>Markup Studio needs an update of “Android System WebView”.</b><br><br>' +
     'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open Markup Studio again.</div>';
 }
 </script>
-<script src="app.js"></script>
-<script src="native.js"></script>
-<script src="search.js"></script></body></html>
+<script src="js/base.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/marks.js"></script>
+<script src="js/text.js"></script>
+<script src="js/bars.js"></script>
+<script src="js/arranger.js"></script>
+<script src="js/open.js"></script>
+<script src="js/save.js"></script>
+<script src="js/export.js"></script>
+<script src="js/search.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/pagemenu.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/main.js"></script>
+</body></html>
