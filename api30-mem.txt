@@ -1,0 +1,54 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 355346 Realtime: 355346
+
+** MEMINFO in pid 4858 [com.markupstudio.fresh] **
+                   Pss  Private  Private     Swap      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap   119476   119412        0        0   121900   150208   132057    13679
+  Dalvik Heap    47858    47736        0        0    51808    13947     6974     6973
+ Dalvik Other     2904     2472        0        0     4056                           
+        Stack     1776     1776        0        0     1788                           
+       Ashmem     5084      160        0        0    10016                           
+    Other dev      160        0      160        0      388                           
+     .so mmap    15018     1116    11296        0    54972                           
+    .jar mmap     1321        0       68        0    24840                           
+    .apk mmap    39467      196    37728        0    64012                           
+    .ttf mmap       99        0       56        0      300                           
+    .dex mmap    10870       12    10856        0    10944                           
+    .oat mmap      958        0        0        0    15876                           
+    .art mmap     1884     1296        0        0    19960                           
+   Other mmap     1936       40     1832        0     3412                           
+      Unknown     1015     1008        0        0     1444                           
+        TOTAL   249826   175224    61996        0   249826   164155   139031    20652
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    49032                          71768
+         Native Heap:   119412                         121900
+                Code:    61356                         171868
+               Stack:     1776                           1788
+            Graphics:        0                              0
+       Private Other:     5644
+              System:    12606
+             Unknown:                                   18392
+ 
+           TOTAL PSS:   249826            TOTAL RSS:   385716      TOTAL SWAP (KB):        0
+ 
+ Objects
+               Views:        5         ViewRootImpl:        1
+         AppContexts:        5           Activities:        1
+              Assets:       14        AssetManagers:        0
+       Local Binders:       38        Proxy Binders:       37
+       Parcel memory:       13         Parcel count:       51
+    Death Recipients:        4      OpenSSL Sockets:        1
+            WebViews:        1
+ 
+ SQL
+         MEMORY_USED:      202
+  PAGECACHE_OVERFLOW:       50          MALLOC_SIZE:      117
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4       40            100     184/101/15  /data/user/0/com.markupstudio.fresh/databases/com.google.android.datatransport.events

@@ -1,0 +1,8 @@
+total 3544
+-rwx------ 1 u0_a162 u0_a162  473257 2026-10-31 05:32 book-40pc.pdf
+-rwx------ 1 u0_a162 u0_a162  330128 2026-10-31 05:32 selftest-merged.pdf
+-rwx------ 1 u0_a162 u0_a162 1234639 2026-10-31 05:32 selftest-part01-of-02.pdf
+-rwx------ 1 u0_a162 u0_a162 1233792 2026-10-31 05:32 selftest-part02-of-02.pdf
+-rwx------ 1 u0_a162 u0_a162   87760 2026-10-31 05:32 selftest-searchable.pdf
+-rwx------ 1 u0_a162 u0_a162  231174 2026-10-31 05:32 selftest-typed.pdf
+ls: /sdcard/Android/data/com.markupstudio.fresh/cache/books/: Permission denied
