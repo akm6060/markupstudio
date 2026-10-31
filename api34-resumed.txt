@@ -1,0 +1,1 @@
+    topResumedActivity=ActivityRecord{a3b772e u0 com.markupstudio.fresh/com.markupstudio.reader.MainActivity t8}
