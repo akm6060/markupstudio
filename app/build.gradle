@@ -10,8 +10,8 @@ android {
         applicationId "com.markupstudio.fresh"
         minSdk 21            // Android 5.0
         targetSdk 34         // runs on Android 5 … 16
-        versionCode 21
-        versionName "2.1"
+        versionCode 22
+        versionName "2.2"
     }
 
     buildTypes {

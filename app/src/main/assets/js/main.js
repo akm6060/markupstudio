@@ -11,6 +11,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) windo
 
 /* ---------- Back: closes what is open, one thing at a time ---------- */
 window.__back = () => {
+  if (SEL) { selClear(); return true; }
   if (!fb.hidden) { fbUp(true); return true; }
   if (!sp.hidden) { if (sp.classList.contains('mini2')) sp.classList.remove('mini2'); else { sp.hidden = true; clearSearch(); } return true; }
   if (PANELS.some(q => !$(q).hidden)) { closePanels(); return true; }
@@ -88,6 +89,8 @@ window.__selfTest = async () => {
     const r9 = await pdfJob({ op: 'merge', files: te.files || [], name: 'selftest-typed', deleteSources: true });
     const s9 = await textIn(r9.files[0], 1);
     log('typed page', tr, 'pictures', tp.imgs.length, 'lines', tp.lines.length, /Health/.test(s9.s) ? 'PASS' : 'FAIL', 'picture kept', s9.blue > 2000 ? 'PASS' : 'FAIL', s9.blue, 'text:', s9.s.slice(0, 160));
+    A.copyText('भारत Health 25 mg'); await sleep(400); const pt = A.pasteText();
+    log('clipboard copy/paste', pt === 'भारत Health 25 mg' ? 'PASS' : 'FAIL ' + pt);
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };

@@ -1701,6 +1701,38 @@ public class MainActivity extends Activity {
         }
 
         /** start a PDF tool job in the background; progress and result arrive through window.__job */
+        /* ---- clipboard for the long-press text menu ---- */
+        @JavascriptInterface
+        public boolean copyText(final String t) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    try {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        cm.setPrimaryClip(ClipData.newPlainText("Markup Studio", t));
+                    } catch (Exception ignored) { }
+                }
+            });
+            return true;
+        }
+
+        @JavascriptInterface
+        public String pasteText() {
+            final String[] out = {""};
+            final CountDownLatch done = new CountDownLatch(1);
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    try {
+                        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        ClipData c = cm.getPrimaryClip();
+                        if (c != null && c.getItemCount() > 0) { CharSequence t = c.getItemAt(0).coerceToText(MainActivity.this); if (t != null) out[0] = t.toString(); }
+                    } catch (Exception ignored) { }
+                    done.countDown();
+                }
+            });
+            try { done.await(2, TimeUnit.SECONDS); } catch (InterruptedException ignored) { }
+            return out[0];
+        }
+
         /* ---- a scanned book typed again, one page at a time (convert.js) ---- */
         private OcrPdf.Typed typed;
 

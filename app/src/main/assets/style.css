@@ -220,3 +220,13 @@ body.gpick #tgrid .th:not(.sel) { outline: 1px dashed var(--ac); }
 /* ---------- messages ---------- */
 #toast { position: fixed; left: 50%; bottom: 78px; transform: translateX(-50%); background: rgba(0,0,0,.82); color: #fff; padding: 8px 14px; border-radius: 18px; font-size: 13px; z-index: 30; max-width: 90vw; opacity: 0; transition: opacity .25s; pointer-events: none; text-align: center; }
 #oldwv { padding: 28px 22px; font: 17px/1.5 sans-serif; color: #222; background: #fff; height: 100%; }
+
+/* long-press text selection */
+.selhl { position: absolute; pointer-events: none; background: rgba(37,99,235,.28); border-radius: 2px; z-index: 4; }
+.selh { position: absolute; z-index: 5; width: 26px; height: 26px; margin-left: -13px; touch-action: none; }
+.selh::after { content: ''; position: absolute; left: 6px; top: 2px; width: 14px; height: 14px; background: #2563eb; border-radius: 0 50% 50% 50%; }
+.selh.e::after { border-radius: 50% 0 50% 50%; }
+#selm { position: fixed; z-index: 60; display: flex; gap: 2px; padding: 4px; background: var(--bar); color: var(--fg); border: 1px solid var(--bd); border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,.28); }
+#selm[hidden] { display: none; }
+#selm button { border: 0; background: transparent; color: inherit; font: 600 15px system-ui, sans-serif; padding: 9px 12px; border-radius: 9px; }
+#selm button:active { background: rgba(37,99,235,.15); }
