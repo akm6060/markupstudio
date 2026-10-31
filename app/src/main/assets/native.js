@@ -291,8 +291,13 @@ const rp = mk('div', { id: 'rp', className: 'panel', hidden: true }, `
  <div class="row"><button class="big" id="rprev" title="Previous page">⏮</button><button class="big on" id="rplay">▶ Read</button><button class="big" id="rnext" title="Next page">⏭</button><button class="big" id="rstop" title="Stop">⏹</button></div>
  <div class="row"><span>Speed <b id="rrv">1.0×</b></span><input type="range" id="rrate" min="50" max="300" step="5"></div>
  <div class="row"><span>Language</span><select id="rlang"><option value="auto">Hindi + English mixed (both voices)</option><option value="en">English only</option><option value="hi">Hindi only</option></select></div>
+ <div class="row"><span>Speech engine</span><select id="reng"><option value="">Phone default</option></select></div>
  <div class="row"><span>English voice</span><select id="rven"></select></div>
  <div class="row"><span>Hindi voice</span><select id="rvhi"></select></div>
+ <div class="row"><span>Pitch <b id="rpv">1.0</b></span><input type="range" id="rpitch" min="50" max="200" step="5"></div>
+ <label><input type="checkbox" id="rmed"> Say short forms in full (mg → milligram, b.d. → twice daily, i.v. → intravenous, e.g. → for example…)</label>
+ <div><b style="font-size:13px">My pronunciations</b> <small>one per line: word = how to say it</small></div>
+ <textarea id="rpron" rows="3" placeholder="HbA1c = H B A one C&#10;Dr = doctor&#10;CKD = chronic kidney disease" style="width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bar);color:var(--fg);resize:vertical"></textarea>
  <div class="row"><span>Voices shown</span><select id="rvf"><option value="all">Online + offline</option><option value="off">Offline only</option><option value="on">Online only</option></select></div>
  <div class="row"><button id="rtest">Test</button><button id="rinst">Voice data</button><button id="rtts">TTS settings</button></div>
  <label><input type="checkbox" id="rfollow"> Scroll along while reading</label>
@@ -350,14 +355,50 @@ $('#mperm').onclick = () => A.requestStorage(); $('#mtree').onclick = () => A.gr
 window.__nativeEvent = ev => { if (ev === 'storage') { if (!mp.hidden) refreshMenu(); if (!fb.hidden) fbGo(FB.path); } };
 
 /* ---------- reader state ---------- */
-const RS = Object.assign({ rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40, cols: 'auto', head: true, tab: true, pic: true, side: true, show: false, main: true, heads: false }, JP(pref('reader', '{}'), {}));
+const RS = Object.assign({ pitch: 1, med: true, pron: '', rate: 1, voiceEn: '', voiceHi: '', filter: 'all', lang: 'auto', follow: true, tap: true, awake: true, speed: 40, cols: 'auto', head: true, tab: true, pic: true, side: true, show: false, main: true, heads: false }, JP(pref('reader', '{}'), {}));
 const saveRS = () => A.setPref('reader', JSON.stringify(RS));
 const R = { on: false, gen: 0, page: null, rd: null, chunks: [], sent: 0, fin: 0, cur: -1, wi: 0, resolve: null, errs: 0, userUntil: 0, resumeAt: null, est: 0, sawRange: false };
 const AS = { on: false, last: 0, acc: 0, raf: 0, touching: false, resumeAt: 0 };
 let ttsReady = false, voices = [];
-window.__ttsReady = ok => { ttsReady = !!ok; if (ok) { voices = JP(A.ttsVoices(), []); fillVoices(); } else toast('No text-to-speech engine found. Install “Speech Services by Google”.', 5000); };
+window.__ttsReady = ok => { ttsReady = !!ok; if (ok) { voices = JP(A.ttsVoices(), []); fillVoices(); fillEngines(); } else toast('No text-to-speech engine found. Install “Speech Services by Google”.', 5000); };
 A.ttsInit();
 
+/* other speech engines (Google, Samsung, …) bring their own voices */
+function fillEngines() {
+  const sel = pq(rp, '#reng'); if (!A.ttsEngines) { sel.parentNode.style.display = 'none'; return; }
+  const l = JP(A.ttsEngines(), []), info = l.find(x => 'cur' in x) || {}, en = l.filter(x => x.n);
+  sel.innerHTML = ''; sel.appendChild(new Option('Phone default' + (info.cur ? ' (' + ((en.find(x => x.n === info.cur) || {}).l || info.cur) + ')' : ''), ''));
+  en.forEach(x => sel.appendChild(new Option(x.l || x.n, x.n))); sel.value = info.sel || '';
+}
+/* how words are said: short forms in full, and the user's own list; the highlight keeps following the words */
+const MED = { 'mg': 'milligram', 'mcg': 'microgram', 'µg': 'microgram', 'μg': 'microgram', 'ml': 'millilitre', 'kg': 'kilogram', 'iu': 'international units', 'mmhg': 'millimetres of mercury',
+  'mg/kg': 'milligram per kilogram', 'mg/dl': 'milligram per decilitre', 'mmol/l': 'millimoles per litre', 'mg/day': 'milligram per day', 'mcg/kg': 'microgram per kilogram',
+  'b.d.': 'twice daily', 'bd': 'twice daily', 'bid': 'twice daily', 'b.i.d.': 'twice daily', 't.d.s.': 'three times a day', 'tds': 'three times a day', 'tid': 'three times a day', 't.i.d.': 'three times a day',
+  'q.i.d.': 'four times a day', 'qid': 'four times a day', 'qds': 'four times a day', 'o.d.': 'once daily', 'h.s.': 'at bedtime', 'p.o.': 'by mouth', 'i.v.': 'intravenous', 'i.m.': 'intramuscular', 's.c.': 'subcutaneous',
+  's.o.s.': 'if needed', 'sos': 'if needed', 'prn': 'as needed', 'p.r.n.': 'as needed', 'stat': 'immediately', 'e.g.': 'for example', 'i.e.': 'that is', 'etc.': 'et cetera', 'vs': 'versus', 'vs.': 'versus',
+  'dr.': 'doctor', 'fig.': 'figure', 'approx.': 'approximately', '°c': 'degrees celsius', '%': 'percent', 'yrs': 'years', 'hrs': 'hours', 'wk': 'week', 'wks': 'weeks', 'no.': 'number' };
+let PRON = new Map();
+const parsePron = () => { PRON = new Map(); for (const l of String(RS.pron || '').split(/\n/)) { const m = l.split('='); if (m.length >= 2 && m[0].trim()) PRON.set(m[0].trim().toLowerCase(), m.slice(1).join('=').trim()); } };
+parsePron();
+function sayTok(tok) {
+  const m = tok.match(/^([("'“‘\[]*)(.*?)([)"'”’\],;:!?।]*)$/) || ['', '', tok, ''], pre = m[1], post = m[3]; let core = m[2]; const key = core.toLowerCase();
+  if (PRON.has(key)) return pre + PRON.get(key) + post;
+  if (PRON.has(key.replace(/\.$/, ''))) return pre + PRON.get(key.replace(/\.$/, '')) + '.' + post;
+  if (!RS.med) return tok;
+  if (MED[key]) return pre + MED[key] + post;
+  if (MED[key.replace(/\.$/, '')] && !/\.$/.test(key.replace(/\.$/, ''))) return pre + MED[key.replace(/\.$/, '')] + '.' + post;
+  let n = core.match(/^(\d+(?:[.,]\d+)?)(mg|mcg|µg|ml|kg|iu|mmhg|g|mg\/kg|mg\/dl|%|°c)(\.?)$/i);
+  if (n) return pre + n[1] + ' ' + (MED[n[2].toLowerCase()] || (n[2].toLowerCase() === 'g' ? 'gram' : n[2])) + n[3] + post;
+  return tok;
+}
+function sayAs(c) {
+  if (!RS.med && !PRON.size) return c;
+  let out = '', pos = 0; const map = [];
+  for (const m of c.map) { out += c.text.slice(pos, m.s); const say = sayTok(c.text.slice(m.s, m.e)), s0 = out.length; out += say; map.push(Object.assign({}, m, { s: s0, e: out.length })); pos = m.e; }
+  out += c.text.slice(pos);
+  return Object.assign({}, c, { text: out, map });
+}
+window.__sayAs = sayAs;
 function fillVoices() {
   const net = A.isOnline();
   const fill = (sel, lang, cur) => {
@@ -373,6 +414,7 @@ function fillVoices() {
 }
 function refreshReader() {
   pq(rp, '#rrate').value = Math.round(RS.rate * 100); pq(rp, '#rrv').textContent = RS.rate.toFixed(2).replace(/0$/, '') + '×';
+  pq(rp, '#rpitch').value = Math.round(RS.pitch * 100); pq(rp, '#rpv').textContent = RS.pitch.toFixed(2).replace(/0$/, ''); pq(rp, '#rmed').checked = RS.med; pq(rp, '#rpron').value = RS.pron || ''; if (ttsReady) fillEngines();
   pq(rp, '#rlang').value = RS.lang; pq(rp, '#rvf').value = RS.filter; pq(rp, '#rfollow').checked = RS.follow; pq(rp, '#rtap').checked = RS.tap; pq(rp, '#rawake').checked = RS.awake;
   pq(rp, '#asr').value = RS.speed; pq(rp, '#asv').textContent = RS.speed; if (ttsReady) fillVoices(); updUI();
   pq(rp, '#rcols').value = RS.cols; pq(rp, '#rhead').checked = RS.head; pq(rp, '#rtab').checked = RS.tab; pq(rp, '#rpic').checked = RS.pic; pq(rp, '#rside').checked = RS.side; pq(rp, '#rshow').checked = RS.show; pq(rp, '#rmain').checked = RS.main; pq(rp, '#rheads').checked = RS.heads;
@@ -384,6 +426,7 @@ rp.addEventListener('input', e => {
   const id = e.target.id;
   if (id === 'rrate') { RS.rate = e.target.value / 100; pq(rp, '#rrv').textContent = RS.rate.toFixed(2).replace(/0$/, '') + '×'; saveRS(); restartSoon(); }
   if (id === 'asr') { RS.speed = +e.target.value; pq(rp, '#asv').textContent = RS.speed; saveRS(); }
+  if (id === 'rpitch') { RS.pitch = e.target.value / 100; pq(rp, '#rpv').textContent = RS.pitch.toFixed(2).replace(/0$/, ''); saveRS(); restartSoon(); }
 });
 rp.addEventListener('change', e => {
   const id = e.target.id, v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -392,14 +435,17 @@ rp.addEventListener('change', e => {
   else if (id === 'rawake') { RS.awake = v; awake(R.on || AS.on); }
   else if (/^(rcols|rhead|rtab|rpic|rside|rmain|rheads)$/.test(id)) { RS[{ rcols: 'cols', rhead: 'head', rtab: 'tab', rpic: 'pic', rside: 'side', rmain: 'main', rheads: 'heads' }[id]] = v; pages.forEach(q => { q.read = null; }); layoutAll(); restartSoon(); }
   else if (id === 'rshow') { RS.show = v; layoutAll(); }
+  else if (id === 'rmed') { RS.med = v; restartSoon(); }
+  else if (id === 'rpron') { RS.pron = v; parsePron(); restartSoon(); }
+  else if (id === 'reng') { A.ttsSetEngine(v); ttsReady = false; RS.voiceEn = RS.voiceHi = ''; stopAll(); toast('Speech engine changed — choose its voices below', 3000); }
   else return;
   saveRS(); if (/^(rlang|rven|rvhi)$/.test(id)) restartSoon();
 });
 pq(rp, '#rinst').onclick = () => A.ttsInstallData(); pq(rp, '#rtts').onclick = () => A.ttsSettings();
 pq(rp, '#rtest').onclick = () => {
   if (!ttsReady) { toast('Speech engine is not ready'); return; }
-  A.ttsStop(); A.ttsSpeak('t:0', 'Hello, this is the English voice.', voiceFor('en'), 'en-IN', RS.rate, 1, true);
-  A.ttsSpeak('t:1', 'नमस्ते, यह हिंदी आवाज़ है।', voiceFor('hi'), 'hi-IN', RS.rate, 1, false);
+  A.ttsStop(); A.ttsSpeak('t:0', 'Hello, this is the English voice.', voiceFor('en'), 'en-IN', RS.rate, RS.pitch, true);
+  A.ttsSpeak('t:1', 'नमस्ते, यह हिंदी आवाज़ है।', voiceFor('hi'), 'hi-IN', RS.rate, RS.pitch, false);
 };
 const awake = on => A.keepAwake(!!on && RS.awake);
 
@@ -514,7 +560,7 @@ const langOf = c => RS.lang === 'auto' ? c.lang : RS.lang;
 function pump(gen) {
   while (gen === R.gen && R.sent < R.chunks.length && R.sent - R.fin < 2) {
     const i = R.sent++, c = R.chunks[i], lang = langOf(c);
-    const rc = A.ttsSpeak(gen + ':' + i, c.text, voiceFor(lang), lang === 'hi' ? 'hi-IN' : 'en-IN', RS.rate, 1, false);
+    const rc = A.ttsSpeak(gen + ':' + i, c.text, voiceFor(lang), lang === 'hi' ? 'hi-IN' : 'en-IN', RS.rate, RS.pitch, false);
     if (rc < 0) { toast(rc === -2 ? (lang === 'hi' ? 'Hindi voice data is not installed — tap “Voice data”.' : 'English voice data is missing.') : 'Speech engine error', 4500); stopAll(); return; }
   }
 }
@@ -551,7 +597,7 @@ async function readFrom(p, wi, ov) {
     if (!first && RS.follow) scrollToPage(page);
     if (RS.show && !page.wrap.querySelector('.lay')) drawLayout(page);
     { const nx = pages[pages.indexOf(page) + 1]; if (nx && !nx.read) pageReadable(nx).catch(() => {}); }   // next page ready in time (scans take a moment)
-    if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start, 0, RS.lang === 'auto' ? 'mix' : 'single'); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
+    if (rdp.words.length > start) { R.rd = rdp; R.chunks = RC.chunks(rdp.words, start, 0, RS.lang === 'auto' ? 'mix' : 'single').map(sayAs); spoke = true; await speakChunks(gen); if (gen !== R.gen) return; }
     first = false; start = 0;
     let i = pages.indexOf(page);
     if (i >= 0 && i + 1 >= pages.length && window.__book() && gen === R.gen) {          // big book: carry on into the next part

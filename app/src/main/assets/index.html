@@ -64,7 +64,7 @@ body.grid #grid{display:flex}body.grid #view,body.grid #bar,body.grid .mini,body
 #sbar .seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}#sbar .seg button{border:0;border-radius:0;min-width:24px;min-height:26px;padding:0 6px;font-weight:700;font-size:13px}
 #sbar .grp{gap:3px}#sbar .sw{width:21px;height:21px}.mini .st{display:flex;align-items:center;gap:1px}.mini .st button{min-width:24px;min-height:26px;padding:0 4px;font-size:16px;line-height:1;border-radius:7px}
 .mini .st span{display:flex;flex-direction:column;align-items:center;min-width:34px;line-height:1.05}.mini .st b{font-size:12px}.mini .st i{font-style:normal;font-size:8.5px;color:var(--mut)}
-#ibar{justify-content:space-around}#ibar .st span{min-width:62px;cursor:pointer}
+#ibar{justify-content:space-around}#ebar{justify-content:space-around}#ebar .seg button{font-weight:600;font-size:12px;padding:0 9px}#ercur{position:fixed;display:none;border:2px solid rgba(220,38,38,.85);border-radius:50%;background:rgba(220,38,38,.08);pointer-events:none;z-index:40}#ibar .st span{min-width:62px;cursor:pointer}
 #cm{bottom:118px;flex-direction:column;gap:8px;width:min(330px,94vw)}#cm .cmr{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}#cm .cmr .sw{width:26px;height:26px}
 #cm .cms{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mut)}#cm .cms span{width:52px}#cm .trk{flex:1;height:22px;border-radius:11px;position:relative;touch-action:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
 #cm .trk i{position:absolute;top:-3px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45);pointer-events:none}#cm .cmpv{height:22px;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
@@ -81,6 +81,10 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,
  <div class="grp" id="sdots"></div>
  <div class="st"><button id="ssm" aria-label="Smaller">−</button><span><b id="ssv">3</b><i id="ssl">Width</i></span><button id="ssp" aria-label="Bigger">+</button></div>
  <div class="st"><button id="som" aria-label="Less opaque">−</button><span><b id="sov">100%</b><i>Opacity</i></span><button id="sop" aria-label="More opaque">+</button></div>
+</div>
+<div id="ebar" class="mini" hidden>
+ <div class="seg"><button id="ems" aria-label="Erase whole stroke">✕ Whole stroke</button><button id="ema" aria-label="Erase only the area touched">◌ Area only</button></div>
+ <div class="st"><button id="ewm" aria-label="Thinner eraser">−</button><span><b id="ewv">20</b><i>Eraser size</i></span><button id="ewp" aria-label="Wider eraser">+</button></div>
 </div>
 <div id="ibar" class="mini" hidden>
  <div class="st"><button id="ibm" aria-label="Darker">−</button><span id="ibr"><b id="ibv">100%</b><i>Brightness</i></span><button id="ibp" aria-label="Brighter">+</button></div>

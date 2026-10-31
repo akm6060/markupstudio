@@ -1917,6 +1917,7 @@ public class MainActivity extends Activity {
             if (ttsReady) js("window.__ttsReady&&window.__ttsReady(true)");
             return;
         }
+        String eng = prefs.getString("p_ttsEngine", "");
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -1958,7 +1959,7 @@ public class MainActivity extends Activity {
                 }
                 js("window.__ttsReady&&window.__ttsReady(" + ttsReady + ")");
             }
-        });
+        }, eng.isEmpty() ? null : eng);
     }
 
     private void js(final String code) {
@@ -2448,6 +2449,31 @@ public class MainActivity extends Activity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    initTts();
+                }
+            });
+        }
+
+        /** the speech engines on the phone (Google, Samsung, …), each with its own voices */
+        @JavascriptInterface
+        public String ttsEngines() {
+            JSONArray arr = new JSONArray();
+            try {
+                if (tts != null) for (TextToSpeech.EngineInfo e : tts.getEngines()) arr.put(new JSONObject().put("n", e.name).put("l", e.label));
+                arr.put(new JSONObject().put("cur", tts != null ? tts.getDefaultEngine() : "").put("sel", prefs.getString("p_ttsEngine", "")));
+            } catch (Exception ignored) {
+            }
+            return arr.toString();
+        }
+
+        @JavascriptInterface
+        public void ttsSetEngine(final String name) {
+            prefs.edit().putString("p_ttsEngine", name == null ? "" : name).apply();
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    try { if (tts != null) { tts.stop(); tts.shutdown(); } } catch (Exception ignored) { }
+                    tts = null;
+                    ttsReady = false;
                     initTts();
                 }
             });

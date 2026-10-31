@@ -17,7 +17,26 @@ const saveTX=()=>lset('ms.tx',TX);
 let chosen=ls('ms.dots',null);if(!Array.isArray(chosen)||chosen.length!==4)chosen=SL.map(o=>o[0]);
 const S={pen:{w:3,a:1},line:{w:3,a:1},hl:{w:14,a:.4}};{const v=ls('ms.pens',null);if(v)for(const k in S)Object.assign(S[k],v[k]||{});color=ls('ms.pcol',color)}
 const savePens=()=>{lset('ms.pens',S);lset('ms.pcol',color)};
-let ptool='pen',target='p';
+let ptool='pen',target='p',erPrev=null,erLP=false;
+/* eraser: whole stroke, or only the area touched; width in screen pixels. Long-press ⌫ shows its bar */
+const ER=Object.assign({mode:'stroke',w:20},ls('ms.er',{}));
+function updEbar(){const b=$('#ebar');if(!b)return;$('#ems').classList.toggle('on',ER.mode==='stroke');$('#ema').classList.toggle('on',ER.mode==='area');$('#ewv').textContent=ER.w;lset('ms.er',ER)}
+let erDiv=null;function erCur(e){if(!e){if(erDiv)erDiv.style.display='none';return}if(!erDiv){erDiv=document.createElement('div');erDiv.id='ercur';document.body.appendChild(erDiv)}const d=ER.w;erDiv.style.cssText='display:block;width:'+d+'px;height:'+d+'px;left:'+(e.clientX-d/2)+'px;top:'+(e.clientY-d/2)+'px'}
+/* the part of a mark under the eraser circle (c, radius r, page units) taken out; returns the mark itself if untouched */
+function cutStroke(s,c,r){
+ if(s.t==='tx')return dist(c,s)<=0?[]:s;
+ if(s.t==='wu'||s.t==='hl'){const segs=[];let hit=false,rr=s.t==='wu'?r+s.w/2:r;
+  for(const g of s.segs){const y0=s.t==='wu'?g[2]:g[1],y1=s.t==='wu'?g[2]:g[3],x0=g[0],x1=s.t==='wu'?g[1]:g[2];
+   const dy=c[1]<y0?y0-c[1]:c[1]>y1?c[1]-y1:0;if(dy>=rr||c[0]+rr<x0||c[0]-rr>x1){segs.push(g);continue}
+   const dx=Math.sqrt(rr*rr-dy*dy),a=c[0]-dx,b=c[0]+dx;if(b<=x0||a>=x1){segs.push(g);continue}hit=true;
+   const mk=(u,v)=>s.t==='wu'?[u,v,g[2]]:[u,g[1],v,g[3]];if(a-x0>.8)segs.push(mk(x0,a));if(x1-b>.8)segs.push(mk(b,x1))}
+  return hit?(segs.length?[Object.assign({},s,{segs})]:[]):s}
+ const q=s.p;if(!q||!q.length)return s;const rr=r+(s.w||2)/2,inC=pt=>Math.hypot(pt[0]-c[0],pt[1]-c[1])<rr;
+ if(q.length===1)return inC(q[0])?[]:s;
+ const P=[q[0]];for(let i=1;i<q.length;i++){const a=q[i-1],b=q[i],L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.ceil(L/Math.max(.5,r/3));for(let k=1;k<=n;k++)P.push([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n])}
+ if(!P.some(inC))return s;
+ const out=[];let run=[];const flush=()=>{if(run.length>=2)out.push(Object.assign({},s,{p:s.t==='line'?[run[0],run[run.length-1]]:run}));run=[]};
+ for(const pt of P){if(inC(pt))flush();else run.push(pt)}flush();return out}
 const sbar=$('#sbar'),sdots=$('#sdots'),penT=()=>S[tool]?tool:ptool;
 const cm=document.createElement('div');cm.id='cm';cm.hidden=true;document.body.appendChild(cm);
 function updBar(){const isT=target==='t',pt=S[penT()],col=isT?TX.c:color;
@@ -54,16 +73,16 @@ function sizeStep(d){if(target==='t'){TX.sz=clampN(TX.sz+(d*(TX.sz+d>=20?2:1)),4
 function opac(d){if(target==='t'){TX.a=clampN(Math.round(((TX.a==null?1:TX.a)+d*.1)*10)/10,.1,1);txApply('a')}else{const pt=S[penT()];pt.a=clampN(Math.round((pt.a+d*.1)*10)/10,.1,1);savePens()}updBar()}
 $('#ssm').onclick=()=>sizeStep(-1);$('#ssp').onclick=()=>sizeStep(1);$('#som').onclick=()=>opac(-1);$('#sop').onclick=()=>opac(1);
 $('#stp').onclick=()=>{target='p';updBar()};$('#stt').onclick=()=>{target='t';updBar()};
-function openBar(t){sbar.hidden=false;const ib=$('#ibar');if(ib&&!ib.hidden){ib.hidden=true;$('#pic').classList.toggle('on',(document.body.style.getPropertyValue('--pf')||'none')!=='none')}target=t||((tool==='text'||(typeof ED!=='undefined'&&ED))?'t':'p');cm.hidden=true;updBar()}
+function openBar(t){sbar.hidden=false;{const e2=$('#ebar');if(e2)e2.hidden=true}const ib=$('#ibar');if(ib&&!ib.hidden){ib.hidden=true;$('#pic').classList.toggle('on',(document.body.style.getPropertyValue('--pf')||'none')!=='none')}target=t||((tool==='text'||(typeof ED!=='undefined'&&ED))?'t':'p');cm.hidden=true;updBar()}
 $('#cfg').onclick=()=>{if(sbar.hidden)openBar();else{sbar.hidden=true;cm.hidden=true;updBar()}};
 /* tapping the bars never takes the cursor out of a text box (the keyboard stays) */
 ['#bar','#sbar'].forEach(q=>$(q).addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED&&!(e.target.closest&&e.target.closest('input,select,textarea')))e.preventDefault()}));
 cm.addEventListener('pointerdown',e=>{if(typeof ED!=='undefined'&&ED)e.preventDefault()});
-function setTool(t){if(t==='scroll'&&typeof txClose==='function')txClose();tool=t;if(S[t])ptool=t;if(!sbar.hidden)target=t==='text'?'t':S[t]?'p':target;
+function setTool(t){if(t==='scroll'&&typeof txClose==='function')txClose();if(t==='erase'&&tool!=='erase')erPrev=tool;else if(t!=='erase')erPrev=null;tool=t;if(S[t])ptool=t;if(!sbar.hidden)target=t==='text'?'t':S[t]?'p':target;
  [...$('#tools').children].forEach(x=>x.classList.toggle('on',x.dataset.t===t));document.body.classList.forEach(c=>{if(c.startsWith('t-'))document.body.classList.remove(c)});document.body.classList.add('t-'+t);pages.forEach(p=>p.cancel&&p.cancel());updBar();txMark()}
 function txMark(){const b=$('#ttx');if(b)b.classList.toggle('txon',typeof ED!=='undefined'&&!!ED&&tool!=='text')}
 window.__setTool=setTool;
-$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b||b.id==='ttx')return;setTool(b.dataset.t)};
+$('#tools').onclick=e=>{const b=e.target.closest('button');if(!b||b.id==='ttx')return;if(b.dataset.t==='erase'&&erLP){erLP=false;return}setTool(b.dataset.t)};
 updBar();
 
 /* ---------- file ingestion ---------- */
@@ -227,7 +246,11 @@ function build(c,p){
 function bind(p){
  const oc=p.wrap;let cur=null;p.cancel=()=>{if(cur&&cur!=='erase'){cur=null;redraw(p)}else cur=null};
  const pt=e=>{const r=oc.getBoundingClientRect();return[(e.clientX-r.left)/scale,(e.clientY-r.top)/scale]};
- const erase=e=>{const x=pt(e);for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(ED&&ED.s===s)continue;if(dist(x,s)<=(s.t==='tx'?0:s.w/2)+6/scale){p.strokes.splice(i,1);undo.push({k:'del',p,s,i});edited(p);redraw(p);break}}};
+ let erSnap=null;
+ const erase=e=>{const x=pt(e),r=ER.w/2/scale;erCur(e);
+  if(ER.mode==='stroke'){for(let i=p.strokes.length-1;i>=0;i--){const s=p.strokes[i];if(ED&&ED.s===s)continue;if(dist(x,s)<=(s.t==='tx'?0:s.w/2)+r){p.strokes.splice(i,1);undo.push({k:'del',p,s,i});edited(p);redraw(p);break}}return}
+  let ch=false;const out=[];for(const s of p.strokes){if(ED&&ED.s===s){out.push(s);continue}const res=cutStroke(s,x,r);if(res===s)out.push(s);else{ch=true;out.push(...res)}}
+  if(ch){if(!erSnap)erSnap=p.strokes.slice();p.strokes.splice(0,p.strokes.length,...out);edited(p);redraw(p)}};
  oc.onpointerdown=e=>{
   if(tool==='text'){if(e.isPrimary&&!(e.target&&e.target.classList&&e.target.classList.contains('txed')))txDown={p,x:e.clientX,y:e.clientY,pt:pt(e)};return}
   if(tool==='scroll'||PZ.on||!e.isPrimary)return;e.preventDefault();oc.setPointerCapture(e.pointerId);
@@ -240,13 +263,15 @@ function bind(p){
   const x=pt(e);if(cur.t==='line')cur.p[1]=x;else cur.p.push(x);
   redraw(p,build(cur,p));
  };
- const end=()=>{if(cur&&cur!=='erase'){const s=build(cur,p),ok=s.t!=='line'||Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1])>2;if(ok){p.strokes.push(s);undo.push({k:'add',p,s});edited(p)}redraw(p)}cur=null};
+ const end=()=>{if(cur==='erase'){erCur(null);if(erSnap){undo.push({k:'rep',p,before:erSnap});erSnap=null}cur=null;if(erPrev&&erPrev!=='erase'){const t=erPrev;erPrev=null;setTool(t)}return}
+  if(cur&&cur!=='erase'){const s=build(cur,p),ok=s.t!=='line'||Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1])>2;if(ok){p.strokes.push(s);undo.push({k:'add',p,s});edited(p)}redraw(p)}cur=null};
  oc.onpointerup=e=>{if(tool==='text'){const d=txDown;txDown=null;if(d&&d.p===p&&Math.hypot(e.clientX-d.x,e.clientY-d.y)<12)txTap(p,d.pt);return}end()};oc.onpointercancel=()=>{txDown=null;end()};
 }
 $('#undo').onclick=doUndo;
 function doUndo(){txClose();const a=undo.pop();if(!a)return;
  if(a.k==='pages'){const keep=new Set(a.before);for(const p of pages)if(!keep.has(p))rm(p);const had=new Set(pages);for(const p of a.before)if(!had.has(p))io.observe(p.wrap);pages=a.before;reorderDOM();syncEmpty();changed(true);if(inGrid())buildGrid();upd();settle(0);return}
  if(!pages.includes(a.p)){doUndo();return}
+ if(a.k==='rep'){a.p.strokes.splice(0,a.p.strokes.length,...a.before);edited(a.p);redraw(a.p);return}
  if(a.k==='add'){const i=a.p.strokes.indexOf(a.s);if(i>-1)a.p.strokes.splice(i,1)}else if(a.k==='tx'){restoreTx(a.s,a.before);if(a.p.strokes.indexOf(a.s)<0)a.p.strokes.push(a.s)}else a.p.strokes.splice(a.i,0,a.s);edited(a.p);redraw(a.p)}
 /* a page's marks changed: saved by itself a moment later */
 function edited(p){p.ver=(p.ver||0)+1;p.tstale=true;setDirty()}
@@ -768,3 +793,12 @@ document.addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.clos
  $('#pic').onclick=()=>{ib.hidden=!ib.hidden;if(!ib.hidden){sbar.hidden=true;cm.hidden=true;updBar()}apply()};
  const oc=$('#cfg').onclick;$('#cfg').onclick=()=>{ib.hidden=true;oc();apply()};
  apply()})();
+
+/* eraser bar: long-press ⌫ */
+(function(){const eb=document.querySelector('[data-t=erase]'),bar=$('#ebar');let lt=0;
+ eb.addEventListener('pointerdown',()=>{erLP=false;clearTimeout(lt);lt=setTimeout(()=>{erLP=true;const open=bar.hidden;document.querySelectorAll('.mini').forEach(m=>m.hidden=true);bar.hidden=!open;if(open){setTool('erase');updEbar()}$('#pic').classList.toggle('on',(document.body.style.getPropertyValue('--pf')||'none')!=='none');$('#cfg').classList.toggle('on',!$('#sbar').hidden)},480)});
+ ['pointerup','pointercancel','pointerleave'].forEach(n=>eb.addEventListener(n,()=>clearTimeout(lt)));
+ $('#ems').onclick=()=>{ER.mode='stroke';updEbar()};$('#ema').onclick=()=>{ER.mode='area';updEbar()};
+ $('#ewm').onclick=()=>{ER.w=clampN(ER.w-(ER.w>24?8:4),6,96);updEbar()};$('#ewp').onclick=()=>{ER.w=clampN(ER.w+(ER.w>=24?8:4),6,96);updEbar()};
+ ['#cfg','#pic'].forEach(q=>$(q).addEventListener('click',()=>{bar.hidden=true}));
+ updEbar()})();

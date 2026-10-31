@@ -150,11 +150,11 @@ async function scopeRange() {
 /* ---------- highlights ---------- */
 function clearHits(p) { p.wrap.querySelectorAll('.sh').forEach(e => e.remove()); }
 function drawHits(p) {
-  clearHits(p); const r = p.rec || p; if (!r.smatch || !p.w) return;
+  clearHits(p); const r = p.smatch ? p : (p.rec || p); if (!r.smatch || !p.w) return;
   const cur = S.flat[S.cur];
   r.smatch.forEach((m, k) => {
     for (const b of m.boxes) {
-      const d = el('div', { className: 'sh' + (cur && cur.p === r && cur.k === k ? ' cur' : '') });
+      const d = el('div', { className: 'sh' + (cur && (cur.p === r || cur.p === p) && cur.k === k ? ' cur' : '') });
       d.style.cssText = `left:${(b.x0 - 1) / p.w * 100}%;top:${(b.top - 1) / p.h * 100}%;width:${(b.x1 - b.x0 + 2) / p.w * 100}%;height:${(b.bottom - b.top + 2) / p.h * 100}%`;
       p.wrap.appendChild(d);
     }
@@ -162,7 +162,7 @@ function drawHits(p) {
 }
 function clearAll() { S.gen++; allP().forEach(p => { p.smatch = null; }); pages.forEach(p => { if (p.rec) p.rec.smatch = null; p.smatch = null; clearHits(p); }); S.res = []; S.flat = []; S.cur = -1; $('#sres').innerHTML = ''; $('#sst').textContent = ''; updNav(); }
 function updNav() { $('#scnt').textContent = S.flat.length ? `${S.cur + 1} / ${S.flat.length}` + (S.running ? '…' : '') : (S.running ? 'searching…' : 'no matches'); }
-const shown = r => pages.find(q => (q.rec || q) === r);
+const shown = r => pages.find(q => q === r || q.rec === r);
 async function goTo(i) {
   if (!S.flat.length) return;
   i = (i + S.flat.length) % S.flat.length;
@@ -223,7 +223,7 @@ async function run() {
 /* highlights for pages that come into view */
 let st; view.addEventListener('scroll', () => {
   if (!S.flat.length) return; clearTimeout(st);
-  st = setTimeout(() => { const vr = view.getBoundingClientRect(); for (const q of pages) { if (!(q.rec || q).smatch) continue; const pr = q.wrap.getBoundingClientRect(); if (pr.bottom > vr.top - 600 && pr.top < vr.bottom + 600 && !q.wrap.querySelector('.sh')) drawHits(q); } }, 200);
+  st = setTimeout(() => { const vr = view.getBoundingClientRect(); for (const q of pages) { if (!(q.smatch || (q.rec && q.rec.smatch))) continue; const pr = q.wrap.getBoundingClientRect(); if (pr.bottom > vr.top - 600 && pr.top < vr.bottom + 600 && !q.wrap.querySelector('.sh')) drawHits(q); } }, 200);
 }, { passive: true });
 
 /* ---------- panel ---------- */
@@ -248,7 +248,7 @@ const prevDoc = window.__docChanged;
 window.__docChanged = function (fresh, added) { if (fresh) { S.res = []; S.flat = []; S.cur = -1; outlineDoc = null; outline = null; $('#sres').innerHTML = ''; $('#sst').textContent = ''; updNav(); } if (prevDoc) prevDoc(fresh, added); };
 /* another part of a big book is shown: put the highlights back on its pages */
 const prevPart = window.__partChanged;
-window.__partChanged = function () { if (S.flat.length) setTimeout(() => pages.forEach(q => { if ((q.rec || q).smatch) drawHits(q); }), 50); if (prevPart) prevPart(); };
+window.__partChanged = function () { if (S.flat.length) setTimeout(() => pages.forEach(q => { if (q.smatch || (q.rec && q.rec.smatch)) drawHits(q); }), 50); if (prevPart) prevPart(); };
 /* every icon button gets a spoken name (TalkBack, and the automatic tests) */
 setTimeout(() => document.querySelectorAll('button[title]').forEach(b => { if (!b.getAttribute('aria-label')) b.setAttribute('aria-label', b.title); }), 0);
 $('#sq').setAttribute('aria-label', 'Search words');
