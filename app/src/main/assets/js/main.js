@@ -63,6 +63,30 @@ window.__selfTest = async () => {
     g.fillText('भारत एक विशाल देश है', 60, 120); g.fillText('Health is wealth', 60, 240); g.fillText('डॉक्टर Doctor 25 mg', 60, 360);
     const or = await ocrCall(cv.toDataURL('image/jpeg', .92)), all = (or.lines || []).map(l => l.t).join(' | ');
     log('text recognition', or.ok, all, /भारत/.test(all) && /Health/.test(all) ? 'PASS' : 'FAIL ' + (or.err || ''));
+    /* scanned book -> searchable copy: invisible words on the original pages */
+    const textIn = async (path, pn) => {
+      const ab = new Uint8Array(await (await fetchOk('/__file/' + A.registerFile(path))).arrayBuffer()), d = await pdfjsLib.getDocument({ data: ab }).promise;
+      const pg = await d.getPage(pn), tc = await pg.getTextContent(), s = tc.items.map(i => i.str).join(' '), n = d.numPages, vp = pg.getViewport({ scale: .5 }), c = el('canvas');
+      c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      await pg.render({ canvasContext: x, viewport: vp }).promise; const px = x.getImageData(0, 0, c.width, c.height).data; let blue = 0, dark = 0;
+      for (let i = 0; i < px.length; i += 4) { if (px[i + 2] > 150 && px[i] < 90) blue++; if (px[i] < 100 && px[i + 1] < 100 && px[i + 2] < 100) dark++; }
+      await d.destroy(); return { s, n, blue, dark };
+    };
+    const wj = await saveBlob(new Blob([JSON.stringify({ 1: [[60, 120, 200, 14, 'भारत'], [210, 120, 320, 14, 'Health']] })]), 'temp', 'ocr.json', 0);
+    const r8 = await pdfJob({ op: 'ocrpdf', src: nid, pages: [1, 2], words: wj.where, marks: {}, name: 'selftest-searchable' });
+    const s8 = await textIn(r8.files[0], 1);
+    log('searchable copy', r8.ok, r8.words, 'words, pages', s8.n, /भारत/.test(s8.s) && /Health/.test(s8.s) ? 'PASS' : 'FAIL ' + s8.s.slice(-80));
+    /* scanned page -> typed page with its picture */
+    const sc = el('canvas'); sc.width = 1240; sc.height = 1754; const h = sc.getContext('2d');
+    h.fillStyle = '#f3eedf'; h.fillRect(0, 0, 1240, 1754); h.fillStyle = '#1a1a1a'; h.font = '44px sans-serif';
+    ['भारत एक विशाल देश है', 'Health is wealth', 'डॉक्टर Doctor 25 mg'].forEach((t, i) => h.fillText(t, 90, 160 + i * 80));
+    h.fillStyle = '#1e40af'; h.fillRect(300, 600, 600, 400); h.fillStyle = '#facc15'; h.beginPath(); h.arc(600, 800, 120, 0, 7); h.fill();
+    h.fillStyle = '#1a1a1a'; h.fillText('Last line under the picture', 90, 1200);
+    const fp = { w: 595, h: 842 }, ln = await recognise(sc), tp = typedPage(fp, sc, ln);
+    A.typedBegin(); const tr = A.typedPage(JSON.stringify(tp)), te = JP(A.typedEnd(false), {});
+    const r9 = await pdfJob({ op: 'merge', files: te.files || [], name: 'selftest-typed', deleteSources: true });
+    const s9 = await textIn(r9.files[0], 1);
+    log('typed page', tr, 'pictures', tp.imgs.length, 'lines', tp.lines.length, /Health/.test(s9.s) ? 'PASS' : 'FAIL', 'picture kept', s9.blue > 2000 ? 'PASS' : 'FAIL', s9.blue, 'text:', s9.s.slice(0, 120));
     log('ALL DONE');
   } catch (e) { log('FAILED', e && e.message || String(e)); }
 };

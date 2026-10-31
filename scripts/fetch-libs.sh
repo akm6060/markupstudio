@@ -22,3 +22,7 @@ cp "$N/xlsx/dist/xlsx.full.min.js"             "$OUT/xlsx.full.min.js"
 cp "$N/pptxgenjs/dist/pptxgen.bundle.js"       "$OUT/pptxgen.bundle.js"
 echo "Libraries copied to $OUT"
 ls -la "$OUT"
+# one font with Hindi + English letters, for the invisible word layer of searchable copies
+mkdir -p "$ROOT/app/src/main/assets/fonts"
+curl -fsSL -o "$ROOT/app/src/main/assets/fonts/Hind-Regular.ttf" https://raw.githubusercontent.com/google/fonts/main/ofl/hind/Hind-Regular.ttf
+ls -la "$ROOT/app/src/main/assets/fonts"

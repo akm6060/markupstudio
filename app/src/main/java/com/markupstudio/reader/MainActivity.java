@@ -1311,6 +1311,55 @@ public class MainActivity extends Activity {
                     }
                 }
                 jobMsg(id, "done", new JSONObject().put("ok", true).put("files", outs).put("bad", bad));
+            } else if ("ocrpdf".equals(op)) {
+                /* a searchable copy of a scanned book: the original pages with the recognised words laid invisibly on top */
+                Entry e = entries.get(o.getInt("src"));
+                if (e == null) throw new FileNotFoundException("The book is no longer open");
+                JSONArray pg = o.getJSONArray("pages");
+                JSONObject words;
+                File wf = new File(o.getString("words"));
+                InputStream wi = new FileInputStream(wf);
+                try {
+                    java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[1 << 16]; int k;
+                    while ((k = wi.read(buf)) > 0) bo.write(buf, 0, k);
+                    words = new JSONObject(bo.toString("UTF-8"));
+                } finally { wi.close(); }
+                int total = pg.length(), done = 0, bad = 0, nw = 0;
+                jobProgress(id, 0, total, "Opening the book…");
+                src = openPdf(e);
+                int nSrc = src.getNumberOfPages();
+                PDDocument out = new PDDocument(diskMemory());
+                try {
+                    com.tom_roush.pdfbox.pdmodel.font.PDFont font = OcrPdf.loadFont(out, this);
+                    Set<Integer> missing = OcrPdf.newBadSet();
+                    for (int i = 0; i < total; i++) {
+                        int pn = pg.getInt(i);
+                        PDPage np;
+                        try {
+                            if (pn < 1 || pn > nSrc) throw new IOException("no page " + pn);
+                            np = importPage(out, src.getPage(pn - 1));
+                            nw += OcrPdf.overlay(out, np, font, words.optJSONArray(String.valueOf(pn)), missing);
+                        } catch (Exception ex) {
+                            Log.w("MarkupStudio", "ocrpdf page " + pn + ": " + ex);
+                            np = new PDPage(PDRectangle.A4);
+                            out.addPage(np);
+                            bad++;
+                        }
+                        writeLayer(out, np, marks != null ? marks.optJSONArray(String.valueOf(pn)) : null);
+                        done++;
+                        if (done % 10 == 0) jobProgress(id, done, total, "page " + done + " of " + total);
+                    }
+                    if (src.isEncrypted()) out.setAllSecurityToBeRemoved(true);
+                    File t = new File(workDir(), "ocr-" + System.nanoTime() + ".pdf");
+                    jobProgress(id, done, total, "Writing the file…");
+                    out.save(t);
+                    String where = deliverFile(t, o.optString("name", "searchable") + ".pdf");
+                    t.delete();
+                    jobMsg(id, "done", new JSONObject().put("ok", true).put("files", new JSONArray().put(where)).put("bad", bad).put("words", nw));
+                } finally {
+                    out.close();
+                }
             } else if ("readmarks".equals(op)) {
                 Entry e = entries.get(o.getInt("src"));
                 if (e == null) throw new FileNotFoundException("The file is no longer open");
@@ -1652,6 +1701,43 @@ public class MainActivity extends Activity {
         }
 
         /** start a PDF tool job in the background; progress and result arrive through window.__job */
+        /* ---- a scanned book typed again, one page at a time (convert.js) ---- */
+        private OcrPdf.Typed typed;
+
+        @JavascriptInterface
+        public boolean typedBegin() {
+            if (typed != null) typed.cancel();
+            typed = new OcrPdf.Typed(workDir());
+            return true;
+        }
+
+        @JavascriptInterface
+        public String typedPage(String json) {
+            try {
+                if (typed == null) return "not started";
+                typed.page(json);
+                return "ok";
+            } catch (Throwable e) {
+                Log.w("MarkupStudio", "typedPage " + e);
+                return String.valueOf(e.getMessage());
+            }
+        }
+
+        @JavascriptInterface
+        public String typedEnd(boolean cancel) {
+            try {
+                if (typed == null) return "{\"ok\":false,\"err\":\"not started\"}";
+                if (cancel) { typed.cancel(); typed = null; return "{\"ok\":true}"; }
+                List<String> p = typed.end();
+                typed = null;
+                return new JSONObject().put("ok", true).put("files", new JSONArray(p)).toString();
+            } catch (Throwable e) {
+                if (typed != null) typed.cancel();
+                typed = null;
+                try { return new JSONObject().put("ok", false).put("err", String.valueOf(e.getMessage())).toString(); } catch (Exception x) { return "{\"ok\":false}"; }
+            }
+        }
+
         @JavascriptInterface
         public String job(final String json) {
             final String id = "j" + (++jobSeq);

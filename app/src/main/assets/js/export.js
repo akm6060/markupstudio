@@ -23,6 +23,13 @@ function exportList() {
 }
 function updExport() {
   const fmt = $('#efmt').value, o = origOf(exportList()); $('#esz').textContent = epct + '%';
+  if (/^ocr/.test(fmt)) {
+    $('#erng').style.display = $('#escope').value === 'range' ? '' : 'none';
+    ['#espr', '#eparts', '#eszrow'].forEach(q => { $(q).style.display = 'none'; });
+    $('#eszi').textContent = fmt === 'ocrs' ? 'Every page stays exactly as it is; the words are added invisibly on top, so you can search, select, copy and read aloud. Hindi + English, offline.'
+      : 'Every page is typed again on clean paper: same places, lines, columns and sizes; the pictures are cut from the scan and put back. Hindi + English, offline. Check it — recognition can make mistakes.';
+    return;
+  }
   $('#espr').style.display = fmt === 'txt' || epct >= 100 ? 'none' : '';
   $('#erng').style.display = $('#escope').value === 'range' ? '' : 'none';
   $('#eparts').style.display = fmt === 'pdf' ? '' : 'none'; $('#epn').textContent = eparts;
@@ -226,6 +233,8 @@ async function exportBig(list, pct, say, E, n) {
 /* ---------- Export ---------- */
 $('#ego').onclick = async () => {
   const st = $('#est'), fmt = $('#efmt').value, pct = epct, say = t => { st.textContent = t; }, list = exportList();
+  if (CONV.on) { CONV.stop = true; return; }
+  if (/^ocr/.test(fmt)) { if (!list.length) return; try { await convertScanned(list, fmt === 'ocrt', say); } catch (e) { say('Could not make the book: ' + ((e && e.message) || 'unknown error')); } return; }
   if (!list.length) return; $('#ego').disabled = true;
   const done = () => { $('#ego').disabled = false; }, fail = e => say('Export failed: ' + ((e && (e.message || e.code)) || 'unknown error'));
   if (fmt === 'pdf' && nativeBig(list)) { try { await exportBig(list, pct, say, speed(), partsOn() ? eparts : 1); } catch (e) { fail(e); } done(); return; }
