@@ -1,0 +1,365 @@
+10-31 05:29:45.899  1896  2545 I ActivityManager: START u0 {flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity} from uid 2000
+10-31 05:29:45.928  1896  1913 I ActivityManager: Start proc 4969:com.markupstudio.fresh/u0a86 for activity com.markupstudio.fresh/com.markupstudio.reader.MainActivity
+10-31 05:29:46.167  4969  4996 E cr_VariationsUtils: Failed reading seed file "/data/user/0/com.markupstudio.fresh/app_webview/variations_seed_new": /data/user/0/com.markupstudio.fresh/app_webview/variations_seed_new (No such file or directory)
+10-31 05:29:46.167  4969  4996 E cr_VariationsUtils: Failed reading seed file "/data/user/0/com.markupstudio.fresh/app_webview/variations_seed": /data/user/0/com.markupstudio.fresh/app_webview/variations_seed (No such file or directory)
+10-31 05:29:46.179  4969  4969 I chromium: [INFO:library_loader_hooks.cc(36)] Chromium logging enabled: level = 0, default verbosity = 0
+10-31 05:29:46.191  4969  4969 I cr_BrowserStartup: Initializing chromium process, singleProcess=false
+10-31 05:29:46.194  1896  1913 I ActivityManager: Start proc 4998:com.android.chrome:webview_service/u0a78 for service com.android.chrome/org.chromium.android_webview.services.VariationsSeedServer
+10-31 05:29:46.211  1896  1913 I ActivityManager: Start proc 5007:com.android.chrome:sandboxed_process0/u0i0 for webview_service com.markupstudio.fresh/org.chromium.content.app.SandboxedProcessService0
+10-31 05:29:46.336  5007  5053 I chromium: [INFO:library_loader_hooks.cc(36)] Chromium logging enabled: level = 0, default verbosity = 0
+10-31 05:29:46.450  2063  4806 W GCM     : Unexpected forwarded intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 cmp=com.google.android.gms/.chimera.PersistentIntentOperationService (has extras) }
+10-31 05:29:46.455  2063  3176 W GCM     : Unexpected forwarded intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 cmp=com.google.android.gms/.chimera.PersistentIntentOperationService (has extras) }
+10-31 05:29:46.499  4969  4992 W cr_CrashFileManager: /data/user/0/com.markupstudio.fresh/cache/WebView/Crash Reports does not exist or is not a directory
+10-31 05:29:46.503  1896  1919 I ActivityManager: Displayed com.markupstudio.fresh/com.markupstudio.reader.MainActivity: +586ms
+10-31 05:29:46.526  1735  1968 W SurfaceFlinger: Attempting to set client state on removed layer: Splash Screen com.markupstudio.fresh#0
+10-31 05:29:46.526  1735  1968 W SurfaceFlinger: Attempting to destroy on removed layer: Splash Screen com.markupstudio.fresh#0
+10-31 05:29:46.644  2418  4753 I ChromeSync: [Sync,SyncIntentOperation] Handling the intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 cmp=com.google.android.gms/.chimera.GmsIntentOperationService (has extras) }.
+10-31 05:29:46.922  2418  4753 I ChromeSync: [Persistence,AffiliationManager] One of affiliation or grouping data for android://fgJGThgobKmFl3-K5mJazMPFjVWESMY67GkB9BNKHHWYyaPCo2pKxZ7a62fZsE06XjiiUFKy09XgvuW4M3ZVTw==@com.markupstudio.fresh/ was not found. Marking affiliation data as stale...
+10-31 05:29:58.726  5256  5256 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:29:58.993  5256  5256 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:00.027  5256  5256 D AndroidRuntime: Shutting down VM
+10-31 05:30:03.748  1896  2261 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.android.musicfx/.Compatibility$Receiver
+10-31 05:30:03.748  1896  1911 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.google.android.gms/.games.chimera.GamesSystemBroadcastReceiverProxy
+10-31 05:30:03.748  1896  1911 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.google.android.gms/.gass.chimera.PackageChangeBroadcastReceiver
+10-31 05:30:03.748  1896  1911 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.google.android.gms/.chimera.GmsIntentOperationService$PersistentTrustedReceiver
+10-31 05:30:03.748  1896  1911 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.google.android.googlequicksearchbox/com.google.android.apps.gsa.googlequicksearchbox.GelStubAppWatcher
+10-31 05:30:03.748  1896  1911 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.markupstudio.fresh flg=0x4000010 (has extras) } to com.google.android.ims/.receivers.RcsAutoStartReceiver
+10-31 05:30:07.130  5361  5361 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:07.169  5361  5361 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:08.205  5361  5361 D AndroidRuntime: Shutting down VM
+10-31 05:30:08.294  5377  5377 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:08.335  5377  5377 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:08.347  5377  5377 D AndroidRuntime: Shutting down VM
+10-31 05:30:12.519  5391  5391 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:12.567  5391  5391 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:13.629  5391  5391 D AndroidRuntime: Shutting down VM
+10-31 05:30:13.712  5407  5407 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:13.751  5407  5407 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:13.757  5407  5407 D AndroidRuntime: Shutting down VM
+10-31 05:30:16.925  5455  5455 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:16.968  5455  5455 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:17.992  5455  5455 D AndroidRuntime: Shutting down VM
+10-31 05:30:20.080  5475  5475 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:20.121  5475  5475 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:21.175  5475  5475 D AndroidRuntime: Shutting down VM
+10-31 05:30:21.294  5532  5532 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:21.339  5532  5532 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:21.347  5532  5532 D AndroidRuntime: Shutting down VM
+10-31 05:30:22.047  4969  4969 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Helvetica-Bold, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+10-31 05:30:31.512  5586  5586 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:31.552  5586  5586 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:32.577  5586  5586 D AndroidRuntime: Shutting down VM
+10-31 05:30:32.666  5602  5602 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:32.706  5602  5602 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:32.712  5602  5602 D AndroidRuntime: Shutting down VM
+10-31 05:30:32.813  2815  2815 I LatinIme: onActivate() : EditorInfo = Package = com.markupstudio.fresh : Type = Text : Learning = Disable : Suggestion = Show : AutoCorrection = Disable : Microphone = Show : Incognito = Disable
+10-31 05:30:34.560  2815  2815 W Conv2QueryExtension: Conv2Query not enabled due to current app [com.markupstudio.fresh] not in whitelist
+10-31 05:30:35.114  5648  5648 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:35.169  5648  5648 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:36.198  5648  5648 D AndroidRuntime: Shutting down VM
+10-31 05:30:38.295  5663  5663 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:38.340  5663  5663 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:39.379  5663  5663 D AndroidRuntime: Shutting down VM
+10-31 05:30:41.467  5679  5679 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:41.507  5679  5679 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:42.544  5679  5679 D AndroidRuntime: Shutting down VM
+10-31 05:30:44.633  5695  5695 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:44.673  5695  5695 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:45.706  5695  5695 D AndroidRuntime: Shutting down VM
+10-31 05:30:48.818  5710  5710 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:48.858  5710  5710 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:48.967  5710  5710 D AndroidRuntime: Shutting down VM
+10-31 05:30:50.047  5720  5720 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:50.093  5720  5720 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:50.099  5720  5720 D AndroidRuntime: Shutting down VM
+10-31 05:30:56.263  5773  5773 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:56.311  5773  5773 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:56.319  5773  5773 D AndroidRuntime: Shutting down VM
+10-31 05:30:57.421  5783  5783 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:57.462  5783  5783 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:30:58.491  5783  5783 D AndroidRuntime: Shutting down VM
+10-31 05:30:58.576  5798  5798 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:30:58.616  5798  5798 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:30:58.625  5798  5798 D AndroidRuntime: Shutting down VM
+10-31 05:31:01.727  5808  5808 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:01.768  5808  5808 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:31:02.807  5808  5808 D AndroidRuntime: Shutting down VM
+10-31 05:31:02.892  5823  5823 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:02.933  5823  5823 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:31:02.941  5823  5823 D AndroidRuntime: Shutting down VM
+10-31 05:31:13.104  5845  5845 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:13.145  5845  5845 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:31:14.176  5845  5845 D AndroidRuntime: Shutting down VM
+10-31 05:31:14.263  5860  5860 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:14.304  5860  5860 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:31:14.314  5860  5860 D AndroidRuntime: Shutting down VM
+10-31 05:31:17.431  5870  5870 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:17.472  5870  5870 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-31 05:31:18.510  5870  5870 D AndroidRuntime: Shutting down VM
+10-31 05:31:18.595  5885  5885 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:31:18.633  5885  5885 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:31:18.641  5885  5885 D AndroidRuntime: Shutting down VM
+10-31 05:32:03.885  5925  5925 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:03.943  5925  5925 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:04.207  5925  5925 D AndroidRuntime: Shutting down VM
+10-31 05:32:04.348  5935  5935 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:04.473  5935  5935 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:04.735  5935  5935 D AndroidRuntime: Shutting down VM
+10-31 05:32:05.034  5945  5945 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:05.145  5945  5945 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:05.414  5945  5945 D AndroidRuntime: Shutting down VM
+10-31 05:32:05.555  5955  5955 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:05.626  5955  5955 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:05.890  5955  5955 D AndroidRuntime: Shutting down VM
+10-31 05:32:06.082  5965  5965 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:06.183  5965  5965 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:06.448  5965  5965 D AndroidRuntime: Shutting down VM
+10-31 05:32:06.616  5975  5975 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:06.682  5975  5975 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:06.948  5975  5975 D AndroidRuntime: Shutting down VM
+10-31 05:32:07.172  5985  5985 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:07.225  5985  5985 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:07.486  5985  5985 D AndroidRuntime: Shutting down VM
+10-31 05:32:07.730  5995  5995 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:07.829  5995  5995 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:08.095  5995  5995 D AndroidRuntime: Shutting down VM
+10-31 05:32:08.291  6005  6005 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:08.412  6005  6005 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:08.673  6005  6005 D AndroidRuntime: Shutting down VM
+10-31 05:32:08.891  6015  6015 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:08.980  6015  6015 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:09.250  6015  6015 D AndroidRuntime: Shutting down VM
+10-31 05:32:09.548  6025  6025 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:09.657  6025  6025 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:09.911  6025  6025 D AndroidRuntime: Shutting down VM
+10-31 05:32:10.079  6035  6035 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:10.192  6035  6035 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:10.474  6035  6035 D AndroidRuntime: Shutting down VM
+10-31 05:32:10.735  6046  6046 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:10.857  6046  6046 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:11.135  6046  6046 D AndroidRuntime: Shutting down VM
+10-31 05:32:11.318  6057  6057 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:11.497  6057  6057 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:11.785  6057  6057 D AndroidRuntime: Shutting down VM
+10-31 05:32:12.056  6067  6067 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:12.246  6067  6067 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:12.526  6067  6067 D AndroidRuntime: Shutting down VM
+10-31 05:32:12.794  6077  6077 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:12.942  6077  6077 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:13.212  6077  6077 D AndroidRuntime: Shutting down VM
+10-31 05:32:13.485  6088  6088 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:13.656  6088  6088 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:13.919  6088  6088 D AndroidRuntime: Shutting down VM
+10-31 05:32:14.186  6098  6098 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:14.419  6098  6098 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:14.685  6098  6098 D AndroidRuntime: Shutting down VM
+10-31 05:32:14.945  6108  6108 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:15.085  6108  6108 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:15.348  6108  6108 D AndroidRuntime: Shutting down VM
+10-31 05:32:15.586  6118  6118 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:15.690  6118  6118 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:15.971  6118  6118 D AndroidRuntime: Shutting down VM
+10-31 05:32:16.252  6128  6128 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:16.422  6128  6128 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:16.701  6128  6128 D AndroidRuntime: Shutting down VM
+10-31 05:32:17.014  6138  6138 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:17.115  6138  6138 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:17.384  6138  6138 D AndroidRuntime: Shutting down VM
+10-31 05:32:17.640  6148  6148 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:17.710  6148  6148 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:17.977  6148  6148 D AndroidRuntime: Shutting down VM
+10-31 05:32:18.173  6158  6158 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:18.276  6158  6158 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:18.536  6158  6158 D AndroidRuntime: Shutting down VM
+10-31 05:32:18.681  6168  6168 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:18.765  6168  6168 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:19.028  6168  6168 D AndroidRuntime: Shutting down VM
+10-31 05:32:19.203  6178  6178 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:19.258  6178  6178 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:19.520  6178  6178 D AndroidRuntime: Shutting down VM
+10-31 05:32:19.752  6188  6188 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:19.851  6188  6188 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:20.127  6188  6188 D AndroidRuntime: Shutting down VM
+10-31 05:32:20.376  6200  6200 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:20.507  6200  6200 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:20.776  6200  6200 D AndroidRuntime: Shutting down VM
+10-31 05:32:20.949  6210  6210 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:21.060  6210  6210 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:21.321  6210  6210 D AndroidRuntime: Shutting down VM
+10-31 05:32:21.530  6220  6220 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:21.640  6220  6220 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:21.907  6220  6220 D AndroidRuntime: Shutting down VM
+10-31 05:32:22.129  6230  6230 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:22.227  6230  6230 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:22.492  6230  6230 D AndroidRuntime: Shutting down VM
+10-31 05:32:22.837  6240  6240 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:22.960  6240  6240 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:23.219  6240  6240 D AndroidRuntime: Shutting down VM
+10-31 05:32:23.467  6250  6250 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:23.637  6250  6250 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:23.915  6250  6250 D AndroidRuntime: Shutting down VM
+10-31 05:32:24.127  6260  6260 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:24.228  6260  6260 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:24.510  6260  6260 D AndroidRuntime: Shutting down VM
+10-31 05:32:24.773  6270  6270 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:24.894  6270  6270 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:25.170  6270  6270 D AndroidRuntime: Shutting down VM
+10-31 05:32:25.554  6280  6280 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:25.705  6280  6280 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:25.972  6280  6280 D AndroidRuntime: Shutting down VM
+10-31 05:32:26.162  6291  6291 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:26.228  6291  6291 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:26.492  6291  6291 D AndroidRuntime: Shutting down VM
+10-31 05:32:26.655  6301  6301 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:26.773  6301  6301 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:27.060  6301  6301 D AndroidRuntime: Shutting down VM
+10-31 05:32:27.370  6311  6311 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:27.609  6311  6311 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:27.885  6311  6311 D AndroidRuntime: Shutting down VM
+10-31 05:32:28.148  6321  6321 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:28.268  6321  6321 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:28.550  6321  6321 D AndroidRuntime: Shutting down VM
+10-31 05:32:33.012  6338  6338 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:33.163  6338  6338 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:33.423  6338  6338 D AndroidRuntime: Shutting down VM
+10-31 05:32:33.630  6348  6348 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:33.707  6348  6348 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:33.968  6348  6348 D AndroidRuntime: Shutting down VM
+10-31 05:32:34.208  6358  6358 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:34.334  6358  6358 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:34.592  6358  6358 D AndroidRuntime: Shutting down VM
+10-31 05:32:34.793  6368  6368 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:34.947  6368  6368 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:35.203  6368  6368 D AndroidRuntime: Shutting down VM
+10-31 05:32:35.492  6378  6378 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:35.543  6378  6378 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:35.796  6378  6378 D AndroidRuntime: Shutting down VM
+10-31 05:32:35.896  6388  6388 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:35.935  6388  6388 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:36.200  6388  6388 D AndroidRuntime: Shutting down VM
+10-31 05:32:36.307  6399  6399 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:36.350  6399  6399 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:36.611  6399  6399 D AndroidRuntime: Shutting down VM
+10-31 05:32:36.708  6409  6409 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:36.753  6409  6409 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:37.016  6409  6409 D AndroidRuntime: Shutting down VM
+10-31 05:32:37.090  6419  6419 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:37.129  6419  6419 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:37.389  6419  6419 D AndroidRuntime: Shutting down VM
+10-31 05:32:37.468  6429  6429 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:37.512  6429  6429 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:37.779  6429  6429 D AndroidRuntime: Shutting down VM
+10-31 05:32:37.855  6439  6439 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:37.898  6439  6439 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:38.153  6439  6439 D AndroidRuntime: Shutting down VM
+10-31 05:32:38.233  6449  6449 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:38.274  6449  6449 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:38.526  6449  6449 D AndroidRuntime: Shutting down VM
+10-31 05:32:38.602  6459  6459 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:38.646  6459  6459 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:38.899  6459  6459 D AndroidRuntime: Shutting down VM
+10-31 05:32:38.981  6469  6469 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:39.021  6469  6469 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:39.273  6469  6469 D AndroidRuntime: Shutting down VM
+10-31 05:32:39.348  6479  6479 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:39.389  6479  6479 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:39.646  6479  6479 D AndroidRuntime: Shutting down VM
+10-31 05:32:39.738  6489  6489 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:39.780  6489  6489 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:40.037  6489  6489 D AndroidRuntime: Shutting down VM
+10-31 05:32:40.124  6499  6499 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:40.164  6499  6499 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:40.428  6499  6499 D AndroidRuntime: Shutting down VM
+10-31 05:32:40.500  6510  6510 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:40.541  6510  6510 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:40.801  6510  6510 D AndroidRuntime: Shutting down VM
+10-31 05:32:40.875  6520  6520 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:40.921  6520  6520 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:41.174  6520  6520 D AndroidRuntime: Shutting down VM
+10-31 05:32:41.266  6531  6531 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:41.314  6531  6531 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:41.577  6531  6531 D AndroidRuntime: Shutting down VM
+10-31 05:32:41.689  6541  6541 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:41.732  6541  6541 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:41.989  6541  6541 D AndroidRuntime: Shutting down VM
+10-31 05:32:42.073  6551  6551 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:42.114  6551  6551 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:42.379  6551  6551 D AndroidRuntime: Shutting down VM
+10-31 05:32:42.452  6561  6561 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:42.492  6561  6561 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:42.752  6561  6561 D AndroidRuntime: Shutting down VM
+10-31 05:32:42.825  6571  6571 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:42.865  6571  6571 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:43.126  6571  6571 D AndroidRuntime: Shutting down VM
+10-31 05:32:43.203  6581  6581 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:43.243  6581  6581 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:43.500  6581  6581 D AndroidRuntime: Shutting down VM
+10-31 05:32:43.587  6591  6591 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:43.629  6591  6591 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:43.890  6591  6591 D AndroidRuntime: Shutting down VM
+10-31 05:32:43.969  6601  6601 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:44.012  6601  6601 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:44.263  6601  6601 D AndroidRuntime: Shutting down VM
+10-31 05:32:44.340  6611  6611 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:44.379  6611  6611 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:44.637  6611  6611 D AndroidRuntime: Shutting down VM
+10-31 05:32:44.710  6621  6621 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:44.750  6621  6621 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:45.010  6621  6621 D AndroidRuntime: Shutting down VM
+10-31 05:32:45.092  6631  6631 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:45.135  6631  6631 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:45.401  6631  6631 D AndroidRuntime: Shutting down VM
+10-31 05:32:45.469  6641  6641 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:45.508  6641  6641 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:45.774  6641  6641 D AndroidRuntime: Shutting down VM
+10-31 05:32:45.859  6651  6651 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:45.907  6651  6651 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:46.165  6651  6651 D AndroidRuntime: Shutting down VM
+10-31 05:32:46.237  6661  6661 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:46.281  6661  6661 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:46.538  6661  6661 D AndroidRuntime: Shutting down VM
+10-31 05:32:46.615  6671  6671 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:46.655  6671  6671 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:46.911  6671  6671 D AndroidRuntime: Shutting down VM
+10-31 05:32:46.999  6681  6681 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:47.051  6681  6681 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:47.302  6681  6681 D AndroidRuntime: Shutting down VM
+10-31 05:32:47.374  6691  6691 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:47.416  6691  6691 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:47.675  6691  6691 D AndroidRuntime: Shutting down VM
+10-31 05:32:47.750  6701  6701 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:47.791  6701  6701 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:48.048  6701  6701 D AndroidRuntime: Shutting down VM
+10-31 05:32:48.126  6711  6711 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:48.169  6711  6711 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:48.423  6711  6711 D AndroidRuntime: Shutting down VM
+10-31 05:32:48.502  6721  6721 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:48.542  6721  6721 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:48.796  6721  6721 D AndroidRuntime: Shutting down VM
+10-31 05:32:48.882  6731  6731 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:48.927  6731  6731 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:49.186  6731  6731 D AndroidRuntime: Shutting down VM
+10-31 05:32:53.409  6747  6747 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 05:32:53.466  6747  6747 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 05:32:53.472  6747  6747 D AndroidRuntime: Shutting down VM
+10-31 05:32:54.513  1896  3246 I ActivityManager: START u0 {flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity (has extras)} from uid 2000
+10-31 05:32:55.657  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST book 2000 pages, prepared in parts true", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:32:56.688  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST export 2 parts true ["/storage/emulated/0/Download/MarkupStudio/selftest-part01-of-02.pdf","/storage/emulated/0/Download/MarkupStudio/selftest-part02-of-02.pdf"]", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:32:58.114  4969  6783 I chatty  : uid=10086(com.markupstudio.fresh) identical 2 lines
+10-31 05:32:58.144  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST merge true ["/storage/emulated/0/Download/MarkupStudio/selftest-merged.pdf"]", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:32:59.352  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST compress 40% Saved ✓ /storage/emulated/0/Download/MarkupStudio/book-40pc.pdf · 452 KB (from 1.2 MB) · 1 s 1209ms", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:00.022  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST rebuild copy true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:00.085  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST marks into copy true incremental true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:00.177  4969  4974 I kupstudio.fres: Compiler allocated 4MB to compile void com.markupstudio.reader.MainActivity.runJob(java.lang.String, java.lang.String)
+10-31 05:33:01.801  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST copy check: pages 13 marks seen by other apps 525 PASS · hidden in this app 12 PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:01.867  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST marks read back PASS text read back PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:02.633  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST erased after saving PASS 12", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:02.715  4969  6806 W GooglePlayServicesUtil: Google Play services out of date for com.markupstudio.fresh.  Requires 203400000 but found 202414023
+10-31 05:33:07.740  4969  6806 W GooglePlayServicesUtil: Google Play services out of date for com.markupstudio.fresh.  Requires 203400000 but found 202414023
+10-31 05:33:07.741  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST text recognition true भारत एक विशाल देश है। | Health is wealth | डॉक्टर Doctor 25 mg PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:08.326  4969  6842 I chatty  : uid=10086(com.markupstudio.fresh) identical 6 lines
+10-31 05:33:08.326  4969  6842 I chatty  : uid=10086(com.markupstudio.fresh) identical 1 line
+10-31 05:33:09.681  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST searchable copy true 2 words, pages 2 PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:16.223  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST typed page ok pictures 1 lines 4 PASS picture kept PASS 11140 text: भारत एक 
+10-31 05:33:16.632  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST clipboard copy/paste PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+10-31 05:33:16.632  4969  4969 I chromium: [INFO:CONSOLE(69)] "SELFTEST ALL DONE", source: https://appassets.androidplatform.net/assets/js/main.js (69)
