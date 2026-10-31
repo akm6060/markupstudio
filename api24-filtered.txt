@@ -1,0 +1,144 @@
+10-31 01:16:52.554  1649  1790 I ActivityManager: START u0 {flg=0x10000000 cmp=com.markupstudio.reader/.MainActivity} from uid 2000 on display 0
+10-31 01:16:52.563  4058  4058 I chatty  : uid=10078(com.markupstudio.reader) expire 78 lines
+10-31 01:16:52.570  1649  2125 I ActivityManager: Start proc 4058:com.markupstudio.reader/u0a78 for activity com.markupstudio.reader/.MainActivity
+10-31 01:16:52.703  4058  4081 I chatty  : uid=10078(com.markupstudio.reader) expire 4 lines
+10-31 01:16:52.720  1649  2565 I ActivityManager: Start proc 4082:com.android.chrome:webview_service/u0a37 for service com.android.chrome/org.chromium.android_webview.services.VariationsSeedServer
+10-31 01:16:52.818  4058  4104 I chatty  : uid=10078(com.markupstudio.reader) AudioThread expire 1 line
+10-31 01:16:52.832  4058  4117 I chatty  : uid=10078(com.markupstudio.reader) Chrome_InProcGp expire 17 lines
+10-31 01:16:52.872  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 70 lines
+10-31 01:16:53.075  1649  1670 I ActivityManager: Displayed com.markupstudio.reader/.MainActivity: +515ms
+10-31 01:16:53.096  4058  4078 I chatty  : uid=10078(com.markupstudio.reader) expire 1 line
+10-31 01:16:53.103  1649  1670 I WindowManager: Destroying surface Surface(name=Starting com.markupstudio.reader) called by com.android.server.wm.WindowStateAnimator.destroySurface:2016 com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:882 com.android.server.wm.WindowState.destroyOrSaveSurface:2100 com.android.server.wm.AppWindowToken.destroySurfaces:363 com.android.server.wm.WindowStateAnimator.finishExit:565 com.android.server.wm.WindowStateAnimator.stepAnimationLocked:491 com.android.server.wm.WindowAnimator.updateWindowsLocked:303 com.android.server.wm.WindowAnimator.animateLocked:704 
+10-31 01:16:55.454  4058  4096 I chatty  : uid=10078(com.markupstudio.reader) expire 1 line
+10-31 01:16:55.809  4168  4168 W dex2oat : Compilation of long[] org.chromium.net.NetworkChangeNotifier.getCurrentNetworksAndTypes() took 136.018ms
+10-31 01:17:12.087  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 26 lines
+10-31 01:17:16.823  4058  4117 I chatty  : uid=10078(com.markupstudio.reader) Chrome_InProcGp expire 8 lines
+10-31 01:17:17.042  4058  4058 I chatty  : uid=10078(com.markupstudio.reader) expire 15 lines
+10-31 01:17:29.014  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 24 lines
+10-31 01:17:39.459  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 24 lines
+10-31 01:17:45.098  4058  4314 I chatty  : uid=10078(com.markupstudio.reader) InputConnection expire 2 lines
+10-31 01:17:53.812  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 48 lines
+10-31 01:18:09.478  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 47 lines
+10-31 01:18:14.089  4058  4063 I chatty  : uid=10078(com.markupstudio.reader) Jit thread pool expire 11 lines
+10-31 01:18:16.053  4058  4069 I chatty  : uid=10078(com.markupstudio.reader) HeapTaskDaemon expire 4 lines
+10-31 01:18:30.016  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 14 lines
+10-31 01:18:59.500  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 1044 lines
+10-31 01:19:19.415  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 240 lines
+10-31 01:19:23.863  4058  4117 I chatty  : uid=10078(com.markupstudio.reader) Chrome_InProcGp expire 1 line
+10-31 01:19:23.996  4058  4118 I chatty  : uid=10078(com.markupstudio.reader) RenderThread expire 2 lines
+10-31 01:19:40.185  5216  5216 D AndroidRuntime: Shutting down VM
+10-31 01:19:40.572  5226  5226 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:40.575  5226  5226 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:40.684  5226  5226 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:40.955  5226  5226 D AndroidRuntime: Shutting down VM
+10-31 01:19:41.306  5236  5236 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:41.308  5236  5236 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:41.399  5236  5236 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:41.680  5236  5236 D AndroidRuntime: Shutting down VM
+10-31 01:19:41.893  5246  5246 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:41.894  5246  5246 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:41.944  5246  5246 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:42.228  5246  5246 D AndroidRuntime: Shutting down VM
+10-31 01:19:42.529  5256  5256 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:42.531  5256  5256 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:42.600  5256  5256 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:42.903  5256  5256 D AndroidRuntime: Shutting down VM
+10-31 01:19:43.102  5266  5266 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:43.105  5266  5266 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:43.180  5266  5266 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:43.491  5266  5266 D AndroidRuntime: Shutting down VM
+10-31 01:19:43.669  5276  5276 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:43.674  5276  5276 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:43.743  5276  5276 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:44.035  5276  5276 D AndroidRuntime: Shutting down VM
+10-31 01:19:44.340  5286  5286 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:44.342  5286  5286 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:44.406  5286  5286 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:44.675  5286  5286 D AndroidRuntime: Shutting down VM
+10-31 01:19:44.962  5296  5296 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:44.964  5296  5296 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:45.044  5296  5296 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:45.323  5296  5296 D AndroidRuntime: Shutting down VM
+10-31 01:19:45.772  5306  5306 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:45.774  5306  5306 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:45.882  5306  5306 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:46.162  5306  5306 D AndroidRuntime: Shutting down VM
+10-31 01:19:46.343  5316  5316 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:46.344  5316  5316 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:46.412  5316  5316 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:46.703  5316  5316 D AndroidRuntime: Shutting down VM
+10-31 01:19:47.020  5326  5326 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:47.021  5326  5326 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:47.114  5326  5326 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:47.406  5326  5326 D AndroidRuntime: Shutting down VM
+10-31 01:19:47.585  5336  5336 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:47.586  5336  5336 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:47.614  5336  5336 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:47.885  5336  5336 D AndroidRuntime: Shutting down VM
+10-31 01:19:48.169  5346  5346 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:48.170  5346  5346 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:48.224  5346  5346 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:48.507  5346  5346 D AndroidRuntime: Shutting down VM
+10-31 01:19:48.716  5356  5356 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:48.717  5356  5356 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:48.777  5356  5356 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:49.062  5356  5356 D AndroidRuntime: Shutting down VM
+10-31 01:19:49.595  5367  5367 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:49.597  5367  5367 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:49.726  5367  5367 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:50.021  5367  5367 D AndroidRuntime: Shutting down VM
+10-31 01:19:50.379  5379  5379 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:50.383  5379  5379 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:50.487  5379  5379 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:50.774  5379  5379 D AndroidRuntime: Shutting down VM
+10-31 01:19:51.255  5389  5389 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:51.260  5389  5389 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:51.294  5389  5389 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:51.574  5389  5389 D AndroidRuntime: Shutting down VM
+10-31 01:19:51.876  5399  5399 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:51.878  5399  5399 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:51.948  5399  5399 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:52.230  5399  5399 D AndroidRuntime: Shutting down VM
+10-31 01:19:52.626  5409  5409 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:52.637  5409  5409 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:52.706  5409  5409 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:52.988  5409  5409 D AndroidRuntime: Shutting down VM
+10-31 01:19:53.320  5419  5419 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:53.324  5419  5419 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:53.407  5419  5419 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:53.694  5419  5419 D AndroidRuntime: Shutting down VM
+10-31 01:19:53.910  5429  5429 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:53.911  5429  5429 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:54.005  5429  5429 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:54.273  5429  5429 D AndroidRuntime: Shutting down VM
+10-31 01:19:54.614  5439  5439 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:54.615  5439  5439 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:54.687  5439  5439 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:54.974  5439  5439 D AndroidRuntime: Shutting down VM
+10-31 01:19:55.188  5449  5449 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:55.190  5449  5449 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:55.241  5449  5449 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:55.518  5449  5449 D AndroidRuntime: Shutting down VM
+10-31 01:19:59.786  5467  5467 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:19:59.787  5467  5467 D AndroidRuntime: CheckJNI is OFF
+10-31 01:19:59.815  5467  5467 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-31 01:19:59.822  5467  5467 D AndroidRuntime: Shutting down VM
+10-31 01:20:00.969  5481  5481 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-31 01:20:00.970  5481  5481 D AndroidRuntime: CheckJNI is OFF
+10-31 01:20:01.000  5481  5481 D AndroidRuntime: Calling main entry com.android.commands.am.Am
+10-31 01:20:01.002  1649  2125 I ActivityManager: START u0 {flg=0x10000000 cmp=com.markupstudio.reader/.MainActivity (has extras)} from uid 2000 on display 0
+10-31 01:20:01.016  5481  5481 D AndroidRuntime: Shutting down VM
+10-31 01:20:02.511  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST book 2000 pages, prepared in parts true", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:03.569  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST export 2 parts true ["/storage/emulated/0/Download/MarkupStudio/selftest-part01-of-02.pdf","/storage/emulated/0/Download/MarkupStudio/selftest-part02-of-02.pdf"]", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:05.968  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST merge true ["/storage/emulated/0/Download/MarkupStudio/selftest-merged.pdf"]", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:07.547  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST compress 40% Saved ✓ /storage/emulated/0/Download/MarkupStudio/book-40pc.pdf · 453 KB (from 1.2 MB) · 2 s 1578ms", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:08.774  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST rebuild copy true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:08.839  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST marks into copy true incremental true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:08.859  4058  4063 I art     : Compiler allocated 9MB to compile void com.markupstudio.reader.MainActivity.runJob(java.lang.String, java.lang.String)
+10-31 01:20:10.404  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST copy check: pages 13 marks seen by other apps 531 PASS · hidden in this app 18 PASS", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:10.493  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST marks read back PASS text read back PASS", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:11.350  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST erased after saving PASS 18", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:11.429  4058  5518 W GooglePlayServicesUtil: Google Play services out of date for com.markupstudio.reader.  Requires 203400000 but found 202414023
+10-31 01:20:16.247  4058  5518 W GooglePlayServicesUtil: Google Play services out of date for com.markupstudio.reader.  Requires 203400000 but found 202414023
+10-31 01:20:16.248  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST text recognition true भारत एक विशाल देश है। | Health is wealth | डॉक्टर Doctor 25 mg PASS", source: https://appassets.androidplatform.net/assets/native.js (1573)
+10-31 01:20:16.248  4058  4058 I chromium: [INFO:CONSOLE(1573)] "SELFTEST ALL DONE", source: https://appassets.androidplatform.net/assets/native.js (1573)

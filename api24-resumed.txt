@@ -1,0 +1,1 @@
+    mResumedActivity: ActivityRecord{b1576fe u0 com.markupstudio.reader/.MainActivity t4}
