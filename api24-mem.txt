@@ -1,0 +1,51 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 297972 Realtime: 297972
+
+** MEMINFO in pid 3957 [com.markupstudio.fresh] **
+                   Pss  Private  Private  SwapPss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------
+  Native Heap    93408    93284        0        0   162304   133350    28953
+  Dalvik Heap    19417    19328        0        0     9274     5565     3709
+ Dalvik Other     2930     2928        0        0                           
+        Stack     1736     1736        0        0                           
+       Ashmem    42756    29044        0        0                           
+    Other dev        4        0        4        0                           
+     .so mmap     9114      876     6584        0                           
+    .apk mmap    33510      152    32840        0                           
+    .ttf mmap      577        0      468        0                           
+    .dex mmap    11312        8    11304        0                           
+    .oat mmap     3835        0     1120        0                           
+    .art mmap     1707     1040        4        0                           
+   Other mmap     2431        4     2388        0                           
+      Unknown   169824   169820        0        0                           
+        TOTAL   392561   318220    54712        0   171578   138915    32662
+ 
+ App Summary
+                       Pss(KB)
+                        ------
+           Java Heap:    20372
+         Native Heap:    93284
+                Code:    53352
+               Stack:     1736
+            Graphics:        0
+       Private Other:   204188
+              System:    19629
+ 
+               TOTAL:   392561       TOTAL SWAP PSS:        0
+ 
+ Objects
+               Views:        6         ViewRootImpl:        1
+         AppContexts:        2           Activities:        1
+              Assets:        3        AssetManagers:        2
+       Local Binders:       33        Proxy Binders:       31
+       Parcel memory:        9         Parcel count:       38
+    Death Recipients:        2      OpenSSL Sockets:        1
+ 
+ SQL
+         MEMORY_USED:      176
+  PAGECACHE_OVERFLOW:       58          MALLOC_SIZE:       62
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b)          cache  Dbname
+         4       40            108     184/102/15  /data/user/0/com.markupstudio.fresh/databases/com.google.android.datatransport.events
