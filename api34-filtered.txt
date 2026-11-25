@@ -1,0 +1,187 @@
+11-25 13:31:29.464   518  2879 V SplashScreenExceptionList: SplashScreen checking exception for package com.markupstudio.fresh (target sdk:34) -> false
+11-25 13:31:29.469   828   877 V WindowManagerShell: Transition requested: android.os.BinderProxy@7b6c548 TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity } baseActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} topActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} origActivity=null realActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} numActivities=1 lastActiveTime=42123 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@69e1fe1} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=null topActivityInfo=ActivityInfo{8105106 com.markupstudio.reader.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+11-25 13:31:29.483   518  2879 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+11-25 13:31:29.505   518   548 I ActivityManager: Start proc 3507:com.markupstudio.fresh/u0a192 for next-top-activity {com.markupstudio.fresh/com.markupstudio.reader.MainActivity}
+11-25 13:31:29.636  3507  3507 D nativeloader: Configuring clns-6 for other apk /data/app/~~76jrwPCsHNcFozB4WIHcEg==/com.markupstudio.fresh-EKdPSMryX0xh5KAiwhVTVQ==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~76jrwPCsHNcFozB4WIHcEg==/com.markupstudio.fresh-EKdPSMryX0xh5KAiwhVTVQ==/lib/x86_64:/data/app/~~76jrwPCsHNcFozB4WIHcEg==/com.markupstudio.fresh-EKdPSMryX0xh5KAiwhVTVQ==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.markupstudio.fresh
+11-25 13:31:29.651  3507  3507 V GraphicsEnvironment: ANGLE GameManagerService for com.markupstudio.fresh: false
+11-25 13:31:29.652  3507  3507 V GraphicsEnvironment: com.markupstudio.fresh is not listed in per-application setting
+11-25 13:31:29.681   518  1221 D CoreBackPreview: Window{6cc7b26 u0 Splash Screen com.markupstudio.fresh}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@68dc8fe, mPriority=0, mIsAnimationCallback=false}
+11-25 13:31:29.768  1042  1042 D CarrierSvcBindHelper: onPackageModified: com.markupstudio.fresh
+11-25 13:31:29.782   518   537 V WindowManager: Sent Transition #6 createdAt=11-25 13:31:29.443 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity } baseActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} topActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} origActivity=null realActivity=ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity} numActivities=1 lastActiveTime=42123 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{e1823e9 Task{3dcffcf #8 type=standard A=10192:com.markupstudio.fresh}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=null topActivityInfo=ActivityInfo{a6e786e com.markupstudio.reader.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isSleeping=false topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden}, remoteTransition = null, displayChange = null }
+11-25 13:31:29.782   518   537 V WindowManager:     info={id=6 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{e1823e9 Task{3dcffcf #8 type=standard A=10192:com.markupstudio.fresh}}} m=OPEN f=NONE leash=Surface(name=Task=8)/@0xddaa6b3 sb=Rect(0, 0 - 320, 640) eb=Rect(0, 0 - 320, 640) d=0},{WCT{RemoteToken{ccefb0f Task{8a1fb4b #1 type=home}}} m=TO_BACK f=SHOW_WALLPAPER leash=Surface(name=Task=1)/@0xead5a13 sb=Rect(0, 0 - 320, 640) eb=Rect(0, 0 - 320, 640) d=0}]}
+11-25 13:31:29.785  1042  1325 D ImsResolver: maybeAddedImsService, packageName: com.markupstudio.fresh
+11-25 13:31:30.013  3507  3569 I cr_VariationsUtils: Failed reading seed file "/data/user/0/com.markupstudio.fresh/app_webview/variations_seed_new"
+11-25 13:31:30.014  3507  3569 I cr_VariationsUtils: Failed reading seed file "/data/user/0/com.markupstudio.fresh/app_webview/variations_seed"
+11-25 13:31:30.196   518   548 I ActivityManager: Start proc 3594:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0ai9000 for  {com.markupstudio.fresh/org.chromium.content.app.SandboxedProcessService0:0}
+11-25 13:31:30.459   518  2861 D ConnectivityService: requestNetwork for uid/pid:10192/3507 activeRequest: null callbackRequest: 93 [NetworkRequest [ REQUEST id=94, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.markupstudio.fresh UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647
+11-25 13:31:30.464   518   752 D WifiNetworkFactory: got request NetworkRequest [ REQUEST id=94, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.markupstudio.fresh UnderlyingNetworks: Null] ]
+11-25 13:31:30.464   518   752 D UntrustedWifiNetworkFactory: got request NetworkRequest [ REQUEST id=94, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.markupstudio.fresh UnderlyingNetworks: Null] ]
+11-25 13:31:30.464   518   752 D OemPaidWifiNetworkFactory: got request NetworkRequest [ REQUEST id=94, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.markupstudio.fresh UnderlyingNetworks: Null] ]
+11-25 13:31:30.464   518   752 D MultiInternetWifiNetworkFactory: got request NetworkRequest [ REQUEST id=94, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.markupstudio.fresh UnderlyingNetworks: Null] ]
+11-25 13:31:30.681   518   548 I ActivityManager: Start proc 3657:com.google.android.webview:webview_apk/u0a134 for service {com.google.android.webview/org.chromium.android_webview.nonembedded.AwComponentUpdateService}
+11-25 13:31:30.720   518  2861 D CoreBackPreview: Window{d3556b5 u0 com.markupstudio.fresh/com.markupstudio.reader.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@6f784a4, mPriority=0, mIsAnimationCallback=false}
+11-25 13:31:30.733  3594  3594 I cr_WebViewApkApp: Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+11-25 13:31:30.911   518   537 I ActivityTaskManager: Displayed com.markupstudio.fresh/com.markupstudio.reader.MainActivity for user 0: +1s495ms
+11-25 13:31:30.946   518  1893 D CoreBackPreview: Window{6cc7b26 u0 Splash Screen com.markupstudio.fresh EXITING}: Setting back callback null
+11-25 13:31:30.947   518  1965 W InputManager-JNI: Input channel object '6cc7b26 Splash Screen com.markupstudio.fresh (client)' was disposed without first being removed with the input manager!
+11-25 13:31:30.985   518   914 I ImeTracker: com.markupstudio.fresh:8c4cb4dd: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+11-25 13:31:30.985   518   914 I ImeTracker: com.markupstudio.fresh:8c4cb4dd: onCancelled at PHASE_SERVER_SHOULD_HIDE
+11-25 13:31:31.027  1519  1519 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=0 fieldName=null extras=null}, false)
+11-25 13:31:32.074  3657  3836 W cr_AWNetworkFetcherTask: 	at org.chromium.android_webview.nonembedded.NetworkFetcherTask.download(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:48)
+11-25 13:31:32.303   830   830 I SafetyLabelChangedBroadcastReceiver: received broadcast packageName: com.markupstudio.fresh, current user: UserHandle{0}, packageChangeEvent: NEW_INSTALL, intent user: UserHandle{0}
+11-25 13:31:36.439  1435  3867 I BlockstoreStorage: Clearing Blockstore Data for package com.markupstudio.fresh [CONTEXT service_id=258 ]
+11-25 13:31:38.387  1589  1589 I AiAiEcho: AppFetcherImplV2 updateApps package:[com.markupstudio.fresh], userId:[0], reason:[package is added.].
+11-25 13:31:41.648  1589  1589 I AiAiEcho: AppFetcherImpl onPackageChanged com.markupstudio.fresh.
+11-25 13:31:41.649  1589  2915 I AiAiEcho: AppIndexer Package:[com.markupstudio.fresh] UserProfile:[0] Enabled:[true].
+11-25 13:31:41.649  1589  2915 I AiAiEcho: AppFetcherImplV2 updateApps package:[com.markupstudio.fresh], userId:[0], reason:[package is updated.].
+11-25 13:31:43.645  4642  4642 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:31:43.666  4642  4642 I AndroidRuntime: Using default boot image
+11-25 13:31:43.666  4642  4642 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:31:43.825  4642  4642 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:31:43.923  4642  4642 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:31:45.064  4642  4642 D AndroidRuntime: Shutting down VM
+11-25 13:31:48.067  4749  4749 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:31:48.070  4749  4749 I AndroidRuntime: Using default boot image
+11-25 13:31:48.070  4749  4749 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:31:48.123  4749  4749 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:31:48.150  4749  4749 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:31:49.196  4749  4749 D AndroidRuntime: Shutting down VM
+11-25 13:31:50.120  1519  1519 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x12000000 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=0 fieldName=null extras=null}, false)
+11-25 13:31:54.405  4984  4984 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:31:54.408  4984  4984 I AndroidRuntime: Using default boot image
+11-25 13:31:54.408  4984  4984 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:31:54.462  4984  4984 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:31:54.499  4984  4984 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:31:55.461  4310  5022 I cr_CronetUrlRequestContext: destroyNativeStreamLocked org.chromium.net.impl.CronetBidirectionalStream@41e4038
+11-25 13:31:55.591  4984  4984 D AndroidRuntime: Shutting down VM
+11-25 13:31:59.915  5158  5158 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:31:59.919  5158  5158 I AndroidRuntime: Using default boot image
+11-25 13:31:59.919  5158  5158 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:31:59.967  5158  5158 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:00.025  5158  5158 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:01.124  5158  5158 D AndroidRuntime: Shutting down VM
+11-25 13:32:02.707  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Helvetica, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:32:02.722  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Helvetica-Bold, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:32:06.315   133   133 I lowmemorykiller: lmkd data connection established
+11-25 13:32:06.348   133   133 I lowmemorykiller: Using psi monitors for memory pressure detection
+11-25 13:32:06.348   133   133 I lowmemorykiller: Properties reinitilized
+11-25 13:32:06.349  5355  5355 I lowmemorykiller: lmkd updated properties successfully
+11-25 13:32:06.349   133   133 I lowmemorykiller: lmkd data connection dropped
+11-25 13:32:06.349   133   133 I lowmemorykiller: closing lmkd data connection
+11-25 13:32:12.332  5416  5416 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:12.339  5416  5416 I AndroidRuntime: Using default boot image
+11-25 13:32:12.339  5416  5416 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:12.390  5416  5416 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:12.428  5416  5416 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:13.474  5416  5416 D AndroidRuntime: Shutting down VM
+11-25 13:32:14.417  1519  1519 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x40a1(WebEditText) imeOptions=0x12000003 privateImeOptions=null actionName=SEARCH actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=-1 fieldName=null extras=null}, true)
+11-25 13:32:14.423  3507  3507 I ImeTracker: com.markupstudio.fresh:7708061e: onRequestShow at ORIGIN_CLIENT_SHOW_SOFT_INPUT reason SHOW_SOFT_INPUT
+11-25 13:32:14.432  1519  1519 I GoogleInputMethodService: GoogleInputMethodService.onStartInputView():1995 onStartInputView(EditorInfo{inputType=0x40a1(WebEditText) imeOptions=0x12000003 privateImeOptions=null actionName=SEARCH actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=-1 fieldName=null extras=null}, false)
+11-25 13:32:14.483  1519  1519 I AndroidIME: AbstractIme.onActivate():86 LatinIme.onActivate() : EditorInfo = inputType=0x40a1(WebEditText) imeOptions=0x12000003 privateImeOptions=null actionName=SEARCH actionLabel=null actionId=0 initialSelStart=0 initialSelEnd=0 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=-1 fieldName=null extras=null, IncognitoMode = false, DeviceLocked = false
+11-25 13:32:14.642   518  2866 D CoreBackPreview: Window{d3556b5 u0 com.markupstudio.fresh/com.markupstudio.reader.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@962db34, mPriority=0, mIsAnimationCallback=false}
+11-25 13:32:15.469  3507  3507 I ImeTracker: com.markupstudio.fresh:7708061e: onShown
+11-25 13:32:16.503  5771  5771 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:16.507  5771  5771 I AndroidRuntime: Using default boot image
+11-25 13:32:16.507  5771  5771 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:16.557  5771  5771 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:16.609  5771  5771 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:17.658  5771  5771 D AndroidRuntime: Shutting down VM
+11-25 13:32:20.595  5832  5832 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:20.599  5832  5832 I AndroidRuntime: Using default boot image
+11-25 13:32:20.599  5832  5832 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:20.659  5832  5832 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:20.696  5832  5832 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:21.751  5832  5832 D AndroidRuntime: Shutting down VM
+11-25 13:32:21.768  5832  5914 I AndroidRuntime: NOTE: attach of thread 'binder:5832_3' failed
+11-25 13:32:24.716  5968  5968 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:24.721  5968  5968 I AndroidRuntime: Using default boot image
+11-25 13:32:24.721  5968  5968 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:24.789  5968  5968 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:24.842  5968  5968 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:25.948  5968  5968 D AndroidRuntime: Shutting down VM
+11-25 13:32:28.865  6020  6020 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:28.868  6020  6020 I AndroidRuntime: Using default boot image
+11-25 13:32:28.868  6020  6020 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:28.923  6020  6020 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:28.956  6020  6020 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:29.971  6020  6020 D AndroidRuntime: Shutting down VM
+11-25 13:32:34.979  3507  3507 I ImeTracker: com.markupstudio.fresh:ef1d1816: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT
+11-25 13:32:34.987  1519  1519 I GoogleInputMethodService: GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x12000000 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.markupstudio.fresh fieldId=0 fieldName=null extras=null}, true)
+11-25 13:32:34.992   518   913 D CoreBackPreview: Window{d3556b5 u0 com.markupstudio.fresh/com.markupstudio.reader.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@bda7290, mPriority=0, mIsAnimationCallback=false}
+11-25 13:32:35.000  3507  3507 I ImeTracker: com.markupstudio.fresh:293c1581: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT_BY_INSETS_API
+11-25 13:32:35.001   518   913 I ImeTracker: com.markupstudio.fresh:293c1581: onCancelled at PHASE_SERVER_SHOULD_HIDE
+11-25 13:32:35.002  3507  3507 I ImeTracker: com.markupstudio.fresh:ef1d1816: onHidden
+11-25 13:32:42.703  6097  6097 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:42.722  6097  6097 I AndroidRuntime: Using default boot image
+11-25 13:32:42.722  6097  6097 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:42.877  6097  6097 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:42.947  6097  6097 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:43.987  6097  6097 D AndroidRuntime: Shutting down VM
+11-25 13:32:47.955  6123  6123 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:32:47.959  6123  6123 I AndroidRuntime: Using default boot image
+11-25 13:32:47.959  6123  6123 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:32:48.051  6123  6123 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:32:48.086  6123  6123 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:32:49.110  6123  6123 D AndroidRuntime: Shutting down VM
+11-25 13:32:50.126  3507  3577 I MarkupStudio: MSRange 0-262143/16778559
+11-25 13:32:50.133  3507  3577 I MarkupStudio: MSRange 16777216-16778558/16778559
+11-25 13:32:50.371  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Helvetica, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:00.169  6157  6157 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:33:00.173  6157  6157 I AndroidRuntime: Using default boot image
+11-25 13:33:00.173  6157  6157 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:33:00.222  6157  6157 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:33:00.246  6157  6157 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:33:01.276  6157  6157 D AndroidRuntime: Shutting down VM
+11-25 13:33:05.213  6182  6182 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+11-25 13:33:05.216  6182  6182 I AndroidRuntime: Using default boot image
+11-25 13:33:05.216  6182  6182 I AndroidRuntime: Leaving lock profiling enabled
+11-25 13:33:05.277  6182  6182 D nativeloader: InitDefaultPublicLibraries for_preload=1: libandroid.so:libaaudio.so:libamidi.so:libbinder_ndk.so:libc.so:libcamera2ndk.so:libdl.so:libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libicu.so:libicui18n.so:libicuuc.so:libjnigraphics.so:liblog.so:libmediandk.so:libm.so:libnativehelper.so:libnativewindow.so:libOpenMAXAL.so:libOpenSLES.so:libRS.so:libstdc++.so:libsync.so:libvulkan.so:libwebviewchromium_plat_support.so:libz.so
+11-25 13:33:05.323  6182  6182 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+11-25 13:33:06.359  6182  6182 D AndroidRuntime: Shutting down VM
+11-25 13:33:09.008  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:17.923  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:25.966  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:33.852  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:42.404  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:33:50.327  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:25.253   518  1965 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.markupstudio.fresh/com.markupstudio.reader.MainActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+11-25 13:34:25.254   828   877 D WindowManagerShell: onActivityRestartAttempt: ComponentInfo{com.markupstudio.fresh/com.markupstudio.reader.MainActivity}
+11-25 13:34:25.462  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST book 2000 pages, prepared in parts true", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:27.292  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST export 2 parts true ["/storage/emulated/0/Documents/DocStudio/selftest-part01-of-02.pdf","/storage/emulated/0/Documents/DocStudio/selftest-part02-of-02.pdf"]", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:28.717  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST merge true ["/storage/emulated/0/Documents/DocStudio/selftest-merged.pdf"]", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:29.726  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST compress 40% Saved ✓ /storage/emulated/0/Documents/DocStudio/book-40pc.pdf · 461 KB (from 1.2 MB) · 1 s 1008ms", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:30.312  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST rebuild copy true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:30.351  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST marks into copy true incremental true /storage/emulated/0/Download/book-edited.pdf", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:30.503  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:30.947  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:31.205  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST copy check: pages 13 marks seen by other apps 529 PASS · hidden in this app 16 PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:31.223  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST marks read back PASS text read back PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:31.391  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:31.636  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST erased after saving PASS 16", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:33.517  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:36.065  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST text recognition true भारत एक विशाल देश है। | Health is wealth | डॉक्टर Doctor 25 mg PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:36.950  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:37.214  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST searchable copy true 2 words, pages 2 PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:41.506  3507  3507 I chromium: [INFO:CONSOLE(182)] "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently", source: https://appassets.androidplatform.net/assets/js/convert.js (182)
+11-25 13:34:42.178  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST typed page ok pictures 1 lines 4 PASS picture kept PASS 11136 text: भारत एक   
+11-25 13:34:42.588  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST clipboard copy/paste PASS", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:42.588  3507  3507 I chromium: [INFO:CONSOLE(69)] "SELFTEST ALL DONE", source: https://appassets.androidplatform.net/assets/js/main.js (69)
+11-25 13:34:43.117  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:34:52.474  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:00.654  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:08.998  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:11.768  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:12.276  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:12.730  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:13.224  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:13.658  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:14.112  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:20.130  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:28.434  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:36.790  3507  3507 I chromium: [INFO:CONSOLE(114)] "Warning: Cannot load system font: Times-Roman, installing it could help to improve PDF rendering.", source: https://appassets.androidplatform.net/assets/libs/pdf.min.js (114)
+11-25 13:35:54.504   133   133 I lowmemorykiller: lmkd data connection established
+11-25 13:35:54.528   133   133 I lowmemorykiller: Using psi monitors for memory pressure detection
+11-25 13:35:54.528   133   133 I lowmemorykiller: Properties reinitilized
+11-25 13:35:54.528  6938  6938 I lowmemorykiller: lmkd updated properties successfully
+11-25 13:35:54.529   133   133 I lowmemorykiller: lmkd data connection dropped
+11-25 13:35:54.529   133   133 I lowmemorykiller: closing lmkd data connection
