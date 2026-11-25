@@ -163,7 +163,7 @@ public class MainActivity extends Activity {
         box.setPadding(pad, pad * 2, pad, pad);
 
         android.widget.TextView head = new android.widget.TextView(this);
-        head.setText("DocEditer hit a problem. Tap COPY and paste it to Claude.");
+        head.setText("DocEditor hit a problem. Tap COPY and paste it to Claude.");
         head.setTextColor(Color.BLACK);
         head.setTextSize(18);
         box.addView(head);
@@ -322,7 +322,7 @@ public class MainActivity extends Activity {
                     try {
                         new android.app.AlertDialog.Builder(MainActivity.this, isDark(prefs.getString("p_theme", "light")) ? android.R.style.Theme_Material_Dialog_Alert : android.R.style.Theme_Material_Light_Dialog_Alert)
                                 .setTitle("Allow file access?")
-                                .setMessage("DocEditer needs file access to save your markings back into the original file. "
+                                .setMessage("DocEditor needs file access to save your markings back into the original file. "
                                         + "Tap ALLOW, then switch on the setting and press Back to return here.")
                                 .setPositiveButton("ALLOW", new android.content.DialogInterface.OnClickListener() {
                                     @Override
@@ -1708,7 +1708,7 @@ public class MainActivity extends Activity {
                 public void run() {
                     try {
                         android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                        cm.setPrimaryClip(ClipData.newPlainText("DocEditer", t));
+                        cm.setPrimaryClip(ClipData.newPlainText("DocEditor", t));
                     } catch (Exception ignored) { }
                 }
             });
