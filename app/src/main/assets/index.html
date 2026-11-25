@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Markup Studio Fresh</title>
+<title>DocEditer</title>
 <link rel="stylesheet" href="style.css">
 <script src="js/polyfills.js"></script>
 <script src="libs/pdf.min.js"></script>
@@ -159,7 +159,7 @@
  <div class="row"><button class="big" id="mperm">Allow access to all files</button></div>
  <div class="row"><button class="big" id="mbrowse">Browse all files</button></div>
  <div class="row"><button class="big" id="mtree">Allow writing to SD card / USB</button></div>
- <small>Android 11 and newer block the Android/data and Android/obb system folders for every app. Markup Studio appears in “Open with” and “Share” menus of file managers.</small>
+ <small>Android 11 and newer block the Android/data and Android/obb system folders for every app. DocEditer appears in “Open with” and “Share” menus of file managers.</small>
 </div>
 
 <!-- ⬇ export -->
@@ -185,8 +185,8 @@
 <script>
 /* plain old JavaScript on purpose: tells the user what to do when the phone's WebView is too old */
 if (typeof pdfjsLib === 'undefined') {
-  document.body.innerHTML = '<div id="oldwv"><b>Markup Studio needs an update of “Android System WebView”.</b><br><br>' +
-    'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open Markup Studio again.</div>';
+  document.body.innerHTML = '<div id="oldwv"><b>DocEditer needs an update of “Android System WebView”.</b><br><br>' +
+    'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open DocEditer again.</div>';
 }
 </script>
 <script src="js/base.js"></script>

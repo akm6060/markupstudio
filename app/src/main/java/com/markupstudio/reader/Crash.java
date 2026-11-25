@@ -141,7 +141,7 @@ final class Crash {
         try {
             java.io.StringWriter sw = new java.io.StringWriter();
             e.printStackTrace(new java.io.PrintWriter(sw));
-            String info = "Markup Studio crash\nAndroid " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")\n"
+            String info = "DocEditer crash\nAndroid " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")\n"
                     + Build.MANUFACTURER + " " + Build.MODEL + "\n\n" + sw;
             ctx.getSharedPreferences("ms_crash", Context.MODE_PRIVATE).edit().putString("trace", info).commit();
         } catch (Throwable ignored) {
