@@ -11,7 +11,7 @@ function refreshSettings() {
   $('#mmem').textContent = (MEM.total ? 'This phone has ' + (MEM.total / 1073741824).toFixed(1) + ' GB memory' + (MEM.low ? ' — low-memory mode is on.' : '.') + ' ' : '') + 'Big books scroll as one book; only the pages around where you read are kept sharp, the rest show small previews.';
   const cd = pref('copyDir', ''), cw = pref('copyWhere', cd ? 'dir' : 'orig');
   $('#mcw').value = cw; $('#mcdr').style.display = cw === 'dir' ? '' : 'none'; $('#mcdv').textContent = cd || 'No folder chosen yet';
-  $('#medv').textContent = pref('exportDir', '') || 'Download/MarkupStudio';
+  $('#medv').textContent = pref('exportDir', '') || 'Documents/DocStudio';
 }
 $('#mn').onclick = () => togglePanel('#mp', refreshSettings);
 $('#mpx').onclick = () => { mp.hidden = true; };
@@ -24,7 +24,7 @@ mp.addEventListener('change', e => {
   if (t.id === 'mth') { A.setTheme(t.value); if (t.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t.value); }
 });
 $('#mcd').onclick = () => { mp.hidden = true; openBrowser('folder', p => { setPref('copyDir', p); if (p) setPref('copyWhere', 'dir'); }, pref('copyDir', '')); };
-$('#med').onclick = () => { mp.hidden = true; openBrowser('folder', p => { setPref('exportDir', p); toast(p ? 'Exports will be saved in ' + p : 'Exports will be saved in Download/MarkupStudio'); }, pref('exportDir', '')); };
+$('#med').onclick = () => { mp.hidden = true; openBrowser('folder', p => { setPref('exportDir', p); toast(p ? 'Exports will be saved in ' + p : 'Exports will be saved in Documents/DocStudio'); }, pref('exportDir', '')); };
 $('#mbrowse').onclick = () => { mp.hidden = true; openBrowser('open'); };
 $('#mmerge').onclick = () => { mp.hidden = true; openBrowser('merge'); };
 $('#mperm').onclick = () => A.requestStorage();

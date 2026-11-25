@@ -163,7 +163,7 @@ public class MainActivity extends Activity {
         box.setPadding(pad, pad * 2, pad, pad);
 
         android.widget.TextView head = new android.widget.TextView(this);
-        head.setText("DocEditor hit a problem. Tap COPY and paste it to Claude.");
+        head.setText("DocStudio hit a problem. Tap COPY and paste it to Claude.");
         head.setTextColor(Color.BLACK);
         head.setTextSize(18);
         box.addView(head);
@@ -322,7 +322,7 @@ public class MainActivity extends Activity {
                     try {
                         new android.app.AlertDialog.Builder(MainActivity.this, isDark(prefs.getString("p_theme", "light")) ? android.R.style.Theme_Material_Dialog_Alert : android.R.style.Theme_Material_Light_Dialog_Alert)
                                 .setTitle("Allow file access?")
-                                .setMessage("DocEditor needs file access to save your markings back into the original file. "
+                                .setMessage("DocStudio needs file access to save your markings back into the original file. "
                                         + "Tap ALLOW, then switch on the setting and press Back to return here.")
                                 .setPositiveButton("ALLOW", new android.content.DialogInterface.OnClickListener() {
                                     @Override
@@ -978,30 +978,36 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** exports land in Documents/<subDir> (Documents/DocStudio) */
     private String writePublic(String subDir, String name, String mime) throws Exception {
-        if (Build.VERSION.SDK_INT >= 29) {
-            ContentValues v = new ContentValues();
-            v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-            v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-            v.put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/" + subDir);
-            Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
-            lastPublicUri = u;
-            if (u == null) throw new IOException("MediaStore insert failed");
-            OutputStream os = getContentResolver().openOutputStream(u);
-            if (os == null) throw new IOException("cannot open output");
+        boolean direct = Build.VERSION.SDK_INT < 29 || (Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager());
+        if (direct) {
             try {
-                copyTmpTo(os);
-            } finally {
-                os.close();
+                File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), subDir);
+                dir.mkdirs();
+                File f = unique(dir, name);
+                copyTmpToFile(f);
+                scan(f);
+                return f.getPath();
+            } catch (Exception ex) {
+                if (Build.VERSION.SDK_INT < 29) throw ex;
             }
-            return "Download/" + subDir + "/" + name;
         }
-        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), subDir);
-        dir.mkdirs();
-        File f = unique(dir, name);
-        copyTmpToFile(f);
-        scan(f);
-        return f.getPath();
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+        v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
+        v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/" + subDir);
+        Uri u = getContentResolver().insert(MediaStore.Files.getContentUri("external"), v);
+        lastPublicUri = u;
+        if (u == null) throw new IOException("MediaStore insert failed");
+        OutputStream os = getContentResolver().openOutputStream(u);
+        if (os == null) throw new IOException("cannot open output");
+        try {
+            copyTmpTo(os);
+        } finally {
+            os.close();
+        }
+        return Environment.DIRECTORY_DOCUMENTS + "/" + subDir + "/" + name;
     }
 
     private String writeOriginal(Entry e) {
@@ -1065,7 +1071,7 @@ public class MainActivity extends Activity {
             if (w != null) return w;
         }
         if (nextToOriginal) { String w = writeToDir(prefs.getString("p_copyDir", ""), nm, "application/pdf"); if (w != null) return w; }
-        return writePublic("MarkupStudio", nm, "application/pdf");
+        return writePublic("DocStudio", nm, "application/pdf");
     }
 
     /* ------------------------------------------------------------------ PDF tools for big books (PDFBox, uses disk instead of memory) */
@@ -1103,14 +1109,14 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** put a finished file in the export folder (or Download/MarkupStudio) */
+    /** put a finished file in the export folder (or Documents/DocStudio) */
     private String deliverFile(File tmp, String name) throws Exception {
         synchronized (saveLock) {
             File old = saveTmp;
             saveTmp = tmp;
             try {
                 String w = writeToDir(prefs.getString("p_exportDir", ""), name, "application/pdf");
-                return w != null ? w : writePublic("MarkupStudio", name, "application/pdf");
+                return w != null ? w : writePublic("DocStudio", name, "application/pdf");
             } finally {
                 saveTmp = old;
             }
@@ -1596,7 +1602,7 @@ public class MainActivity extends Activity {
             String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
             String m = mime != null ? mime : "application/octet-stream";
             where = writeToDir(prefs.getString("p_exportDir", ""), name, m);
-            if (where == null) where = writePublic("MarkupStudio", name, m);
+            if (where == null) where = writePublic("DocStudio", name, m);
         } else {
             if ("original".equals(mode)) {
                 if (e != null && e.name != null && e.name.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
@@ -1708,7 +1714,7 @@ public class MainActivity extends Activity {
                 public void run() {
                     try {
                         android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                        cm.setPrimaryClip(ClipData.newPlainText("DocEditor", t));
+                        cm.setPrimaryClip(ClipData.newPlainText("DocStudio", t));
                     } catch (Exception ignored) { }
                 }
             });

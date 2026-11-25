@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>DocEditor</title>
+<title>DocStudio</title>
 <link rel="stylesheet" href="style.css">
 <script src="js/polyfills.js"></script>
 <script src="libs/pdf.min.js"></script>
 <script src="js/reader-core.js"></script>
 <script src="js/saver.js"></script>
 </head>
-<body class="t-scroll">
+<body class="t-scroll start">
 
 <!-- slim bars above the toolbar -->
 <div id="sbar" class="mini" hidden>
@@ -56,9 +56,14 @@
 
 <!-- the document -->
 <div id="view">
- <div id="empty"><div style="font-size:34px">📄</div>
-  <p>Open a file here, or use <b>Open with</b> / <b>Share</b> from any file manager. PDF, scanned books, pictures, text, Word and Excel are supported. Files stay on your phone.</p>
-  <button id="open2">Choose files</button></div>
+ <div id="empty">
+  <div class="logo-wrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="88" height="88" class="logo"><path fill="#F59E0B" d="M54,41 C45,35 31,34 17,36 V83 C31,81 45,82 54,88 C63,82 77,81 91,83 V36 C77,34 63,35 54,41 Z"/><path fill="#FFFFFF" d="M54,36 C46,30 34,29 22,31 V77 C34,75 46,76 54,82 Z"/><path fill="#F1F5F9" d="M54,36 C62,30 74,29 86,31 V77 C74,75 62,76 54,82 Z"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M28,41 C35,40 42,40.5 48,43"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M28,49 C35,48 42,48.5 48,51"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M28,57 C35,56 42,56.5 48,59"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M28,65 C35,64 40,64.3 44,66"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M60,43 C66,40.5 73,40 80,41"/><path fill="#FACC15" d="M59,47.5 C66,45 73,44.5 81,45.5 V52.5 C73,51.5 66,52 59,54.5 Z"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M60,59 C66,56.5 73,56 80,57"/><path fill="none" stroke="#94A3B8" stroke-width="2.2" stroke-linecap="round" d="M60,67 C66,64.5 71,64 76,64.6"/><path fill="none" stroke="#CBD5E1" stroke-width="1.6" stroke-linecap="round" d="M54,36 V82"/></svg></div>
+  <h1>DocStudio</h1>
+  <div class="tag">Read · Mark · Edit · Convert</div>
+  <button id="open2">📂 Choose files</button>
+  <div class="chips"><span>PDF</span><span>Scanned books</span><span>Word</span><span>Excel</span><span>Pictures</span><span>Text</span></div>
+  <p>Or use <b>Open with</b> / <b>Share</b> from any file manager. Hindi + English. Files stay on your phone.</p>
+ </div>
  <div id="pages"></div>
 </div>
 
@@ -159,7 +164,7 @@
  <div class="row"><button class="big" id="mperm">Allow access to all files</button></div>
  <div class="row"><button class="big" id="mbrowse">Browse all files</button></div>
  <div class="row"><button class="big" id="mtree">Allow writing to SD card / USB</button></div>
- <small>Android 11 and newer block the Android/data and Android/obb system folders for every app. DocEditor appears in “Open with” and “Share” menus of file managers.</small>
+ <small>Android 11 and newer block the Android/data and Android/obb system folders for every app. DocStudio appears in “Open with” and “Share” menus of file managers.</small>
 </div>
 
 <!-- ⬇ export -->
@@ -185,8 +190,8 @@
 <script>
 /* plain old JavaScript on purpose: tells the user what to do when the phone's WebView is too old */
 if (typeof pdfjsLib === 'undefined') {
-  document.body.innerHTML = '<div id="oldwv"><b>DocEditor needs an update of “Android System WebView”.</b><br><br>' +
-    'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open DocEditor again.</div>';
+  document.body.innerHTML = '<div id="oldwv"><b>DocStudio needs an update of “Android System WebView”.</b><br><br>' +
+    'Open the Play Store, search for <b>Android System WebView</b> (or <b>Chrome</b>), tap <b>Update</b>, then open DocStudio again.</div>';
 }
 </script>
 <script src="js/base.js"></script>

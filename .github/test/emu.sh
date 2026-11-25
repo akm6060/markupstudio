@@ -39,7 +39,7 @@ adb exec-out screencap -p > s8-scroll.png
 adb shell input tap $((W/2)) $((H/2)); sleep 1
 adb shell am start -n $PKG/com.markupstudio.reader.MainActivity --ez ms_selftest true; sleep 100
 adb exec-out screencap -p > s9-selftest.png
-adb shell ls -la /sdcard/Download/MarkupStudio/ > files.txt 2>&1 || true
+adb shell ls -la /sdcard/Documents/DocStudio/ > files.txt 2>&1 || true
 adb shell ls -laR /sdcard/Android/data/$PKG/cache/books/ >> files.txt 2>&1 || true
 adb shell dumpsys meminfo $PKG > mem.txt 2>&1 || true
 adb shell dumpsys activity activities | grep -i -E "mResumedActivity|topResumedActivity" > resumed.txt || true

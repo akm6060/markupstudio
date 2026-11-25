@@ -41,7 +41,7 @@ function mkPage(d) {
   wrap._p = p; bindPage(p); size(p); return p;
 }
 const reorderDOM = () => pages.forEach(p => host.appendChild(p.wrap));
-const syncEmpty = () => { $('#empty').style.display = pages.length ? 'none' : ''; };
+const syncEmpty = () => { $('#empty').style.display = pages.length ? 'none' : ''; document.body.classList.toggle('start', !pages.length); };
 function addPages(list, idx) {
   const ps = list.map(mkPage); pages.splice(idx, 0, ...ps);
   reorderDOM(); ps.forEach(p => io.observe(p.wrap)); syncEmpty(); upd(); settle(60);

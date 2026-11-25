@@ -39,7 +39,7 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk MarkupStudio.apk
       - name: Publish APK
         run: |
-          mkdir out && cp MarkupStudio.apk out/DocEditor.apk && cd out
+          mkdir out && cp MarkupStudio.apk out/DocStudio.apk && cd out
           git init -q -b apk-fresh
           git config user.name github-actions
           git config user.email github-actions@users.noreply.github.com

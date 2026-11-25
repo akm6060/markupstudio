@@ -139,7 +139,7 @@ function fbGo(path) {
   if (!r.ok) {
     const m = el('div', { id: 'fbm' });
     if (r.blocked) m.textContent = 'Android does not let any app open this system folder.';
-    else if (r.perm) { m.innerHTML = 'DocEditor needs permission to see all your files.<br><button>Allow access to all files</button>'; m.querySelector('button').onclick = () => A.requestStorage(); }
+    else if (r.perm) { m.innerHTML = 'DocStudio needs permission to see all your files.<br><button>Allow access to all files</button>'; m.querySelector('button').onclick = () => A.requestStorage(); }
     else m.textContent = 'This folder cannot be opened.';
     fbl.appendChild(m); return;
   }
